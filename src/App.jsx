@@ -1,31 +1,39 @@
-import { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { CartProvider } from './context/CartContext';
-import { AuthProvider } from './context/AuthContext';
-import Navbar from './components/Navbar';
-import BottomNav from './components/BottomNav';
-import AnimatedBackground from './components/AnimatedBackground';
-import ScrollControls from './components/ScrollControls';
-import CartSummaryBar from './components/CartSummaryBar';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import AdminLogin from './pages/AdminLogin';
-import Home from './pages/Home';
-import Categories from './pages/Categories';
-import ProductDetail from './pages/ProductDetail';
-import Cart from './pages/Cart';
-import Checkout from './pages/Checkout';
-import Orders from './pages/Orders';
-import Profile from './pages/Profile';
-import Admin from './pages/Admin';
-import './App.css';
+import { useEffect } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
+import { CartProvider } from "./context/CartContext";
+import { AuthProvider } from "./context/AuthContext";
+import Navbar from "./components/Navbar";
+import BottomNav from "./components/BottomNav";
+import AnimatedBackground from "./components/AnimatedBackground";
+import ScrollControls from "./components/ScrollControls";
+import CartSummaryBar from "./components/CartSummaryBar";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import AdminLogin from "./pages/AdminLogin";
+import Home from "./pages/Home/index.jsx";
+import Categories from "./pages/Categories";
+import ProductDetail from "./pages/ProductDetail";
+import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
+import Orders from "./pages/Orders";
+import Profile from "./pages/Profile";
+import Admin from "./pages/Admin";
+import "./App.css";
 
 const AppLayout = () => {
   const location = useLocation();
-  const isAuthPage = ['/login', '/signup', '/admin-login', '/admin'].includes(location.pathname);
+  const isAuthPage = ["/login", "/signup", "/admin-login", "/admin"].includes(
+    location.pathname,
+  );
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'auto' });
+    window.scrollTo({ top: 0, behavior: "auto" });
   }, [location.pathname]);
 
   return (
