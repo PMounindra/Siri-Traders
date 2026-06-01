@@ -20,8 +20,7 @@ export const toWebpImage = (imageUrl) => {
       return url.toString();
     }
 
-    url.pathname = url.pathname.replace(/\.(jpe?g|png)$/i, '.webp');
-    return url.toString();
+    return imageUrl;
   } catch {
     return imageUrl.replace(/\.(jpe?g|png)(?=($|\?))/i, '.webp');
   }

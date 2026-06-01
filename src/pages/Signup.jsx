@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiUser, FiMail, FiPhone, FiLock, FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiUser, FiMail, FiPhone } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import './Signup.css';
 
@@ -10,29 +10,11 @@ const Signup = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { signup } = useAuth();
   const navigate = useNavigate();
-
-  const getPasswordStrength = () => {
-    if (!password) return { level: 0, label: '', color: '' };
-    let score = 0;
-    if (password.length >= 6) score++;
-    if (password.length >= 8) score++;
-    if (/[A-Z]/.test(password)) score++;
-    if (/[0-9]/.test(password)) score++;
-    if (/[^A-Za-z0-9]/.test(password)) score++;
-    if (score <= 2) return { level: 1, label: 'Weak', color: '#EF4444' };
-    if (score <= 3) return { level: 2, label: 'Medium', color: '#E9A800' };
-    return { level: 3, label: 'Strong', color: '#52B788' };
-  };
-
-  const strength = getPasswordStrength();
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -40,8 +22,6 @@ const Signup = () => {
     if (!name.trim()) { setError('Please enter your full name'); return; }
     if (!email.trim() || !email.includes('@')) { setError('Please enter a valid email'); return; }
     if (!phone.trim() || phone.length < 10) { setError('Please enter a valid 10-digit phone number'); return; }
-    if (password.length < 6) { setError('Password must be at least 6 characters'); return; }
-    if (password !== confirmPassword) { setError('Passwords do not match'); return; }
     if (!agreeTerms) { setError('Please agree to Terms & Conditions'); return; }
 
     setLoading(true);
@@ -104,36 +84,7 @@ const Signup = () => {
               className="signup-card__input" id="signup-phone" />
           </div>
 
-          <div>
-            <div className="signup-card__input-wrapper">
-              <FiLock className="signup-card__input-icon" />
-              <input type={showPassword ? 'text' : 'password'} placeholder="Password"
-                value={password} onChange={(e) => setPassword(e.target.value)}
-                className="signup-card__input" id="signup-password" />
-              <button type="button" className="signup-card__eye-btn"
-                onClick={() => setShowPassword(!showPassword)}>
-                {showPassword ? <FiEyeOff /> : <FiEye />}
-              </button>
-            </div>
-            {password && (
-              <div className="signup-card__strength">
-                <div className="signup-card__strength-bar">
-                  <div className="signup-card__strength-fill"
-                    style={{ width: `${(strength.level / 3) * 100}%`, background: strength.color }} />
-                </div>
-                <span className="signup-card__strength-label" style={{ color: strength.color }}>
-                  {strength.label}
-                </span>
-              </div>
-            )}
-          </div>
-
-          <div className="signup-card__input-wrapper">
-            <FiLock className="signup-card__input-icon" />
-            <input type="password" placeholder="Confirm Password" value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="signup-card__input" id="signup-confirm-password" />
-          </div>
+          <p className="signup-card__otp-note">We will verify your account with OTP. No password needed.</p>
 
           <label className="signup-card__terms">
             <input type="checkbox" checked={agreeTerms}

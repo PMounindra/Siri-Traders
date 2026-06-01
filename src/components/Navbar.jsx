@@ -12,7 +12,7 @@ import './Navbar.css';
 
 const Navbar = () => {
   const { cartCount } = useCart();
-  const { location, setLocation, isAuthenticated, user } = useAuth();
+  const { location, setLocation, isAuthenticated, user, customerType, setCustomerType } = useAuth();
   const navigate = useNavigate();
   const routeLocation = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
@@ -108,7 +108,7 @@ const Navbar = () => {
   const handleSearch = (query) => {
     setSearchQuery(query);
     if (query.length >= 2) {
-      const results = searchProducts(query).slice(0, 8);
+      const results = searchProducts(query, customerType).slice(0, 8);
       setSearchResults(results);
       setShowSearch(true);
       setFailedImages({});
@@ -224,6 +224,20 @@ const Navbar = () => {
           </Link>
 
           {/* Location */}
+          <div className="navbar__customer-type" aria-label="Customer type">
+            {['retail', 'wholesale'].map(type => (
+              <button
+                key={type}
+                type="button"
+                className={customerType === type ? 'navbar__type-btn navbar__type-btn--active' : 'navbar__type-btn'}
+                onClick={() => setCustomerType(type)}
+              >
+                {type === 'retail' ? 'Retail' : 'Wholesale'}
+              </button>
+            ))}
+          </div>
+
+          {/* Location */}
           <div className="navbar__location" ref={locationRef}>
             <button type="button" className="navbar__delivery-badge" onClick={() => setShowLocationMenu(prev => !prev)}>
               <span className="navbar__delivery-dot"></span>
@@ -287,7 +301,7 @@ const Navbar = () => {
                 ref={inputRef}
                 type="text"
                 className="navbar__search-input"
-                placeholder='Search for "milk, bread, eggs..."'
+                placeholder='Search for "rice, atta, dal..."'
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 onFocus={() => searchQuery.length >= 2 && setShowSearch(true)}

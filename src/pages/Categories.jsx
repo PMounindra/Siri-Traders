@@ -1,17 +1,21 @@
 import { useSearchParams } from 'react-router-dom';
+import { FiPackage } from 'react-icons/fi';
 import { categories } from '../data/categories';
 import { getProducts, getProductsByCategory } from '../data/products';
 import ProductCard from '../components/ProductCard';
 import CategoryCard from '../components/CategoryCard';
+import { useAuth } from '../context/AuthContext';
 import './Categories.css';
 
 const Categories = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { customerType } = useAuth();
   const activeCat = searchParams.get('cat') || '';
+  const isWholesale = customerType === 'wholesale';
 
   const filteredProducts = activeCat
-    ? getProductsByCategory(activeCat)
-    : getProducts();
+    ? getProductsByCategory(activeCat, customerType)
+    : getProducts(customerType);
 
   const activeCategory = categories.find(c => c.id === activeCat);
 
@@ -42,6 +46,21 @@ const Categories = () => {
 
         {/* Content */}
         <div className="categories__content">
+          {/* Mode indicator */}
+          <div className={`categories__mode-banner ${isWholesale ? 'categories__mode-banner--wholesale' : ''}`}>
+            {isWholesale ? (
+              <>
+                <FiPackage />
+                <span>Wholesale Mode — Bulk prices & larger packs</span>
+              </>
+            ) : (
+              <>
+                <span className="categories__mode-dot"></span>
+                <span>Retail Mode — Shop for home & daily needs</span>
+              </>
+            )}
+          </div>
+
           <h1 className="categories__heading">
             {activeCategory ? activeCategory.name : 'All Products'}
             <span className="categories__count">
@@ -59,7 +78,7 @@ const Categories = () => {
 
           <div className="categories__grid">
             {filteredProducts.map(product => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard key={`${customerType}-${product.id}`} product={product} />
             ))}
           </div>
 

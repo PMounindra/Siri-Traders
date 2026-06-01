@@ -41,7 +41,7 @@ const getAdminCoupons = () => {
 
 const Cart = () => {
   const { cartItems, updateQuantity, removeFromCart, cartTotal, cartSavings, cartCount, requireAuth } = useCart();
-  const { user } = useAuth();
+  const { user, customerType } = useAuth();
   const navigate = useNavigate();
   const [coupon, setCoupon] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -68,7 +68,7 @@ const Cart = () => {
     : 0;
   const grandTotal = cartTotal + deliveryFee + handlingCharge - couponDiscount;
 
-  const suggestions = getBestsellers().filter(p => !cartItems.find(i => i.id === p.id)).slice(0, 6);
+  const suggestions = getBestsellers(customerType).filter(p => !cartItems.find(i => i.productId === p.id || i.id === p.id)).slice(0, 6);
 
   const applyCoupon = (code = coupon) => {
     const selectedCoupon = coupons.find(item => item.code === code.trim().toUpperCase());

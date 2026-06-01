@@ -46,6 +46,14 @@ export const AuthProvider = ({ children }) => {
     }
   });
 
+  const [customerType, setCustomerType] = useState(() => {
+    try {
+      return localStorage.getItem('siri-traders-customer-type') || 'retail';
+    } catch {
+      return 'retail';
+    }
+  });
+
   useEffect(() => {
     if (user) {
       localStorage.setItem('siri-traders-user', JSON.stringify(user));
@@ -58,16 +66,16 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('siri-traders-location', JSON.stringify(location));
   }, [location]);
 
+  useEffect(() => {
+    localStorage.setItem('siri-traders-customer-type', customerType);
+  }, [customerType]);
+
   const login = (email) => {
     const normalizedInput = email.trim().toLowerCase();
     const isEmailLogin = normalizedInput.includes('@');
     const existingAccount = isEmailLogin
       ? getAccounts().find(account => account.email?.toLowerCase() === normalizedInput)
       : null;
-
-    if (isEmailLogin && !existingAccount) {
-      return null;
-    }
 
     const mockUser = {
       id: existingAccount?.id || 1,
@@ -111,7 +119,9 @@ export const AuthProvider = ({ children }) => {
         signup,
         logout,
         location,
-        setLocation
+        setLocation,
+        customerType,
+        setCustomerType
       }}
     >
       {children}

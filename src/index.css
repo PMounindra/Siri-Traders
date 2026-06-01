@@ -7,9 +7,9 @@
 /* --- Design Tokens --- */
 :root {
   /* Brand Colors */
-  --color-primary: #1E4D2B;
-  --color-primary-medium: #2F6B3F;
-  --color-primary-light: #4A8A58;
+  --color-primary: #6C8F3B;
+  --color-primary-medium: #55752E;
+  --color-primary-light: #A8C77A;
   --color-accent: #FFC107;
   --color-accent-light: #FFE082;
   --color-accent-pale: #FFF8DF;
@@ -19,8 +19,8 @@
 
   /* Neutrals */
   --color-bg: #FFFFFF;
-  --color-bg-alt: #F7FAF7;
-  --color-bg-hover: #F1F6F2;
+  --color-bg-alt: #F8F9F3;
+  --color-bg-hover: #F0F5E8;
   --color-text: #1C1C1C;
   --color-text-secondary: #6B7280;
   --color-text-muted: #9CA3AF;
@@ -324,14 +324,14 @@ input, select, textarea {
 }
 
 .section-title svg {
-  color: #1E4D2B;
+  color: #6C8F3B;
   stroke-width: 2.5;
 }
 
 .section-link {
   font-size: 14px;
   font-weight: 600;
-  color: #1E4D2B;
+  color: #55752E;
   display: flex;
   align-items: center;
   gap: 4px;

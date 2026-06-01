@@ -1,5 +1,35 @@
 export const baseDailyOffers = [
   {
+    id: 'daily-rice-atta',
+    title: 'Rice & Atta Stock-Up',
+    subtitle: 'Rice + Atta bulk packs',
+    price: 699,
+    mrp: 820,
+    badge: 'Wholesale pick',
+    image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=700&q=80',
+    link: '/categories?cat=rice'
+  },
+  {
+    id: 'daily-pulses-oil',
+    title: 'Pulses & Oil Combo',
+    subtitle: 'Toor dal + Moong dal + Oil',
+    price: 999,
+    mrp: 1160,
+    badge: 'Save more',
+    image: 'https://images.unsplash.com/photo-1515543904379-3d757afe72e4?w=700&q=80',
+    link: '/categories?cat=pulses'
+  },
+  {
+    id: 'daily-masala-pack',
+    title: 'Masala Counter Pack',
+    subtitle: 'Everyday spices for kitchens',
+    price: 349,
+    mrp: 430,
+    badge: 'Fresh deal',
+    image: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=700&q=80',
+    link: '/categories?cat=masala'
+  },
+  {
     id: 'daily-breakfast',
     title: 'Breakfast Saver Combo',
     subtitle: 'Milk + Bread + Eggs',
@@ -47,7 +77,7 @@ export const baseDailyOffers = [
     mrp: 560,
     badge: 'Combo deal',
     image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=700&q=80',
-    link: '/categories?cat=rice-atta'
+    link: '/categories?cat=rice'
   },
   {
     id: 'daily-beverage',
@@ -110,7 +140,7 @@ export const baseFestivalOffers = [
     mrp: 520,
     badge: 'Save 23%',
     image: 'https://images.unsplash.com/photo-1605197183305-6e5d9548026d?w=700&q=80',
-    link: '/categories?cat=rice-atta'
+    link: '/categories?cat=rice'
   },
   {
     id: 'festival-family',

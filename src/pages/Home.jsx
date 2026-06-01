@@ -1,25 +1,27 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiChevronLeft,
   FiChevronRight,
   FiArrowRight,
   FiFacebook,
-  FiHeart,
   FiInstagram,
   FiShoppingBag,
   FiStar,
   FiTag,
-  FiTwitter
+  FiTwitter,
+  FiPercent,
+  FiTruck,
+  FiPackage
 } from 'react-icons/fi';
 import CategoryCard from '../components/CategoryCard';
 import ProductCard from '../components/ProductCard';
 import { categories } from '../data/categories';
-import { getBestsellers, getDeals, getProductsByCategory } from '../data/products';
+import { baseProducts, getProducts } from '../data/products';
 import { getDailyOffers, getFestivalOffers } from '../data/offers';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
-import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import './Home.css';
 
 const ScrollRow = ({ children, className }) => {
@@ -57,6 +59,20 @@ const ScrollRow = ({ children, className }) => {
   );
 };
 
+/* ── Coupon data ── */
+const retailCoupons = [
+  { icon: <FiPercent />, title: 'FLAT ₹50 OFF', desc: 'On your first order above ₹399', code: 'WELCOME50' },
+  { icon: <FiTruck />, title: 'FREE Delivery', desc: 'On all your orders above ₹199', code: 'FREEDEL' },
+  { icon: <FiTag />, title: 'Extra 10% OFF', desc: 'On orders above ₹999', code: 'SIRI10' }
+];
+
+const wholesaleCoupons = [
+  { icon: <FiPackage />, title: 'FLAT ₹200 OFF', desc: 'On bulk orders above ₹2999', code: 'BULK200' },
+  { icon: <FiTruck />, title: 'FREE Delivery', desc: 'On all wholesale orders', code: 'WSFREE' },
+  { icon: <FiPercent />, title: 'Extra 15% OFF', desc: 'On orders above ₹4999', code: 'WSBIG15' }
+];
+
+/* ── Festive offers data ── */
 const festiveOffers = [
   {
     label: 'Festive Offers',
@@ -74,7 +90,7 @@ const festiveOffers = [
       {
         title: 'Cook & Feast',
         image: 'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=500&q=80',
-        link: '/categories?cat=masala-oils'
+        link: '/categories?cat=masala'
       },
       {
         title: 'Prayer & Gifting',
@@ -94,7 +110,7 @@ const festiveOffers = [
       {
         title: 'Meat Marinades & Spices',
         image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=500&q=80',
-        link: '/categories?cat=masala-oils'
+        link: '/categories?cat=masala'
       }
     ]
   },
@@ -134,7 +150,7 @@ const festiveOffers = [
       {
         title: 'Family Feast',
         image: 'https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?w=500&q=80',
-        link: '/categories?cat=masala-oils'
+        link: '/categories?cat=masala'
       }
     ]
   },
@@ -199,7 +215,7 @@ const festiveOffers = [
       {
         title: 'Baking Needs',
         image: 'https://images.unsplash.com/photo-1511690656952-34342bb7c2f2?w=500&q=80',
-        link: '/categories?cat=rice-atta'
+        link: '/categories?cat=atta'
       },
       {
         title: 'Coffee & Cocoa',
@@ -214,213 +230,145 @@ const festiveOffers = [
       {
         title: 'Dinner Prep',
         image: 'https://images.unsplash.com/photo-1543352634-a1c51d9f1fa7?w=500&q=80',
-        link: '/categories?cat=masala-oils'
+        link: '/categories?cat=oils'
       }
     ]
   }
 ];
 
-const EidBanner = () => {
-  const bannerOffers = useMemo(() => {
-    const adminFestivalOffers = getFestivalOffers()
-      .filter(offer => offer.source === 'admin')
-      .map(offer => ({
-        label: 'Festive Offers',
-        title: offer.title,
-        text: offer.subtitle || 'Fresh festive savings selected by Siri Traders.',
-        cta: offer.badge || 'Shop Now',
-        link: offer.link || '/categories',
-        theme: 'diwali',
-        tiles: [
-          {
-            title: offer.title,
-            image: offer.image,
-            link: offer.link || '/categories'
-          },
-          {
-            title: offer.subtitle || 'Festival Essentials',
-            image: offer.image,
-            link: offer.link || '/categories'
-          }
-        ]
-      }));
-    return [...adminFestivalOffers, ...festiveOffers];
-  }, []);
-  const [activeOffer, setActiveOffer] = useState(0);
-
-  const moveOffer = useCallback((direction) => {
-    setActiveOffer((current) => (
-      (current + direction + bannerOffers.length) % bannerOffers.length
-    ));
-  }, [bannerOffers.length]);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => moveOffer(1), 4500);
-    return () => window.clearInterval(timer);
-  }, [moveOffer]);
+const WelcomeBanner = ({ customerType }) => {
+  const isWholesale = customerType === 'wholesale';
+  const coupons = isWholesale ? wholesaleCoupons : retailCoupons;
 
   return (
-    <section className="home__section home__section--essentials">
-      <div className="home-essentials-carousel">
-        <button
-          type="button"
-          className="home-essentials__nav home-essentials__nav--left"
-          onClick={() => moveOffer(-1)}
-          aria-label="Previous festive offer"
-        >
-          <FiChevronLeft />
-        </button>
-        <div
-          className="home-essentials-carousel__track"
-          style={{ transform: `translateX(-${activeOffer * 100}%)` }}
-        >
-          {bannerOffers.map(offer => (
-            <div key={offer.title} className={`home-essentials home-essentials--${offer.theme}`}>
-              <div className="home-essentials__content">
-                <span className="home-essentials__eyebrow">{offer.label}</span>
-                <h1>{offer.title}</h1>
-                <p>{offer.text}</p>
-                <Link to={offer.link} className="home-essentials__cta">
-                  {offer.cta} <FiArrowRight />
-                </Link>
-              </div>
-              <div className="home-essentials__tiles">
-                {offer.tiles.map(tile => (
-                  <Link key={tile.title} to={tile.link} className="home-essentials__tile">
-                    <img src={toWebpImage(tile.image)} alt={tile.title} />
-                    <span>{tile.title}</span>
-                  </Link>
-                ))}
-              </div>
+    <section className={`home-hero ${isWholesale ? 'home-hero--wholesale' : ''}`}>
+      <div className="home-hero__intro">
+        <h1>{isWholesale ? 'WHOLESALE HUB' : 'WELCOME'}</h1>
+        <p>{isWholesale ? 'Bulk prices, bigger savings for your business' : 'Order now and enjoy great offers'}</p>
+      </div>
+      <div className="home-hero__offers-pill">
+        <span>✦ OFFERS FOR YOU ✦</span>
+      </div>
+      <div className="home-hero__coupons">
+        {coupons.map((coupon, i) => (
+          <div className="home-hero__coupon-card" key={i}>
+            <div className="home-hero__coupon-icon">{coupon.icon}</div>
+            <div className="home-hero__coupon-info">
+              <strong>{coupon.title}</strong>
+              <span>{coupon.desc}</span>
             </div>
-          ))}
-        </div>
-        <button
-          type="button"
-          className="home-essentials__nav home-essentials__nav--right"
-          onClick={() => moveOffer(1)}
-          aria-label="Next festive offer"
-        >
-          <FiChevronRight />
-        </button>
-        <div className="home-essentials__dots" aria-hidden="true">
-          {bannerOffers.map((offer, index) => (
-            <span key={offer.title} className={index === activeOffer ? 'home-essentials__dot home-essentials__dot--active' : 'home-essentials__dot'} />
-          ))}
-        </div>
+            <div className="home-hero__coupon-code">Code: <strong>{coupon.code}</strong></div>
+          </div>
+        ))}
       </div>
     </section>
   );
 };
 
-const OfferCard = ({ offer }) => {
-  const [imageFailed, setImageFailed] = useState(false);
-  const { addToCart, updateQuantity, removeFromCart, getItemQuantity } = useCart();
-  const quantity = getItemQuantity(offer.id);
-  const initials = offer.title
-    .split(' ')
-    .slice(0, 2)
-    .map(word => word[0])
-    .join('');
-
-  const handleAdd = (e) => {
-    e.preventDefault();
-    addToCart({
-      id: offer.id,
-      name: offer.title,
-      price: offer.price,
-      mrp: offer.mrp,
-      discount: Math.max(0, Math.round(((offer.mrp - offer.price) / offer.mrp) * 100)),
-      image: offer.image,
-      weight: '1',
-      unit: 'combo',
-      deliveryTime: '10 mins'
-    });
-  };
-
-  const handleDecrease = (e) => {
-    e.preventDefault();
-    if (quantity <= 1) {
-      removeFromCart(offer.id);
-    } else {
-      updateQuantity(offer.id, quantity - 1);
-    }
-  };
-
-  const handleIncrease = (e) => {
-    e.preventDefault();
-    updateQuantity(offer.id, quantity + 1);
-  };
+const OffersSection = ({ customerType }) => {
+  const adminFestival = getFestivalOffers().find(offer => offer.source === 'admin');
+  const activeFestival = adminFestival ? {
+    label: 'Festive Offers',
+    title: adminFestival.title,
+    text: adminFestival.subtitle || 'Fresh festive savings selected by Siri Traders.',
+    tiles: Array.from({ length: 6 }, (_, index) => ({
+      title: index === 0 ? adminFestival.title : adminFestival.subtitle || 'Festival Essentials',
+      image: adminFestival.image,
+      link: adminFestival.link || '/categories'
+    }))
+  } : festiveOffers[0];
+  const dailySpotlights = getDailyOffers().slice(0, 6);
+  const festivalSpotlights = getFestivalOffers().slice(0, 6);
 
   return (
-    <Link to={offer.link} className="home-offer-card">
-      {!imageFailed ? (
-        <img
-          src={toWebpImage(offer.image)}
-          alt={offer.title}
-          className="home-offer-card__image"
-          onError={() => setImageFailed(true)}
-        />
-      ) : (
-        <div className="home-offer-card__image home-offer-card__image-fallback">
-          {initials}
-        </div>
-      )}
-      <div className="home-offer-card__body">
-        <span className="home-offer-card__badge">{offer.badge}</span>
-        <h3>{offer.title}</h3>
-        <p>{offer.subtitle}</p>
-        <div className="home-offer-card__price-row">
-          <span className="home-offer-card__price">{formatPrice(offer.price)}</span>
-          <span className="home-offer-card__mrp">{formatPrice(offer.mrp)}</span>
-        </div>
-        {quantity === 0 ? (
-          <button type="button" className="home-offer-card__add" onClick={handleAdd}>
-            ADD
-          </button>
-        ) : (
-          <div className="home-offer-card__stepper" onClick={(e) => e.preventDefault()}>
-            <button type="button" onClick={handleDecrease}>-</button>
-            <span>{quantity}</span>
-            <button type="button" onClick={handleIncrease}>+</button>
+    <section className="home-offers" aria-label="Daily and festive offers">
+      {/* Daily Offers panel */}
+      <div className="home-hero__panel">
+        <div className="home-hero__panel-head">
+          <div>
+            <span>Curated savings</span>
+            <h2>Daily Offers</h2>
           </div>
-        )}
+          <Link to="/categories">View all <FiArrowRight /></Link>
+        </div>
+        <ScrollRow className="home-hero__offers-scroll">
+          {dailySpotlights.map(offer => (
+            <Link to={offer.link} className="home-hero__offer-card" key={offer.id}>
+              <img src={toWebpImage(offer.image)} alt={offer.title} />
+              <div className="home-hero__offer-card-body">
+                <span className="home-hero__offer-badge">{offer.badge}</span>
+                <h3>{offer.title}</h3>
+                <strong>{formatPrice(offer.price)}</strong>
+              </div>
+            </Link>
+          ))}
+        </ScrollRow>
       </div>
-    </Link>
+
+      {/* Festive Offers panel — now matching daily offers style */}
+      <div className="home-hero__panel home-hero__panel--festival">
+        <div className="home-hero__panel-head">
+          <div>
+            <span>{activeFestival.label}</span>
+            <h2>{activeFestival.title}</h2>
+          </div>
+          <Link to="/categories">View all <FiArrowRight /></Link>
+        </div>
+        <p className="home-hero__festival-desc">{activeFestival.text}</p>
+        <ScrollRow className="home-hero__offers-scroll">
+          {(festivalSpotlights.length > 0 ? festivalSpotlights : activeFestival.tiles).map((item, i) => (
+            <Link to={item.link} className="home-hero__offer-card home-hero__offer-card--festive" key={item.id || item.title + i}>
+              <img src={toWebpImage(item.image)} alt={item.title} />
+              <div className="home-hero__offer-card-body">
+                <span className="home-hero__offer-badge home-hero__offer-badge--festive">{item.badge || activeFestival.label}</span>
+                <h3>{item.title}</h3>
+                {item.price && <strong>{formatPrice(item.price)}</strong>}
+              </div>
+            </Link>
+          ))}
+        </ScrollRow>
+      </div>
+    </section>
   );
 };
 
 const Home = () => {
-  const deals = getDeals();
-  const bestsellers = getBestsellers();
-  const fruits = getProductsByCategory('fruits-vegetables');
-  const dairy = getProductsByCategory('dairy-breakfast');
-  const dailyOffers = getDailyOffers();
+  const { customerType } = useAuth();
+  const isWholesale = customerType === 'wholesale';
+  const stapleIds = ['fruits-vegetables', 'rice', 'atta', 'pulses', 'oils', 'masala'];
+  const catalog = customerType === 'retail' ? baseProducts : getProducts(customerType);
+  const byCategory = category => catalog.filter(product => product.category === category);
+  const deals = catalog.filter(product => product.discount >= 10 && stapleIds.includes(product.category));
+  const bestsellers = catalog.filter(product => product.isBestseller && stapleIds.includes(product.category));
+  const pulses = byCategory('pulses');
+  const oils = byCategory('oils');
+  const atta = byCategory('atta');
+  const rice = byCategory('rice');
+  const masala = byCategory('masala');
+  const fruitsVeg = byCategory('fruits-vegetables');
+  const stapleCategories = categories.filter(cat => stapleIds.includes(cat.id));
 
   return (
     <div className="page-wrapper">
-      <div className="home">
+      <div className={`home ${isWholesale ? 'home--wholesale' : ''}`}>
         <div className="container">
-          <EidBanner />
-
-          <section className="home__section">
-            <div className="section-header">
-              <h2 className="section-title"><FiTag /> Daily Offers</h2>
-              <Link to="/categories" className="section-link">
-                Shop All <FiChevronRight />
-              </Link>
+          {/* Wholesale mode indicator */}
+          {isWholesale && (
+            <div className="home__wholesale-banner">
+              <FiPackage />
+              <span>Wholesale Mode</span>
+              <span className="home__wholesale-banner-sep">•</span>
+              <span>Bulk Prices</span>
+              <span className="home__wholesale-banner-sep">•</span>
+              <span>Business Savings</span>
             </div>
-            <ScrollRow className="home-offer-grid home-offer-grid--slider">
-              {dailyOffers.map(offer => (
-                <div key={offer.id} className="home-offer-slide">
-                  <OfferCard offer={offer} />
-                </div>
-              ))}
-            </ScrollRow>
-          </section>
+          )}
+
+          <WelcomeBanner customerType={customerType} />
+          <OffersSection customerType={customerType} />
 
           {/* Shop by Category */}
-          <section className="home__section">
+          <section className="home__section home__section--categories">
             <div className="section-header">
               <h2 className="section-title">Shop by Category</h2>
               <Link to="/categories" className="section-link">
@@ -428,7 +376,7 @@ const Home = () => {
               </Link>
             </div>
             <div className="home__category-grid">
-              {categories.slice(0, 6).map(cat => (
+              {stapleCategories.map(cat => (
                 <CategoryCard key={cat.id} category={cat} size="large" />
               ))}
             </div>
@@ -445,7 +393,7 @@ const Home = () => {
             <ScrollRow className="home__deals-scroll">
               {deals.map(product => (
                 <div key={product.id} className="home__deals-item">
-                  <ProductCard product={product} />
+                  <ProductCard key={`${customerType}-${product.id}`} product={product} />
                 </div>
               ))}
             </ScrollRow>
@@ -462,41 +410,77 @@ const Home = () => {
             <ScrollRow className="home__deals-scroll">
               {bestsellers.map(product => (
                 <div key={product.id} className="home__deals-item">
-                  <ProductCard product={product} />
+                  <ProductCard key={`${customerType}-${product.id}`} product={product} />
                 </div>
               ))}
             </ScrollRow>
           </section>
 
           {/* Fruits & Vegetables */}
+          {fruitsVeg.length > 0 && (
+            <section className="home__section">
+              <div className="section-header">
+                <h2 className="section-title">🥬 Fruits & Vegetables</h2>
+                <Link to="/categories?cat=fruits-vegetables" className="section-link">
+                  See All <FiChevronRight />
+                </Link>
+              </div>
+              <ScrollRow className="home__deals-scroll">
+                {fruitsVeg.map(product => (
+                  <div key={product.id} className="home__deals-item">
+                    <ProductCard key={`${customerType}-${product.id}`} product={product} />
+                  </div>
+                ))}
+              </ScrollRow>
+            </section>
+          )}
+
+          {/* Pulses */}
           <section className="home__section">
             <div className="section-header">
-              <h2 className="section-title">Fruits & Vegetables</h2>
-              <Link to="/categories?cat=fruits-vegetables" className="section-link">
+              <h2 className="section-title">Pulses</h2>
+              <Link to="/categories?cat=pulses" className="section-link">
                 See All <FiChevronRight />
               </Link>
             </div>
             <ScrollRow className="home__deals-scroll">
-              {fruits.slice(0, 4).map(product => (
+              {pulses.map(product => (
                 <div key={product.id} className="home__deals-item">
-                  <ProductCard product={product} />
+                  <ProductCard key={`${customerType}-${product.id}`} product={product} />
                 </div>
               ))}
             </ScrollRow>
           </section>
 
-          {/* Dairy & Breakfast */}
+          {/* Rice & Atta */}
           <section className="home__section">
             <div className="section-header">
-              <h2 className="section-title">Dairy & Breakfast</h2>
-              <Link to="/categories?cat=dairy-breakfast" className="section-link">
+              <h2 className="section-title">Rice & Atta</h2>
+              <Link to="/categories?cat=rice" className="section-link">
                 See All <FiChevronRight />
               </Link>
             </div>
             <ScrollRow className="home__deals-scroll">
-              {dairy.slice(0, 4).map(product => (
+              {[...rice, ...atta].map(product => (
                 <div key={product.id} className="home__deals-item">
-                  <ProductCard product={product} />
+                  <ProductCard key={`${customerType}-${product.id}`} product={product} />
+                </div>
+              ))}
+            </ScrollRow>
+          </section>
+
+          {/* Oils & Masala */}
+          <section className="home__section">
+            <div className="section-header">
+              <h2 className="section-title">Oils & Masala</h2>
+              <Link to="/categories?cat=oils" className="section-link">
+                See All <FiChevronRight />
+              </Link>
+            </div>
+            <ScrollRow className="home__deals-scroll">
+              {[...oils, ...masala].map(product => (
+                <div key={product.id} className="home__deals-item">
+                  <ProductCard key={`${customerType}-${product.id}`} product={product} />
                 </div>
               ))}
             </ScrollRow>
@@ -511,9 +495,6 @@ const Home = () => {
               <span className="home__footer-logo"><FiShoppingBag /></span>
               <h3 className="home__footer-name">Siri Traders</h3>
               <p className="home__footer-tagline">Fast & Reliable Grocery Delivery</p>
-              <p className="home__footer-made">
-                Made with <FiHeart className="home__footer-heart" /> in India
-              </p>
             </div>
 
             {/* Center: Links */}

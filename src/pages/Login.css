@@ -7,10 +7,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background:
-    radial-gradient(circle at 18% 18%, rgba(233, 168, 0, 0.22), transparent 26%),
-    radial-gradient(circle at 82% 76%, rgba(82, 183, 136, 0.22), transparent 30%),
-    linear-gradient(135deg, #14351E 0%, #1E4D2B 46%, #2F6B3F 100%);
+  background: #FAFAF6;
   position: relative;
   overflow: hidden;
   padding: var(--space-md);
@@ -47,7 +44,7 @@
   padding: 40px 32px;
   width: 100%;
   max-width: 420px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 60px rgba(49, 91, 63, 0.16);
   position: relative;
   z-index: 2;
   animation: fadeInUp 0.6s ease;
@@ -284,7 +281,7 @@
 .login-card__send-otp {
   height: 48px;
   border-radius: var(--radius-md);
-  background: #1E4D2B;
+  background: #6C8F3B;
   color: #FFFFFF;
   font-size: 15px;
   font-weight: 700;
@@ -292,8 +289,8 @@
 }
 
 .login-card__send-otp:hover:not(:disabled) {
-  background: #2F6B3F;
-  box-shadow: 0 6px 18px rgba(27, 67, 50, 0.25);
+  background: #55752E;
+  box-shadow: 0 6px 18px rgba(85, 117, 46, 0.24);
   transform: translateY(-1px);
 }
 
@@ -449,7 +446,7 @@
   transform: translate(-50%, 16px);
   opacity: 0;
   pointer-events: none;
-  background: #1E4D2B;
+  background: #4A612F;
   color: #FFFFFF;
   padding: 12px 18px;
   border-radius: var(--radius-md);

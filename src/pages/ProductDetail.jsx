@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FiArrowLeft, FiShare2, FiClock, FiShield, FiPlus, FiMinus, FiShoppingCart } from 'react-icons/fi';
 import { getProductById, getProductsByCategory } from '../data/products';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import ProductCard from '../components/ProductCard';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
@@ -10,10 +11,13 @@ import './ProductDetail.css';
 
 const ProductDetail = () => {
   const { id } = useParams();
+  const { customerType } = useAuth();
   const navigate = useNavigate();
-  const product = getProductById(id);
+  const product = getProductById(id, customerType);
   const { addToCart, removeFromCart, updateQuantity, getItemQuantity } = useCart();
   const [imageFailed, setImageFailed] = useState(false);
+  const variants = product?.variants || (product ? [{ label: `${product.weight} ${product.unit}`, price: product.price }] : []);
+  const [selectedVariant, setSelectedVariant] = useState(variants[0]);
 
   if (!product) {
     return (
@@ -27,8 +31,11 @@ const ProductDetail = () => {
     );
   }
 
-  const quantity = getItemQuantity(product.id);
-  const similarProducts = getProductsByCategory(product.category)
+  const selectedProductId = `${product.id}-${selectedVariant.label}`;
+  const selectedMrp = selectedVariant.mrp || Math.round(selectedVariant.price * (product.mrp / product.price));
+  const selectedDiscount = Math.max(0, Math.round(((selectedMrp - selectedVariant.price) / selectedMrp) * 100));
+  const quantity = getItemQuantity(selectedProductId);
+  const similarProducts = getProductsByCategory(product.category, customerType)
     .filter(p => p.id !== product.id)
     .slice(0, 8);
 
@@ -46,8 +53,8 @@ const ProductDetail = () => {
 
         {/* Image */}
         <div className="pd__image-section">
-          {product.discount > 0 && (
-            <span className="pd__discount-badge">{product.discount}% OFF</span>
+          {selectedDiscount > 0 && (
+            <span className="pd__discount-badge">{selectedDiscount}% OFF</span>
           )}
           {!imageFailed ? (
             <img
@@ -67,14 +74,26 @@ const ProductDetail = () => {
         <div className="pd__info">
           <span className="pd__brand">{product.brand}</span>
           <h1 className="pd__name">{product.name}</h1>
-          <span className="pd__weight">{product.weight} {product.unit}</span>
+          <div className="pd__variants">
+            {variants.map(variant => (
+              <button
+                key={variant.label}
+                type="button"
+                className={selectedVariant.label === variant.label ? 'pd__variant pd__variant--active' : 'pd__variant'}
+                onClick={() => setSelectedVariant(variant)}
+              >
+                <span>{variant.label}</span>
+                <strong>{formatPrice(variant.price)}</strong>
+              </button>
+            ))}
+          </div>
 
           <div className="pd__price-row">
-            <span className="pd__price">{formatPrice(product.price)}</span>
-            {product.discount > 0 && (
+            <span className="pd__price">{formatPrice(selectedVariant.price)}</span>
+            {selectedDiscount > 0 && (
               <>
-                <span className="pd__mrp">{formatPrice(product.mrp)}</span>
-                <span className="pd__off">{product.discount}% OFF</span>
+                <span className="pd__mrp">{formatPrice(selectedMrp)}</span>
+                <span className="pd__off">{selectedDiscount}% OFF</span>
               </>
             )}
           </div>
@@ -93,17 +112,17 @@ const ProductDetail = () => {
           {/* Add to cart */}
           <div className="pd__actions">
             {quantity === 0 ? (
-              <button className="pd__add-btn" onClick={() => addToCart(product)} id="pd-add-to-cart">
+              <button className="pd__add-btn" onClick={() => addToCart({ ...product, id: selectedProductId, productId: product.id, price: selectedVariant.price, mrp: selectedMrp, discount: selectedDiscount, weight: selectedVariant.label, unit: '' })} id="pd-add-to-cart">
                 <FiShoppingCart /> Add to Cart
               </button>
             ) : (
               <div className="pd__cart-controls">
                 <div className="pd__stepper">
-                  <button onClick={() => quantity <= 1 ? removeFromCart(product.id) : updateQuantity(product.id, quantity - 1)}>
+                  <button onClick={() => quantity <= 1 ? removeFromCart(selectedProductId) : updateQuantity(selectedProductId, quantity - 1)}>
                     <FiMinus />
                   </button>
                   <span>{quantity}</span>
-                  <button onClick={() => updateQuantity(product.id, quantity + 1)}>
+                  <button onClick={() => updateQuantity(selectedProductId, quantity + 1)}>
                     <FiPlus />
                   </button>
                 </div>

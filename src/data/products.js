@@ -143,7 +143,7 @@ export const baseProducts = [
     price: 60,
     mrp: 64,
     discount: 6,
-    image: 'https://rukminim2.flixcart.com/image/832/832/kzfvzww0/milk/w/k/u/1-taaza-toned-fresh-milk-amul-original-imagbh56e5kqxfgu.jpeg',
+    image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400&q=80',
     description: 'Amul Toned Milk with 3% fat. Pasteurized and homogenized.',
     inStock: true,
     deliveryTime: '10 mins',
@@ -159,7 +159,7 @@ export const baseProducts = [
     price: 270,
     mrp: 290,
     discount: 7,
-    image: 'https://rukminim2.flixcart.com/image/832/832/xif0q/butter/c/v/n/500-pasteurised-butter-1-amul-original-imaghmf5hwqfkhf2.jpeg',
+    image: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=400&q=80',
     description: 'Amul Pasteurized Butter. India\'s favourite butter.',
     inStock: true,
     deliveryTime: '10 mins',
@@ -257,7 +257,7 @@ export const baseProducts = [
     price: 30,
     mrp: 30,
     discount: 0,
-    image: 'https://rukminim2.flixcart.com/image/832/832/xif0q/chips/l/p/z/-original-imagmgk5ughv7hzn.jpeg',
+    image: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=400&q=80',
     description: 'Lay\'s Classic Salted Potato Chips. Crispy and delicious.',
     inStock: true,
     deliveryTime: '10 mins',
@@ -437,7 +437,7 @@ export const baseProducts = [
     price: 22,
     mrp: 25,
     discount: 12,
-    image: 'https://rukminim2.flixcart.com/image/832/832/xif0q/cookie-biscuit/u/p/d/-original-imaghxedhjsgzdrp.jpeg',
+    image: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400&q=80',
     description: 'Parle-G Original Glucose Biscuits. G maane Genius.',
     inStock: true,
     deliveryTime: '10 mins',
@@ -660,7 +660,7 @@ export const baseProducts = [
   {
     id: 41,
     name: 'India Gate Basmati',
-    category: 'rice-atta',
+    category: 'rice',
     brand: 'India Gate',
     weight: '5',
     unit: 'kg',
@@ -671,28 +671,38 @@ export const baseProducts = [
     description: 'India Gate Classic Basmati Rice. Long grain, aromatic.',
     inStock: true,
     deliveryTime: '15 mins',
-    isBestseller: true
+    isBestseller: true,
+    variants: [
+      { label: '1 kg', price: 96 },
+      { label: '5 kg', price: 449 },
+      { label: '10 kg', price: 860 }
+    ]
   },
   {
     id: 42,
     name: 'Aashirvaad Atta 5kg',
-    category: 'rice-atta',
+    category: 'atta',
     brand: 'Aashirvaad',
     weight: '5',
     unit: 'kg',
     price: 279,
     mrp: 310,
     discount: 10,
-    image: 'https://rukminim2.flixcart.com/image/832/832/xif0q/flour/p/v/c/-original-imagtkhyhfhfhzhy.jpeg',
+    image: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400&q=80',
     description: 'Aashirvaad Select Sharbatti Atta. Softest rotis every time.',
     inStock: true,
     deliveryTime: '15 mins',
-    isBestseller: true
+    isBestseller: true,
+    variants: [
+      { label: '1 kg', price: 60 },
+      { label: '5 kg', price: 279 },
+      { label: '10 kg', price: 535 }
+    ]
   },
   {
     id: 43,
     name: 'Toor Dal',
-    category: 'rice-atta',
+    category: 'pulses',
     brand: 'Tata Sampann',
     weight: '1',
     unit: 'kg',
@@ -703,12 +713,17 @@ export const baseProducts = [
     description: 'Tata Sampann Toor Dal. Unpolished, high protein.',
     inStock: true,
     deliveryTime: '15 mins',
-    isBestseller: false
+    isBestseller: false,
+    variants: [
+      { label: '500 g', price: 78 },
+      { label: '1 kg', price: 149 },
+      { label: '5 kg', price: 720 }
+    ]
   },
   {
     id: 44,
     name: 'Moong Dal',
-    category: 'rice-atta',
+    category: 'pulses',
     brand: 'Tata Sampann',
     weight: '1',
     unit: 'kg',
@@ -719,14 +734,19 @@ export const baseProducts = [
     description: 'Tata Sampann Moong Dal. Rich in protein and fiber.',
     inStock: true,
     deliveryTime: '15 mins',
-    isBestseller: false
+    isBestseller: false,
+    variants: [
+      { label: '500 g', price: 82 },
+      { label: '1 kg', price: 159 },
+      { label: '5 kg', price: 760 }
+    ]
   },
 
   // ===== MASALA & OILS =====
   {
     id: 45,
     name: 'MDH Garam Masala',
-    category: 'masala-oils',
+    category: 'masala',
     brand: 'MDH',
     weight: '100',
     unit: 'g',
@@ -737,28 +757,38 @@ export const baseProducts = [
     description: 'MDH Garam Masala. Authentic blend of finest spices.',
     inStock: true,
     deliveryTime: '10 mins',
-    isBestseller: true
+    isBestseller: true,
+    variants: [
+      { label: '50 g', price: 38 },
+      { label: '100 g', price: 72 },
+      { label: '500 g', price: 330 }
+    ]
   },
   {
     id: 46,
     name: 'Fortune Oil 1L',
-    category: 'masala-oils',
+    category: 'oils',
     brand: 'Fortune',
     weight: '1',
     unit: 'L',
     price: 139,
     mrp: 160,
     discount: 13,
-    image: 'https://rukminim2.flixcart.com/image/832/832/xif0q/edible-oil/b/f/e/-original-imaghz86gvzwgftq.jpeg',
+    image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&q=80',
     description: 'Fortune Sunflower Refined Oil. Healthy heart, happy life.',
     inStock: true,
     deliveryTime: '15 mins',
-    isBestseller: true
+    isBestseller: true,
+    variants: [
+      { label: '1 L', price: 139 },
+      { label: '5 L', price: 670 },
+      { label: '15 L', price: 1910 }
+    ]
   },
   {
     id: 47,
     name: 'Everest Turmeric',
-    category: 'masala-oils',
+    category: 'masala',
     brand: 'Everest',
     weight: '200',
     unit: 'g',
@@ -769,28 +799,38 @@ export const baseProducts = [
     description: 'Everest Turmeric Powder. Pure and aromatic haldi.',
     inStock: true,
     deliveryTime: '10 mins',
-    isBestseller: false
+    isBestseller: false,
+    variants: [
+      { label: '100 g', price: 30 },
+      { label: '200 g', price: 55 },
+      { label: '500 g', price: 128 }
+    ]
   },
   {
     id: 48,
     name: 'Saffola Gold Oil',
-    category: 'masala-oils',
+    category: 'oils',
     brand: 'Saffola',
     weight: '1',
     unit: 'L',
     price: 189,
     mrp: 220,
     discount: 14,
-    image: 'https://rukminim2.flixcart.com/image/832/832/xif0q/edible-oil/b/f/e/-original-imaghz86gvzwgftq.jpeg',
+    image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&q=80',
     description: 'Saffola Gold Blended Edible Oil. Heart healthy choice.',
     inStock: true,
     deliveryTime: '15 mins',
-    isBestseller: false
+    isBestseller: false,
+    variants: [
+      { label: '1 L', price: 189 },
+      { label: '5 L', price: 900 },
+      { label: '15 L', price: 2600 }
+    ]
   },
   {
     id: 49,
     name: 'Red Chilli Powder',
-    category: 'masala-oils',
+    category: 'masala',
     brand: 'MDH',
     weight: '100',
     unit: 'g',
@@ -801,7 +841,12 @@ export const baseProducts = [
     description: 'MDH Deggi Mirch. Adds colour and mild flavour to food.',
     inStock: true,
     deliveryTime: '10 mins',
-    isBestseller: false
+    isBestseller: false,
+    variants: [
+      { label: '50 g', price: 28 },
+      { label: '100 g', price: 50 },
+      { label: '500 g', price: 235 }
+    ]
   },
 
   // ===== INSTANT & FROZEN =====
@@ -887,6 +932,122 @@ export const baseProducts = [
   }
 ];
 
+const wholesaleProducts = [
+  {
+    id: 1001,
+    name: 'Sona Masoori Rice',
+    category: 'rice',
+    brand: 'Siri Wholesale',
+    weight: '25',
+    unit: 'kg',
+    price: 1180,
+    mrp: 1320,
+    discount: 11,
+    image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&q=80',
+    description: 'Wholesale-grade Sona Masoori rice for hotels, caterers and family stock-up.',
+    inStock: true,
+    deliveryTime: 'Same day',
+    isBestseller: true,
+    variants: [
+      { label: '500 g', price: 26 },
+      { label: '1 kg', price: 50 },
+      { label: '10 kg', price: 480 },
+      { label: '1 bag (25 kg)', price: 1150 }
+    ],
+    wholesalePrice: 1120
+  },
+  {
+    id: 1002,
+    name: 'Aashirvaad Atta',
+    category: 'atta',
+    brand: 'Aashirvaad',
+    weight: '10',
+    unit: 'kg',
+    price: 455,
+    mrp: 520,
+    discount: 13,
+    image: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400&q=80',
+    description: 'Fresh chakki atta available in retail and bulk packs.',
+    inStock: true,
+    deliveryTime: 'Same day',
+    isBestseller: true,
+    variants: [
+      { label: '500 g', price: 29 },
+      { label: '1 kg', price: 55 },
+      { label: '10 kg', price: 520 },
+      { label: '1 bag (25 kg)', price: 1225 }
+    ],
+    wholesalePrice: 430
+  },
+  {
+    id: 1003,
+    name: 'Toor Dal Premium',
+    category: 'pulses',
+    brand: 'Siri Select',
+    weight: '10',
+    unit: 'kg',
+    price: 1280,
+    mrp: 1450,
+    discount: 12,
+    image: 'https://images.unsplash.com/photo-1515543904379-3d757afe72e4?w=400&q=80',
+    description: 'Clean and sorted toor dal for daily commercial kitchens.',
+    inStock: true,
+    deliveryTime: 'Same day',
+    isBestseller: true,
+    variants: [
+      { label: '500 g', price: 69 },
+      { label: '1 kg', price: 135 },
+      { label: '10 kg', price: 1280 },
+      { label: '1 bag (25 kg)', price: 3075 }
+    ],
+    wholesalePrice: 1210
+  },
+  {
+    id: 1004,
+    name: 'Sunflower Oil Can',
+    category: 'oils',
+    brand: 'Gold Drop',
+    weight: '15',
+    unit: 'L',
+    price: 1950,
+    mrp: 2160,
+    discount: 10,
+    image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&q=80',
+    description: 'Bulk sunflower oil can for restaurants, tiffin centers and stores.',
+    inStock: true,
+    deliveryTime: 'Same day',
+    isBestseller: true,
+    variants: [
+      { label: '500 ml', price: 74 },
+      { label: '1 L', price: 145 },
+      { label: '5 L', price: 680 },
+      { label: '1 can (15 L)', price: 1950 }
+    ],
+    wholesalePrice: 1860
+  },
+  {
+    id: 1005,
+    name: 'Garam Masala',
+    category: 'masala',
+    brand: 'Siri Spices',
+    weight: '1',
+    unit: 'kg',
+    price: 410,
+    mrp: 480,
+    discount: 15,
+    image: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=400&q=80',
+    description: 'Aromatic masala blend packed for retail counters and bulk use.',
+    inStock: true,
+    deliveryTime: 'Same day',
+    isBestseller: false,
+    variants: [
+      { label: '500 g', price: 220 },
+      { label: '1 kg', price: 410 }
+    ],
+    wholesalePrice: 380
+  }
+];
+
 const ADMIN_PRODUCTS_KEY = 'siri-admin-products';
 
 const readAdminProducts = () => {
@@ -899,23 +1060,37 @@ const readAdminProducts = () => {
   }
 };
 
-export const getProducts = () => readAdminProducts() || baseProducts;
+const mergeCatalog = (catalog, adminProducts = []) => {
+  const catalogById = new Map(catalog.map(product => [String(product.id), product]));
+  const adminIds = new Set(adminProducts.map(product => String(product.id)));
+  const normalizedAdminProducts = adminProducts.map(product => ({
+    ...catalogById.get(String(product.id)),
+    ...product
+  }));
+  return [...normalizedAdminProducts, ...catalog.filter(product => !adminIds.has(String(product.id)))];
+};
+
+export const getProducts = (customerType = 'retail') => {
+  if (customerType === 'wholesale') return wholesaleProducts;
+  const adminProducts = readAdminProducts() || [];
+  return mergeCatalog(baseProducts, adminProducts);
+};
 
 export const products = getProducts();
 
 // Helper functions
-export const getProductById = (id) => getProducts().find(p => String(p.id) === String(id));
+export const getProductById = (id, customerType = 'retail') => getProducts(customerType).find(p => String(p.id) === String(id));
 
-export const getProductsByCategory = (categoryId) => 
-  getProducts().filter(p => p.category === categoryId);
+export const getProductsByCategory = (categoryId, customerType = 'retail') =>
+  getProducts(customerType).filter(p => p.category === categoryId);
 
-export const getBestsellers = () => getProducts().filter(p => p.isBestseller);
+export const getBestsellers = (customerType = 'retail') => getProducts(customerType).filter(p => p.isBestseller);
 
-export const getDeals = () => getProducts().filter(p => p.discount >= 15);
+export const getDeals = (customerType = 'retail') => getProducts(customerType).filter(p => p.discount >= 10);
 
-export const searchProducts = (query) => {
+export const searchProducts = (query, customerType = 'retail') => {
   const q = query.toLowerCase();
-  return getProducts().filter(p => 
+  return getProducts(customerType).filter(p =>
     p.name.toLowerCase().includes(q) || 
     p.brand.toLowerCase().includes(q) ||
     p.category.toLowerCase().includes(q) ||

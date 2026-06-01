@@ -1,14 +1,12 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiMail, FiLock, FiEye, FiEyeOff, FiSmartphone, FiX, FiCheck } from 'react-icons/fi';
+import { FiMail, FiSmartphone, FiX, FiCheck } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import './Login.css';
 
 const Login = () => {
   const [input, setInput] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [otp, setOtp] = useState(['', '', '', '']);
   const [otpSent, setOtpSent] = useState(false);
   const [errors, setErrors] = useState({});
@@ -66,8 +64,11 @@ const Login = () => {
     }
   };
 
-  // Send OTP
   const handleSendOtp = () => {
+    if (!input.trim()) {
+      setErrors({ input: 'Please enter your email or phone number' });
+      return;
+    }
     if (!isPhoneComplete) {
       setErrors({ input: 'Please enter a valid 10-digit phone number' });
       return;
@@ -76,6 +77,17 @@ const Login = () => {
     setOtp(['', '', '', '']);
     setTimeout(() => otpRefs[0].current?.focus(), 100);
     showToast('OTP sent to your phone');
+  };
+
+  const handleEmailLogin = () => {
+    if (!isValidEmail(input)) {
+      setErrors({ input: 'Please enter a valid email address' });
+      return;
+    }
+    setLoading(true);
+    login(input);
+    showToast('Welcome back!', 1200);
+    setTimeout(() => navigate('/home'), 400);
   };
 
   // Verify OTP
@@ -88,40 +100,7 @@ const Login = () => {
     setErrors({});
     setLoading(true);
     setTimeout(() => {
-      login(input, 'otp-verified');
-      showToast('Welcome back! 👋', 2000);
-      setTimeout(() => navigate('/home'), 500);
-    }, 1500);
-  };
-
-  // Handle email+password submit
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const newErrors = {};
-
-    if (!input.trim()) {
-      newErrors.input = 'Please enter your email or phone number';
-    } else if (isEmail && !isValidEmail(input)) {
-      newErrors.input = 'Please enter a valid email address';
-    }
-
-    if (isEmail) {
-      if (!password.trim()) {
-        newErrors.password = 'Please enter your password';
-      } else if (password.length < 6) {
-        newErrors.password = 'Password must be at least 6 characters';
-      }
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
-    setErrors({});
-    setLoading(true);
-    setTimeout(() => {
-      const loggedInUser = login(input, password);
+      const loggedInUser = login(input);
       if (!loggedInUser) {
         setLoading(false);
         setErrors({
@@ -132,6 +111,35 @@ const Login = () => {
       showToast('Welcome back! 👋', 2000);
       setTimeout(() => navigate('/home'), 500);
     }, 1500);
+  };
+
+  // Handle email or phone OTP submit
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const newErrors = {};
+
+    if (!input.trim()) {
+      newErrors.input = 'Please enter your email or phone number';
+    } else if (isEmail && !isValidEmail(input)) {
+      newErrors.input = 'Please enter a valid email address';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    if (isEmail) {
+      handleEmailLogin();
+      return;
+    }
+
+    if (!otpSent) {
+      handleSendOtp();
+      return;
+    }
+
+    handleVerifyOtp();
   };
 
   // Google Sign In
@@ -206,8 +214,20 @@ const Login = () => {
             {errors.input && <span className="login-card__field-error">{errors.input}</span>}
           </div>
 
-          {/* Phone OTP flow */}
-          {isPhone && !isEmail && (
+          {/* OTP flow */}
+          {isEmail && (
+            <button
+              type="button"
+              className="login-card__submit"
+              onClick={handleEmailLogin}
+              disabled={!isValidEmail(input) || loading}
+            >
+              <FiMail style={{ marginRight: 8 }} />
+              Continue with Email
+            </button>
+          )}
+
+          {isPhone && (
             <div className="login-card__otp-section">
               {!otpSent ? (
                 <button
@@ -254,57 +274,6 @@ const Login = () => {
                 </>
               )}
             </div>
-          )}
-
-          {/* Email password flow */}
-          <div className={`login-card__password-slide ${isEmail ? 'login-card__password-slide--visible' : ''}`}>
-            <div className={`login-card__input-wrapper ${errors.password ? 'login-card__input-wrapper--error' : ''}`}>
-              <FiLock className="login-card__input-icon" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setErrors((prev) => ({ ...prev, password: '' }));
-                }}
-                className="login-card__input"
-                autoComplete="current-password"
-              />
-              <button
-                type="button"
-                className="login-card__eye-btn"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label="Toggle password visibility"
-              >
-                {showPassword ? <FiEyeOff /> : <FiEye />}
-              </button>
-            </div>
-            {errors.password && <span className="login-card__field-error">{errors.password}</span>}
-          </div>
-
-          {/* Forgot password */}
-          {isEmail && (
-            <div className="login-card__options">
-              <button
-                type="button"
-                className="login-card__forgot"
-                onClick={() => setShowForgotModal(true)}
-              >
-                Forgot password?
-              </button>
-            </div>
-          )}
-
-          {/* Submit button (email flow) */}
-          {isEmail && (
-            <button
-              type="submit"
-              className={`login-card__submit ${loading ? 'login-card__submit--loading' : ''}`}
-              disabled={loading}
-            >
-              {loading ? <span className="login-card__spinner" /> : 'Sign In'}
-            </button>
           )}
 
           {/* Divider */}
