@@ -1,19 +1,70 @@
-import { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FiArrowLeft, FiShare2, FiClock, FiShield, FiPlus, FiMinus, FiShoppingCart } from 'react-icons/fi';
-import { getProductById, getProductsByCategory } from '../data/products';
-import { useCart } from '../context/CartContext';
-import ProductCard from '../components/ProductCard';
-import { formatPrice } from '../utils/format';
-import { toWebpImage } from '../utils/images';
-import './ProductDetail.css';
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  HomeIcon,
+  LeafIcon,
+  MinusIcon,
+  PlusIcon,
+  ShoppingCartIcon,
+  StarIcon,
+} from "lucide-react";
+import { useCart } from "../context/CartContext";
+import { getProductById, getProductsByCategory } from "../data/products";
+import { formatPrice } from "../utils/format";
+import { toWebpImage } from "../utils/images";
+import ProductCard from "../components/ProductCard";
+import Loading from "../components/Loading";
+import DummyReviewsSection from "../assets/DummyReviewsSection";
+import "./ProductDetail.css";
 
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const product = getProductById(id);
-  const { addToCart, removeFromCart, updateQuantity, getItemQuantity } = useCart();
+  const { addToCart, removeFromCart, updateQuantity, getItemQuantity } =
+    useCart();
+
+  const [product, setProduct] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [localQuantity, setLocalQuantity] = useState(1);
   const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    setLocalQuantity(1);
+    setImageFailed(false);
+    window.scrollTo({ top: 0, behavior: "auto" });
+
+    const nextProduct = getProductById(id);
+
+    if (!nextProduct) {
+      setProduct(null);
+      setRelatedProducts([]);
+      setLoading(false);
+      return;
+    }
+
+    setProduct(nextProduct);
+    setRelatedProducts(
+      getProductsByCategory(nextProduct.category)
+        .filter((item) => String(item.id) !== String(nextProduct.id))
+        .slice(0, 8),
+    );
+    setLoading(false);
+  }, [id]);
+
+  const cartQuantity = product ? getItemQuantity(product.id) : 0;
+  const inCart = cartQuantity > 0;
+  const displayQuantity = inCart ? cartQuantity : localQuantity;
+
+  const categoryLabel = useMemo(() => {
+    if (!product) return "";
+    return product.category.replace(/-/g, " ");
+  }, [product]);
+
+  if (loading) return <Loading />;
 
   if (!product) {
     return (
@@ -21,117 +72,258 @@ const ProductDetail = () => {
         <div className="pd__not-found">
           <span>😕</span>
           <h2>Product not found</h2>
-          <button onClick={() => navigate('/home')} className="pd__back-home">Go Home</button>
+          <button
+            type="button"
+            onClick={() => navigate("/home")}
+            className="pd__back-home"
+          >
+            Go Home
+          </button>
         </div>
       </div>
     );
   }
 
-  const quantity = getItemQuantity(product.id);
-  const similarProducts = getProductsByCategory(product.category)
-    .filter(p => p.id !== product.id)
-    .slice(0, 8);
+  const isOrganic =
+    product.isOrganic ?? product.category === "fruits-vegetables";
+  const rating = product.rating ?? (product.discount >= 15 ? 4.7 : 4.5);
+  const reviewCount =
+    product.reviewCount ?? Math.max(18, product.discount * 6 + 12);
+  const stockLabel =
+    product.inStock === false
+      ? "Out of Stock"
+      : `In Stock (${product.stock ?? 12} available)`;
+
+  const handleMinus = () => {
+    if (inCart) {
+      if (cartQuantity <= 1) {
+        removeFromCart(product.id);
+      } else {
+        updateQuantity(product.id, cartQuantity - 1);
+      }
+      return;
+    }
+
+    setLocalQuantity((prev) => Math.max(1, prev - 1));
+  };
+
+  const handlePlus = () => {
+    if (inCart) {
+      updateQuantity(product.id, cartQuantity + 1);
+      return;
+    }
+
+    setLocalQuantity((prev) => prev + 1);
+  };
+
+  const handleAddToCart = () => {
+    if (inCart) return;
+
+    for (let index = 0; index < localQuantity; index += 1) {
+      const added = addToCart(product);
+      if (!added) break;
+    }
+  };
 
   return (
     <div className="page-wrapper">
       <div className="pd">
-        {/* Header */}
-        <div className="pd__header">
-          <button className="pd__back" onClick={() => navigate(-1)}>
-            <FiArrowLeft />
+        <div className="pd__shell">
+          <nav className="pd__breadcrumb" aria-label="Breadcrumb">
+            <Link to="/home" className="pd__crumb pd__crumb--icon">
+              <HomeIcon className="pd__crumb-icon" />
+            </Link>
+            <span className="pd__crumb-separator">/</span>
+            <Link to="/categories" className="pd__crumb">
+              Products
+            </Link>
+            <span className="pd__crumb-separator">/</span>
+            <Link
+              to={`/categories?cat=${product.category}`}
+              className="pd__crumb pd__crumb--muted"
+            >
+              {categoryLabel}
+            </Link>
+            <span className="pd__crumb-separator">/</span>
+            <span className="pd__crumb pd__crumb--current">{product.name}</span>
+          </nav>
+
+          <button
+            type="button"
+            className="pd__back"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeftIcon className="pd__back-icon" /> Back
           </button>
-          <span className="pd__header-title">{product.name}</span>
-          <button className="pd__share"><FiShare2 /></button>
-        </div>
 
-        {/* Image */}
-        <div className="pd__image-section">
-          {product.discount > 0 && (
-            <span className="pd__discount-badge">{product.discount}% OFF</span>
-          )}
-          {!imageFailed ? (
-            <img
-              src={toWebpImage(product.image)}
-              alt={product.name}
-              className="pd__image"
-              onError={() => setImageFailed(true)}
-            />
-          ) : (
-            <div className="pd__image pd__image-fallback">
-              {product.name.split(' ').slice(0, 2).map(word => word[0]).join('')}
-            </div>
-          )}
-        </div>
-
-        {/* Info */}
-        <div className="pd__info">
-          <span className="pd__brand">{product.brand}</span>
-          <h1 className="pd__name">{product.name}</h1>
-          <span className="pd__weight">{product.weight} {product.unit}</span>
-
-          <div className="pd__price-row">
-            <span className="pd__price">{formatPrice(product.price)}</span>
-            {product.discount > 0 && (
-              <>
-                <span className="pd__mrp">{formatPrice(product.mrp)}</span>
-                <span className="pd__off">{product.discount}% OFF</span>
-              </>
-            )}
-          </div>
-
-          <div className="pd__badges">
-            <div className="pd__badge">
-              <FiClock />
-              <span>Delivery in {product.deliveryTime}</span>
-            </div>
-            <div className="pd__badge">
-              <FiShield />
-              <span>100% Quality Assured</span>
-            </div>
-          </div>
-
-          {/* Add to cart */}
-          <div className="pd__actions">
-            {quantity === 0 ? (
-              <button className="pd__add-btn" onClick={() => addToCart(product)} id="pd-add-to-cart">
-                <FiShoppingCart /> Add to Cart
-              </button>
-            ) : (
-              <div className="pd__cart-controls">
-                <div className="pd__stepper">
-                  <button onClick={() => quantity <= 1 ? removeFromCart(product.id) : updateQuantity(product.id, quantity - 1)}>
-                    <FiMinus />
-                  </button>
-                  <span>{quantity}</span>
-                  <button onClick={() => updateQuantity(product.id, quantity + 1)}>
-                    <FiPlus />
-                  </button>
+          <section className="pd__hero">
+            <div className="pd__media">
+              {!imageFailed ? (
+                <img
+                  src={toWebpImage(product.image)}
+                  alt={product.name}
+                  className="pd__image"
+                  onError={() => setImageFailed(true)}
+                />
+              ) : (
+                <div className="pd__image pd__image-fallback">
+                  {product.name
+                    .split(" ")
+                    .slice(0, 2)
+                    .map((word) => word[0])
+                    .join("")}
                 </div>
-                <Link to="/cart" className="pd__go-cart">Go to Cart →</Link>
+              )}
+
+              <div className="pd__tags">
+                {isOrganic && (
+                  <span className="pd__tag pd__tag--green">
+                    <LeafIcon className="pd__tag-icon" /> Organic
+                  </span>
+                )}
+                {product.discount > 0 && (
+                  <span className="pd__tag pd__tag--orange">
+                    {product.discount}% OFF
+                  </span>
+                )}
               </div>
-            )}
-          </div>
-
-          {/* Description */}
-          <div className="pd__description">
-            <h3>Product Description</h3>
-            <p>{product.description}</p>
-          </div>
-        </div>
-
-        {/* Similar products */}
-        {similarProducts.length > 0 && (
-          <div className="pd__similar">
-            <h3 className="pd__similar-title">You might also like</h3>
-            <div className="pd__similar-scroll hide-scrollbar">
-              {similarProducts.map(p => (
-                <div key={p.id} className="pd__similar-item">
-                  <ProductCard product={p} compact />
-                </div>
-              ))}
             </div>
-          </div>
-        )}
+
+            <div className="pd__content">
+              <span className="pd__category">{categoryLabel}</span>
+              <h1 className="pd__name">{product.name}</h1>
+
+              <div className="pd__rating-row">
+                <div
+                  className="pd__stars"
+                  aria-label={`Rated ${rating} out of 5`}
+                >
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <StarIcon
+                      key={star}
+                      className={
+                        star <= Math.round(rating)
+                          ? "pd__star pd__star--active"
+                          : "pd__star"
+                      }
+                    />
+                  ))}
+                </div>
+                <span className="pd__rating-value">{rating.toFixed(1)}</span>
+                <span className="pd__rating-count">
+                  ({reviewCount} reviews)
+                </span>
+              </div>
+
+              <div className="pd__price-row">
+                <span className="pd__price">{formatPrice(product.price)}</span>
+                {product.mrp > product.price && (
+                  <span className="pd__mrp">{formatPrice(product.mrp)}</span>
+                )}
+              </div>
+
+              <p className="pd__description">{product.description}</p>
+
+              <div className="pd__meta">
+                <span
+                  className={
+                    product.inStock === false
+                      ? "pd__stock pd__stock--out"
+                      : "pd__stock"
+                  }
+                >
+                  {stockLabel}
+                </span>
+                <span className="pd__delivery">
+                  Delivery in {product.deliveryTime}
+                </span>
+              </div>
+
+              <div className="pd__actions">
+                <div className="pd__stepper">
+                  <button
+                    type="button"
+                    onClick={handleMinus}
+                    aria-label="Decrease quantity"
+                  >
+                    <MinusIcon className="pd__stepper-icon" />
+                  </button>
+                  <span>{displayQuantity}</span>
+                  <button
+                    type="button"
+                    onClick={handlePlus}
+                    aria-label="Increase quantity"
+                  >
+                    <PlusIcon className="pd__stepper-icon" />
+                  </button>
+                </div>
+
+                {inCart ? (
+                  <Link to="/cart" className="pd__cta pd__cta--secondary">
+                    <ShoppingCartIcon className="pd__cta-icon" /> Added to Cart
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    className="pd__cta"
+                    onClick={handleAddToCart}
+                    disabled={product.inStock === false}
+                  >
+                    <ShoppingCartIcon className="pd__cta-icon" /> Add to Cart
+                  </button>
+                )}
+              </div>
+
+              <div className="pd__highlights">
+                <div className="pd__highlight">
+                  <span className="pd__highlight-icon">⚡</span>
+                  <div>
+                    <strong>Fast delivery</strong>
+                    <p>Delivered quickly from your nearest store.</p>
+                  </div>
+                </div>
+                <div className="pd__highlight">
+                  <span className="pd__highlight-icon">✓</span>
+                  <div>
+                    <strong>Quality checked</strong>
+                    <p>Selected and packed for daily freshness.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <DummyReviewsSection product={product} />
+
+          {relatedProducts.length > 0 && (
+            <section className="pd-related">
+              <div className="pd-related__header">
+                <div>
+                  <h2 className="pd-related__title">Related Products</h2>
+                  <p className="pd-related__subtitle">
+                    More from {categoryLabel}
+                  </p>
+                </div>
+                <Link
+                  to={`/categories?cat=${product.category}`}
+                  className="pd-related__link"
+                >
+                  View All <ArrowRightIcon className="pd-related__link-icon" />
+                </Link>
+              </div>
+
+              <div className="pd-related__grid">
+                {relatedProducts.slice(0, 5).map((relatedProduct) => (
+                  <ProductCard
+                    key={relatedProduct.id}
+                    product={relatedProduct}
+                    compact
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
       </div>
     </div>
   );

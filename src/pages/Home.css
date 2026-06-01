@@ -6,8 +6,14 @@
   background:
     radial-gradient(circle at 8% 8%, rgba(30, 77, 43, 0.07), transparent 22%),
     radial-gradient(circle at 92% 20%, rgba(255, 193, 7, 0.1), transparent 24%),
-    linear-gradient(90deg, rgba(30, 77, 43, 0.05), transparent 14%, transparent 86%, rgba(255, 193, 7, 0.08)),
-    #FFFFFF;
+    linear-gradient(
+      90deg,
+      rgba(30, 77, 43, 0.05),
+      transparent 14%,
+      transparent 86%,
+      rgba(255, 193, 7, 0.08)
+    ),
+    #ffffff;
   position: relative;
   overflow: hidden;
 }
@@ -17,32 +23,45 @@
   z-index: 1;
 }
 
-/* Fix #4 — Alternating section backgrounds + 24px padding */
 .home__section {
-  padding: 18px 0;
+  padding: 20px 16px 22px;
+  margin-bottom: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(30, 77, 43, 0.08);
+  border-radius: 24px;
+  box-shadow: 0 18px 40px rgba(30, 77, 43, 0.06);
   animation: fadeInUp 0.5s ease both;
-}
-
-.home__section:nth-child(odd) {
-  background: rgba(255, 255, 255, 0.94);
-}
-
-.home__section:nth-child(even) {
-  background: linear-gradient(135deg, rgba(247, 250, 247, 0.96), rgba(255, 248, 223, 0.42));
 }
 
 .home__section--banner {
   padding: 16px 0;
+  margin-bottom: 14px;
   background: transparent !important;
+  border: none;
+  box-shadow: none;
 }
 
-.home__section:nth-child(2) { animation-delay: 0.1s; }
-.home__section:nth-child(3) { animation-delay: 0.2s; }
-.home__section:nth-child(4) { animation-delay: 0.3s; }
-.home__section:nth-child(5) { animation-delay: 0.4s; }
-.home__section:nth-child(6) { animation-delay: 0.5s; }
-.home__section:nth-child(7) { animation-delay: 0.6s; }
-.home__section:nth-child(8) { animation-delay: 0.7s; }
+.home__section:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.home__section:nth-child(3) {
+  animation-delay: 0.2s;
+}
+.home__section:nth-child(4) {
+  animation-delay: 0.3s;
+}
+.home__section:nth-child(5) {
+  animation-delay: 0.4s;
+}
+.home__section:nth-child(6) {
+  animation-delay: 0.5s;
+}
+.home__section:nth-child(7) {
+  animation-delay: 0.6s;
+}
+.home__section:nth-child(8) {
+  animation-delay: 0.7s;
+}
 
 .home__scroll-wrap {
   position: relative;
@@ -52,6 +71,8 @@
   padding-top: 18px;
   padding-bottom: 20px;
   background: transparent !important;
+  border: none;
+  box-shadow: none;
 }
 
 .home-essentials-carousel {
@@ -75,36 +96,60 @@
   align-items: stretch;
   gap: 18px;
   position: relative;
-  color: #FFFFFF;
+  color: #ffffff;
   background:
-    radial-gradient(circle at 18% 20%, rgba(255, 231, 150, 0.26), transparent 25%),
-    radial-gradient(circle at 92% 8%, rgba(105, 189, 165, 0.32), transparent 28%),
-    linear-gradient(135deg, #07233B 0%, #0D5A58 48%, #148A73 100%);
+    radial-gradient(
+      circle at 18% 20%,
+      rgba(255, 231, 150, 0.26),
+      transparent 25%
+    ),
+    radial-gradient(
+      circle at 92% 8%,
+      rgba(105, 189, 165, 0.32),
+      transparent 28%
+    ),
+    linear-gradient(135deg, #07233b 0%, #0d5a58 48%, #148a73 100%);
 }
 
 .home-essentials--diwali {
   background:
-    radial-gradient(circle at 18% 20%, rgba(255, 231, 150, 0.3), transparent 25%),
+    radial-gradient(
+      circle at 18% 20%,
+      rgba(255, 231, 150, 0.3),
+      transparent 25%
+    ),
     radial-gradient(circle at 92% 8%, rgba(255, 107, 53, 0.3), transparent 28%),
-    linear-gradient(135deg, #311405 0%, #8D2F1D 48%, #D88A18 100%);
+    linear-gradient(135deg, #311405 0%, #8d2f1d 48%, #d88a18 100%);
 }
 
 .home-essentials--holi {
   background:
-    radial-gradient(circle at 18% 20%, rgba(255, 255, 255, 0.28), transparent 25%),
+    radial-gradient(
+      circle at 18% 20%,
+      rgba(255, 255, 255, 0.28),
+      transparent 25%
+    ),
     radial-gradient(circle at 92% 8%, rgba(255, 193, 7, 0.28), transparent 28%),
-    linear-gradient(135deg, #093459 0%, #0E7C86 48%, #D9469B 100%);
+    linear-gradient(135deg, #093459 0%, #0e7c86 48%, #d9469b 100%);
 }
 
 .home-essentials--christmas {
   background:
-    radial-gradient(circle at 18% 20%, rgba(255, 231, 150, 0.24), transparent 25%),
-    radial-gradient(circle at 92% 8%, rgba(255, 255, 255, 0.24), transparent 28%),
-    linear-gradient(135deg, #102A22 0%, #1E6542 48%, #B72929 100%);
+    radial-gradient(
+      circle at 18% 20%,
+      rgba(255, 231, 150, 0.24),
+      transparent 25%
+    ),
+    radial-gradient(
+      circle at 92% 8%,
+      rgba(255, 255, 255, 0.24),
+      transparent 28%
+    ),
+    linear-gradient(135deg, #102a22 0%, #1e6542 48%, #b72929 100%);
 }
 
 .home-essentials::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   background:
@@ -123,8 +168,8 @@
 .home-essentials__eyebrow {
   display: inline-flex;
   width: fit-content;
-  background: #FFC107;
-  color: #08263B;
+  background: #ffc107;
+  color: #08263b;
   border-radius: 999px;
   padding: 6px 11px;
   font-size: 12px;
@@ -154,8 +199,8 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #FFC107;
-  color: #1C1C1C;
+  background: #ffc107;
+  color: #1c1c1c;
   border-radius: 9px;
   padding: 12px 18px;
   font-weight: 800;
@@ -192,10 +237,14 @@
 }
 
 .home-essentials__tile::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(4, 28, 38, 0.06), rgba(4, 28, 38, 0.78));
+  background: linear-gradient(
+    180deg,
+    rgba(4, 28, 38, 0.06),
+    rgba(4, 28, 38, 0.78)
+  );
 }
 
 .home-essentials__tile span {
@@ -203,7 +252,7 @@
   z-index: 1;
   width: 100%;
   padding: 10px;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: 13px;
   font-weight: 800;
   line-height: 1.15;
@@ -220,7 +269,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #FFFFFF;
+  color: #ffffff;
   background: rgba(8, 38, 59, 0.56);
   border: 1px solid rgba(255, 255, 255, 0.32);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
@@ -254,12 +303,14 @@
   height: 7px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.46);
-  transition: width 0.2s ease, background 0.2s ease;
+  transition:
+    width 0.2s ease,
+    background 0.2s ease;
 }
 
 .home-essentials__dot--active {
   width: 22px;
-  background: #FFC107;
+  background: #ffc107;
 }
 
 /* Category strip */
@@ -277,14 +328,14 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--space-sm);
-  padding: 0 8px;
+  padding: 0 4px;
 }
 
 .home-offer-grid {
   display: flex;
   gap: var(--space-md);
   overflow-x: auto;
-  padding: 0 8px;
+  padding: 0 4px;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
 }
@@ -296,7 +347,7 @@
 
 .home-offer-card {
   min-height: 190px;
-  background: linear-gradient(180deg, #FFFFFF 0%, #FBFDFB 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdfb 100%);
   border: 1px solid rgba(30, 77, 43, 0.1);
   border-radius: 12px;
   overflow: hidden;
@@ -304,7 +355,9 @@
   grid-template-columns: 42% 1fr;
   color: inherit;
   box-shadow: 0 10px 28px rgba(30, 77, 43, 0.08);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .home-offer-card:hover {
@@ -321,9 +374,13 @@
 
 .home-offer-card__image-fallback {
   background:
-    radial-gradient(circle at 30% 20%, rgba(233, 168, 0, 0.25), transparent 30%),
-    linear-gradient(135deg, #F7FAF7, #FFF8DF);
-  color: #1E4D2B;
+    radial-gradient(
+      circle at 30% 20%,
+      rgba(233, 168, 0, 0.25),
+      transparent 30%
+    ),
+    linear-gradient(135deg, #f7faf7, #fff8df);
+  color: #1e4d2b;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -341,8 +398,8 @@
 
 .home-offer-card__badge {
   width: fit-content;
-  background: #FF6B35;
-  color: #FFFFFF;
+  background: #ff6b35;
+  color: #ffffff;
   font-size: 11px;
   font-weight: 800;
   padding: 5px 7px;
@@ -350,7 +407,7 @@
 }
 
 .home-offer-card h3 {
-  color: #1E4D2B;
+  color: #1e4d2b;
   font-size: 18px;
   font-weight: 800;
   line-height: 1.15;
@@ -358,7 +415,7 @@
 }
 
 .home-offer-card p {
-  color: #6B7280;
+  color: #6b7280;
   font-size: 13px;
   line-height: 1.35;
 }
@@ -381,9 +438,9 @@
 }
 
 .home-offer-card__add {
-  color: #1E4D2B;
-  background: #FFFFFF;
-  border: 1.5px solid #1E4D2B;
+  color: #1e4d2b;
+  background: #ffffff;
+  border: 1.5px solid #1e4d2b;
 }
 
 .home-offer-card__stepper {
@@ -391,14 +448,14 @@
   align-items: center;
   justify-content: space-between;
   overflow: hidden;
-  color: #FFFFFF;
-  background: #1E4D2B;
+  color: #ffffff;
+  background: #1e4d2b;
 }
 
 .home-offer-card__stepper button {
   width: 31px;
   height: 34px;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: 16px;
   font-weight: 800;
 }
@@ -409,13 +466,13 @@
 }
 
 .home-offer-card__price {
-  color: #1E4D2B;
+  color: #1e4d2b;
   font-size: 18px;
   font-weight: 800;
 }
 
 .home-offer-card__mrp {
-  color: #9CA3AF;
+  color: #9ca3af;
   font-size: 13px;
   text-decoration: line-through;
 }
@@ -425,7 +482,7 @@
   display: flex;
   gap: var(--space-sm);
   overflow-x: auto;
-  padding: 0 8px;
+  padding: 0 4px;
   padding-bottom: var(--space-xs);
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
@@ -438,8 +495,8 @@
   width: 34px;
   height: 34px;
   border-radius: var(--radius-full);
-  background: #FFFFFF;
-  color: #1E4D2B;
+  background: #ffffff;
+  color: #1e4d2b;
   border: 1px solid rgba(30, 77, 43, 0.12);
   box-shadow: 0 8px 20px rgba(30, 77, 43, 0.16);
   display: flex;
@@ -448,8 +505,12 @@
   transform: translateY(-50%);
 }
 
-.home__scroll-btn--left { left: 0; }
-.home__scroll-btn--right { right: 0; }
+.home__scroll-btn--left {
+  left: 0;
+}
+.home__scroll-btn--right {
+  right: 0;
+}
 
 .home__deals-item {
   min-width: 152px;
@@ -463,14 +524,35 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--space-sm);
-  padding: 0 8px;
+  padding: 0 4px;
+}
+
+@media (max-width: 767px) {
+  .home__section {
+    padding: 16px 10px 18px;
+    margin-bottom: 14px;
+    border-radius: 20px;
+  }
+
+  .home__section--banner,
+  .home__section--essentials {
+    padding-left: 0;
+    padding-right: 0;
+    margin-bottom: 14px;
+    border: none;
+    box-shadow: none;
+  }
 }
 
 /* Footer — 3-column horizontal */
 .home__footer {
   background:
-    radial-gradient(circle at 18% 10%, rgba(255, 193, 7, 0.18), transparent 26%),
-    linear-gradient(135deg, #14351E, #1E4D2B 58%, #2F6B3F);
+    radial-gradient(
+      circle at 18% 10%,
+      rgba(255, 193, 7, 0.18),
+      transparent 26%
+    ),
+    linear-gradient(135deg, #14351e, #1e4d2b 58%, #2f6b3f);
   color: white;
   padding: 48px var(--space-md) 24px;
   margin-top: var(--space-2xl);
@@ -529,7 +611,7 @@
 }
 
 .home__footer-heart {
-  color: #FF6B35;
+  color: #ff6b35;
   font-size: 14px;
 }
 
@@ -617,9 +699,18 @@
     gap: 0;
     border-radius: 12px;
     background:
-      linear-gradient(180deg, rgba(5, 33, 52, 0.28), rgba(5, 33, 52, 0.08) 34%, transparent 34%),
-      radial-gradient(circle at 86% 12%, rgba(255, 231, 150, 0.25), transparent 28%),
-      linear-gradient(145deg, #08263B 0%, #0D5A58 56%, #148A73 100%);
+      linear-gradient(
+        180deg,
+        rgba(5, 33, 52, 0.28),
+        rgba(5, 33, 52, 0.08) 34%,
+        transparent 34%
+      ),
+      radial-gradient(
+        circle at 86% 12%,
+        rgba(255, 231, 150, 0.25),
+        transparent 28%
+      ),
+      linear-gradient(145deg, #08263b 0%, #0d5a58 56%, #148a73 100%);
   }
 
   .home-essentials-carousel {
@@ -784,7 +875,10 @@
     opacity: 1;
     transform: translateY(-50%) scale(1);
     pointer-events: auto;
-    transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease,
+      background 0.2s ease;
   }
 
   .home__scroll-btn--left {
@@ -796,6 +890,6 @@
   }
 
   .home__scroll-btn:hover {
-    background: #F8FAF9;
+    background: #f8faf9;
   }
 }
