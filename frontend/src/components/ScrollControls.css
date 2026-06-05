@@ -1,0 +1,69 @@
+.scroll-controls {
+  z-index: 235;
+  pointer-events: none;
+}
+
+.scroll-controls__btn {
+  position: fixed;
+  right: 18px;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  background: #1E3A5F;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 10px 24px rgba(30, 58, 95, 0.22);
+  pointer-events: auto;
+}
+
+.scroll-controls__btn--top {
+  top: 104px;
+}
+
+.scroll-controls__btn--bottom {
+  bottom: 28px;
+}
+
+.scroll-controls--cart-visible .scroll-controls__btn--bottom {
+  right: 18px;
+  bottom: 84px;
+}
+
+.scroll-controls__btn:hover {
+  background: #2B4F78;
+  transform: translateY(-1px);
+}
+
+.scroll-controls svg {
+  width: 22px;
+  height: 22px;
+}
+
+.navbar-menu-open .scroll-controls {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .scroll-controls__btn {
+    right: 9px;
+    width: 34px;
+    height: 34px;
+    box-shadow: 0 8px 18px rgba(30, 58, 95, 0.2);
+  }
+
+  .scroll-controls__btn--top {
+    top: 196px;
+  }
+
+  .scroll-controls__btn--bottom {
+    bottom: 78px;
+  }
+
+  .scroll-controls--cart-visible .scroll-controls__btn--bottom {
+    right: 9px;
+    bottom: 140px;
+  }
+}

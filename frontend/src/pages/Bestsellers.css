@@ -1,0 +1,214 @@
+/* ============================
+   BESTSELLERS PAGE
+   ============================ */
+
+.bspage {
+  display: flex;
+  gap: 18px;
+  min-height: calc(100vh - 200px);
+  background: linear-gradient(180deg, #F7F4EE 0%, #ffffff 32%, #fbfcf8 100%);
+  padding: 18px 12px 28px;
+}
+
+.bspage__sidebar {
+  width: 92px;
+  background: #ffffff;
+  border: 1px solid rgba(30, 58, 95, 0.08);
+  border-radius: 18px;
+  overflow-y: auto;
+  position: sticky;
+  top: 112px;
+  height: calc(100vh - 132px);
+  flex-shrink: 0;
+  padding: 10px 0 78px;
+  box-shadow: 0 18px 40px rgba(30, 58, 95, 0.06);
+}
+
+.bspage__sidebar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 10px;
+  gap: 6px;
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.15s, background 0.15s;
+  border-left: 3px solid transparent;
+  width: 100%;
+  background: none;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+}
+
+.bspage__sidebar-item:hover {
+  background: rgba(176, 141, 87, 0.08);
+  transform: translateX(2px);
+}
+
+.bspage__sidebar-item--active {
+  background: linear-gradient(180deg, rgba(30, 58, 95, 0.06), rgba(255, 248, 223, 0.9));
+  border-left-color: #B08D57;
+}
+
+.bspage__sidebar-item--active .bspage__sidebar-name {
+  color: #1E3A5F;
+  font-weight: 700;
+}
+
+.bspage__sidebar-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #F7F4EE;
+  border: 1px solid rgba(30, 58, 95, 0.1);
+}
+
+.bspage__sidebar-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bspage__sidebar-icon--all {
+  color: #B08D57;
+  font-size: 18px;
+}
+
+.bspage__sidebar-name {
+  font-size: 10px;
+  color: #687466;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.bspage__content {
+  flex: 1;
+  padding: 4px 4px 100px;
+  min-width: 0;
+}
+
+.bspage__mode-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #F7F4EE, #EFE3D1);
+  border: 1px solid rgba(30, 58, 95, 0.13);
+  color: #1E3A5F;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.bspage__mode-banner--wholesale {
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+  border-color: rgba(37, 99, 235, 0.2);
+}
+
+.bspage__mode-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #B08D57;
+  flex-shrink: 0;
+}
+
+.bspage__heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.bspage__heading {
+  font-size: clamp(22px, 3vw, 32px);
+  font-weight: 800;
+  color: #1E3A5F;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bspage__heading-icon {
+  color: #B08D57;
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+.bspage__count {
+  font-size: 13px;
+  font-weight: 600;
+  color: #687466;
+  background: #ffffff;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(30, 58, 95, 0.08);
+}
+
+.bspage__back-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #1E3A5F;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.bspage__back-link:hover {
+  color: #B08D57;
+}
+
+.bspage__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.bspage__empty {
+  text-align: center;
+  padding: 72px 18px;
+  color: #687466;
+  background: #ffffff;
+  border: 1px solid rgba(30, 58, 95, 0.08);
+  border-radius: 24px;
+}
+
+.bspage__empty-icon {
+  width: 48px;
+  height: 48px;
+  color: #2B4F78;
+  margin: 0 auto 12px;
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .bspage__sidebar { width: 108px; }
+  .bspage__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1024px) {
+  .bspage__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767px) {
+  .bspage { gap: 8px; padding: 10px 6px 20px; }
+  .bspage__sidebar { width: 66px; top: 92px; height: calc(100vh - 172px); padding: 8px 0 68px; }
+  .bspage__sidebar-icon { width: 38px; height: 38px; border-radius: 10px; }
+  .bspage__sidebar-name { font-size: 8.5px; }
+  .bspage__content { padding: 0 0 96px; }
+  .bspage__heading { font-size: 20px; }
+  .bspage__grid { gap: 10px; }
+  .bspage__mode-banner { font-size: 11px; padding: 9px 10px; }
+}

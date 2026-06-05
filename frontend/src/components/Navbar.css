@@ -1,0 +1,700 @@
+/* ============================
+   NAVBAR
+   ============================ */
+
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-sticky);
+  background: rgba(247, 244, 238, 0.98);
+  border-bottom: 1px solid rgba(30, 58, 95, 0.12);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.navbar__container {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 12px;
+  position: relative;
+}
+
+/* ── Single-row bar (desktop) ── */
+.navbar__bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 80px;
+}
+
+/* ── Brand ── */
+.navbar__brand-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.navbar__brand-logo-wrap {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(30, 58, 95, 0.12);
+  box-shadow: 0 4px 12px rgba(30, 58, 95, 0.1);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.navbar__brand-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.navbar__brand-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.navbar__brand-name {
+  color: #1E3A5F;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  line-height: 1.1;
+}
+
+.navbar__brand-tagline {
+  color: #8A6A3E;
+  font-size: 11px;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+/* ── Mode switch ── */
+.navbar__mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(176, 141, 87, 0.28);
+  flex-shrink: 0;
+}
+
+.navbar__mode-btn {
+  min-width: 88px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 9px;
+  color: #1E3A5F;
+  font-size: 13px;
+  font-weight: 800;
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navbar__mode-btn--active {
+  background: #1E3A5F;
+  color: #ffffff;
+  box-shadow: 0 6px 14px rgba(30, 58, 95, 0.18);
+}
+
+/* ── Address pill (desktop) ── */
+.navbar__address-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(176, 141, 87, 0.28);
+  color: #1E3A5F;
+  min-width: 260px;
+  max-width: 340px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+
+.navbar__address-pill:hover {
+  background: #F7F4EE;
+}
+
+.navbar__address-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  text-align: left;
+  flex: 1;
+}
+
+.navbar__address-label {
+  color: #1c1c1c;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.navbar__address-text {
+  color: #687466;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.navbar__chevron {
+  width: 15px;
+  height: 15px;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+/* ── Search ── */
+.navbar__search {
+  flex: 1;
+  min-width: 0;
+  max-width: 400px;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid rgba(176, 141, 87, 0.28);
+}
+
+.navbar__search-icon {
+  width: 17px;
+  height: 17px;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.navbar__search-input {
+  flex: 1;
+  background: transparent;
+  color: #1c1c1c;
+  font-size: 13px;
+  border: none;
+  outline: none;
+}
+
+.navbar__search-input::placeholder {
+  color: #9ca3af;
+}
+
+/* ── Right actions ── */
+.navbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.navbar__cart {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: #EFE3D1;
+  color: #1E3A5F;
+  border: 1px solid rgba(176, 141, 87, 0.34);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.18s, color 0.18s;
+  text-decoration: none;
+}
+
+.navbar__cart:hover {
+  background: #B08D57;
+  color: #ffffff;
+}
+
+.navbar__action-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.navbar__cart-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  padding: 0 4px;
+  background: #ff6b35;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(247, 244, 238, 0.98);
+}
+
+.navbar__signin {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 46px;
+  padding: 0 16px;
+  border-radius: 13px;
+  background: #1E3A5F;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-decoration: none;
+  transition: background 0.18s;
+}
+
+.navbar__signin:hover {
+  background: #2B4F78;
+}
+
+.navbar__user-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: #ffffff;
+  color: #1E3A5F;
+  border: 1px solid rgba(176, 141, 87, 0.28);
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.18s;
+  padding: 0;
+}
+
+.navbar__user-btn:hover {
+  background: #F7F4EE;
+}
+
+.navbar__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #1E3A5F;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.navbar__avatar--large {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.navbar__avatar-icon {
+  width: 17px;
+  height: 17px;
+}
+
+/* Hamburger — visible on ALL screen sizes */
+.navbar__menu-toggle {
+  display: inline-flex;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: #ffffff;
+  color: #1E3A5F;
+  border: 1px solid rgba(176, 141, 87, 0.28);
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+
+.navbar__menu-toggle:hover {
+  background: #F7F4EE;
+}
+
+.navbar__menu-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ── Backdrop — transparent, just catches outside clicks ── */
+.navbar__backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: calc(var(--z-dropdown) - 1);
+  border: none;
+  padding: 0;
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Dropdown menus ── */
+.navbar__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 12px;
+  width: min(360px, calc(100vw - 24px));
+  background: #ffffff;
+  border: 1px solid rgba(30, 58, 95, 0.1);
+  border-radius: 18px;
+  box-shadow: 0 20px 48px rgba(17, 24, 39, 0.14);
+  overflow: hidden;
+  z-index: var(--z-dropdown);
+}
+
+.navbar__menu--address {
+  width: min(420px, calc(100vw - 24px));
+}
+
+/* User profile menu aligns from right like the nav menu */
+.navbar__menu--user {
+  width: min(280px, calc(100vw - 24px));
+}
+
+.navbar__menu-section {
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  gap: 4px;
+}
+
+.navbar__menu-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 6px 12px;
+  border-bottom: 1px solid rgba(30, 58, 95, 0.08);
+  margin-bottom: 2px;
+}
+
+.navbar__menu-user--address {
+  align-items: flex-start;
+}
+
+.navbar__menu-name {
+  color: #1c1c1c;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.navbar__menu-email {
+  color: #687466;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.dropdown-link {
+  width: 100%;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-radius: 12px;
+  color: #1c1c1c;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.dropdown-link:hover {
+  background: #F7F4EE;
+  color: #1E3A5F;
+}
+
+.dropdown-link--danger {
+  color: #c2410c;
+}
+
+.dropdown-link--danger:hover {
+  background: #fff0ea;
+  color: #9a3412;
+}
+
+/* ── Address dropdown internals ── */
+.navbar__address-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0 10px;
+}
+
+.navbar__address-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #F7F4EE;
+  border: 1px solid rgba(30, 58, 95, 0.08);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+  width: 100%;
+}
+
+.navbar__address-item:hover {
+  background: #EFE3D1;
+}
+
+.navbar__address-item-title {
+  color: #1c1c1c;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.navbar__address-item-text {
+  color: #687466;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.navbar__address-empty {
+  color: #687466;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 2px 0 6px;
+}
+
+.navbar__address-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(30, 58, 95, 0.08);
+}
+
+.navbar__address-form input {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  font-size: 13px;
+  outline: none;
+}
+
+.navbar__address-form input:focus {
+  border-color: rgba(176, 141, 87, 0.5);
+}
+
+.navbar__address-form-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.navbar__address-save {
+  min-width: 80px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: #1E3A5F;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+
+.navbar__address-save:hover {
+  background: #2B4F78;
+}
+
+/* ============================
+   RESPONSIVE — Tablet/Mobile ≤ 900px
+   ============================ */
+@media (max-width: 900px) {
+  .navbar__bar {
+    height: auto;
+    min-height: 0;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 0 8px;
+  }
+
+  /* Row 1: Logo (flex-grow) + Cart + Hamburger */
+  .navbar__brand-link {
+    order: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .navbar__actions {
+    order: 2;
+    margin-left: auto;
+    gap: 8px;
+  }
+
+  /* Row 2: Mode switch + Search (full width) */
+  .navbar__mode-switch {
+    order: 3;
+    flex-shrink: 0;
+  }
+
+  .navbar__search {
+    order: 4;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none;
+    margin-left: 0;
+    height: 42px;
+    border-radius: 10px;
+  }
+
+  /* Row 3: Delivery pill — full width, compact */
+  .navbar__address-pill {
+    order: 5;
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: none;
+    height: 40px;
+    border-radius: 10px;
+    padding: 0 12px;
+  }
+
+  .navbar__address-label {
+    font-size: 12px;
+  }
+
+  .navbar__address-text {
+    font-size: 11px;
+  }
+
+  /* Show hamburger */
+  .navbar__menu-toggle {
+    display: inline-flex;
+  }
+
+  /* Hide desktop-only sign in */
+  .navbar__signin {
+    display: none;
+  }
+
+  .navbar__cart,
+  .navbar__menu-toggle,
+  .navbar__user-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+  }
+
+  .navbar__brand-logo-wrap {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+  }
+
+  /* Avatar inside user-btn — perfectly centered */
+  .navbar__user-btn .navbar__avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .navbar__brand-name {
+    font-size: 16px;
+  }
+
+  .navbar__brand-tagline {
+    display: block;
+    font-size: 10px;
+  }
+
+  .navbar__mode-btn {
+    min-width: 72px;
+    height: 38px;
+    font-size: 12px;
+    padding: 0 10px;
+  }
+}
+
+@media (max-width: 520px) {
+  .navbar__brand-logo-wrap {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+  }
+
+  .navbar__brand-name {
+    font-size: 14px;
+  }
+
+  .navbar__brand-tagline {
+    font-size: 9px;
+  }
+
+  .navbar__brand-copy {
+    max-width: 140px;
+  }
+
+  .navbar__cart,
+  .navbar__menu-toggle,
+  .navbar__user-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  .navbar__user-btn .navbar__avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
+  }
+
+  .navbar__mode-btn {
+    min-width: 64px;
+    height: 36px;
+    font-size: 12px;
+    padding: 0 8px;
+    border-radius: 8px;
+  }
+
+  .navbar__search {
+    height: 38px;
+  }
+
+  .navbar__address-pill {
+    height: 38px;
+  }
+
+  .navbar__menu {
+    right: 0;
+    width: calc(100vw - 16px);
+    border-radius: 14px;
+  }
+}

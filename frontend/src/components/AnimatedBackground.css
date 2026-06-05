@@ -1,0 +1,25 @@
+/* ============================
+   ANIMATED BACKGROUND — OVERLAY
+   ============================ */
+
+.abg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.abg__particle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+  transition: opacity 1s ease;
+  user-select: none;
+  line-height: 1;
+  filter: saturate(1.12) drop-shadow(0 10px 18px rgba(30, 58, 95, 0.12));
+}

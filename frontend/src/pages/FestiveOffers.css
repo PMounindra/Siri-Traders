@@ -1,0 +1,299 @@
+/* ============================
+   FESTIVE OFFERS PAGE
+   ============================ */
+
+.fopage {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 18px 14px 100px;
+  background: linear-gradient(180deg, #F7F4EE 0%, #ffffff 32%, #fbfcf8 100%);
+  min-height: calc(100vh - 200px);
+}
+
+.fopage__mode-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #F7F4EE, #EFE3D1);
+  border: 1px solid rgba(30, 58, 95, 0.13);
+  color: #1E3A5F;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.fopage__mode-banner--wholesale {
+  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+  border-color: rgba(37, 99, 235, 0.2);
+}
+
+.fopage__mode-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #B08D57;
+  flex-shrink: 0;
+}
+
+.fopage__heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+
+.fopage__heading {
+  font-size: clamp(22px, 3vw, 32px);
+  font-weight: 800;
+  color: #1E3A5F;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fopage__heading-icon {
+  color: #B08D57;
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+.fopage__count {
+  font-size: 13px;
+  font-weight: 600;
+  color: #687466;
+  background: #ffffff;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(30, 58, 95, 0.08);
+}
+
+.fopage__back-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #1E3A5F;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.fopage__back-link:hover {
+  color: #B08D57;
+}
+
+/* ── Cards grid ── */
+.fopage__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.fopage__card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(176, 141, 87, 0.2);
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(30, 58, 95, 0.07);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  color: inherit;
+}
+
+.fopage__card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(30, 58, 95, 0.12);
+}
+
+.fopage__card-img-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+}
+
+.fopage__card-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.fopage__card:hover .fopage__card-img-wrap img {
+  transform: scale(1.04);
+}
+
+.fopage__card-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #1E3A5F;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.fopage__card-body {
+  padding: 14px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 4px;
+}
+
+.fopage__card-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #1E3A5F;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.fopage__card-sub {
+  font-size: 12px;
+  color: #687466;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.fopage__card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+.fopage__card-price {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.fopage__card-price strong {
+  font-size: 17px;
+  font-weight: 800;
+  color: #1E3A5F;
+}
+
+.fopage__card-mrp {
+  font-size: 12px;
+  color: #687466;
+  text-decoration: line-through;
+}
+
+.fopage__card-disc {
+  font-size: 11px;
+  font-weight: 700;
+  color: #2e7d32;
+  background: #e8f5e9;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Add / Stepper buttons */
+.fopage__card-add {
+  min-width: 64px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid #B08D57;
+  background: #ffffff;
+  color: #1E3A5F;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+
+.fopage__card-add:hover {
+  background: #1E3A5F;
+  color: #ffffff;
+}
+
+.fopage__card-stepper {
+  display: grid;
+  grid-template-columns: 28px 1fr 28px;
+  align-items: center;
+  min-width: 82px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid #B08D57;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 800;
+  color: #1E3A5F;
+  flex-shrink: 0;
+}
+
+.fopage__card-stepper button {
+  width: 28px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.fopage__card-stepper button:hover {
+  background: #1E3A5F;
+  color: #ffffff;
+}
+
+.fopage__card-stepper span {
+  text-align: center;
+}
+
+@media (min-width: 640px) {
+  .fopage__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .fopage__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .fopage__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .fopage {
+    padding: 12px 10px 96px;
+  }
+  .fopage__heading {
+    font-size: 20px;
+  }
+  .fopage__grid {
+    gap: 12px;
+  }
+  .fopage__card-title {
+    font-size: 14px;
+  }
+  .fopage__card-price strong {
+    font-size: 15px;
+  }
+}
