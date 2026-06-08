@@ -35,7 +35,7 @@ const getSavedAddresses = (user) => {
 
 const Checkout = () => {
   const { cartItems, cartTotal, cartCount, clearCart, requireAuth } = useCart();
-  const { location, user, isAuthenticated } = useAuth();
+  const { location, user, isAuthenticated, getToken } = useAuth();
   const navigate = useNavigate();
   const addressStorageKey = getUserStorageKey(user, 'addresses');
   const orderStorageKey = getUserStorageKey(user, 'orders');
@@ -137,7 +137,7 @@ const Checkout = () => {
     setAddressError('');
   };
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     let addressForOrder = selectedAddress;
 
     if (showAddressForm || !addressForOrder) {
@@ -145,6 +145,64 @@ const Checkout = () => {
     }
 
     if (!addressForOrder) return;
+
+    const orderTotal = grandTotal;
+    const orderItemsList = cartItems.map(item => ({
+      productId: item.id,
+      name: item.name,
+      quantity: item.quantity,
+      price: item.price,
+      weight: item.weight || '',
+      unit: item.unit || ''
+    }));
+
+    if (getToken) {
+      try {
+        const token = await getToken();
+        
+        // 1. Call checkout endpoint
+        const checkoutRes = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            total: orderTotal,
+            items: orderItemsList
+          })
+        });
+        
+        if (!checkoutRes.ok) {
+          const errData = await checkoutRes.json();
+          alert(errData.error || 'Checkout failed');
+          return;
+        }
+
+        // 2. Call place order endpoint
+        const orderRes = await fetch('/api/orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            items: orderItemsList,
+            total: orderTotal,
+            deliveryAddress: `${addressForOrder.address}, ${addressForOrder.pincode}`,
+            paymentMethod: selectedPayment
+          })
+        });
+
+        if (!orderRes.ok) {
+          const errData = await orderRes.json();
+          alert(errData.error || 'Failed to place order');
+          return;
+        }
+      } catch (err) {
+        console.error("API error during checkout/order placement:", err);
+      }
+    }
 
     const order = {
       id: orderId,

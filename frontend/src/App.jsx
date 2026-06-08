@@ -6,8 +6,10 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
+import { ClerkProvider } from "@clerk/clerk-react";
 import { CartProvider } from "./context/CartContext";
 import { AuthProvider } from "./context/AuthContext";
+import { ProductProvider } from "./context/ProductContext";
 import Navbar from "./components/Navbar";
 import BottomNav from "./components/BottomNav";
 import ScrollControls from "./components/ScrollControls";
@@ -27,6 +29,12 @@ import Orders from "./pages/Orders";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import "./App.css";
+
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+if (!PUBLISHABLE_KEY) {
+  console.warn("Clerk Publishable Key is missing. Please check your .env file.");
+}
 
 const AppLayout = () => {
   const location = useLocation();
@@ -69,14 +77,32 @@ const AppLayout = () => {
 };
 
 function App() {
+  if (!PUBLISHABLE_KEY) {
+    return (
+      <Router>
+        <AuthProvider>
+          <ProductProvider>
+            <CartProvider>
+              <AppLayout />
+            </CartProvider>
+          </ProductProvider>
+        </AuthProvider>
+      </Router>
+    );
+  }
+
   return (
-    <Router>
-      <AuthProvider>
-        <CartProvider>
-          <AppLayout />
-        </CartProvider>
-      </AuthProvider>
-    </Router>
+    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
+      <Router>
+        <AuthProvider>
+          <ProductProvider>
+            <CartProvider>
+              <AppLayout />
+            </CartProvider>
+          </ProductProvider>
+        </AuthProvider>
+      </Router>
+    </ClerkProvider>
   );
 }
 

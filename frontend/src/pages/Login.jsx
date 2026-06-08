@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiMail, FiSmartphone, FiX, FiCheck } from 'react-icons/fi';
+import { SignIn } from '@clerk/clerk-react';
 import { useAuth } from '../context/AuthContext';
 import './Login.css';
 
@@ -18,7 +19,7 @@ const Login = () => {
   const [forgotError, setForgotError] = useState('');
 
   const otpRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
-  const { login } = useAuth();
+  const { login, isClerk } = useAuth();
   const navigate = useNavigate();
 
   // Detect input mode
@@ -176,6 +177,14 @@ const Login = () => {
     setForgotSent(false);
     setForgotError('');
   };
+
+  if (isClerk) {
+    return (
+      <div className="login-page" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', padding: '20px' }}>
+        <SignIn signUpUrl="/signup" forceRedirectUrl="/home" />
+      </div>
+    );
+  }
 
   return (
     <div className="login-page">

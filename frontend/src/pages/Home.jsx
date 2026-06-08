@@ -17,9 +17,10 @@ import CategoryCard from '../components/CategoryCard';
 import ProductCard from '../components/ProductCard';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useProducts } from '../context/ProductContext';
 import { categories } from '../data/categories';
 import { getDailyOffers, getFestivalOffers } from '../data/offers';
-import { baseProducts, getProducts } from '../data/products';
+import { baseProducts } from '../data/products';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
 import './Home.css';
@@ -412,10 +413,11 @@ const OffersSection = ({ customerType }) => {
 
 const Home = () => {
   const { customerType } = useAuth();
+  const { getProductsForType, loading } = useProducts();
   const isWholesale = customerType === 'wholesale';
   const stapleIds = ['pulses', 'rice', 'atta', 'oils', 'masala', 'ravva-poha', 'millets', 'grocery-essentials', 'nuts-dry-fruits'];
   const staplePriority = ['pulses', 'rice', 'oils', 'atta', 'masala'];
-  const catalog = customerType === 'retail' ? baseProducts : getProducts(customerType);
+  const catalog = getProductsForType(customerType);
   const byCategory = category => catalog.filter(product => product.category === category);
   const categoryRank = (category) => {
     if (category === 'fruits' || category === 'vegetables') return 99;

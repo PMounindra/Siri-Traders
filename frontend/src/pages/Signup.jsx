@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiUser, FiMail, FiPhone } from 'react-icons/fi';
+import { SignUp } from '@clerk/clerk-react';
 import { useAuth } from '../context/AuthContext';
 import './Signup.css';
 
@@ -13,7 +14,7 @@ const Signup = () => {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signup } = useAuth();
+  const { signup, isClerk } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = (e) => {
@@ -30,6 +31,14 @@ const Signup = () => {
       navigate('/home');
     }, 800);
   };
+
+  if (isClerk) {
+    return (
+      <div className="signup-page" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', padding: '20px' }}>
+        <SignUp signInUrl="/login" forceRedirectUrl="/home" />
+      </div>
+    );
+  }
 
   return (
     <div className="signup-page">
