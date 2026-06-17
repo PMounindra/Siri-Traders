@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiUser, FiMail, FiPhone, FiArrowLeft } from 'react-icons/fi';
-import { useSignUp, useAuth } from '@clerk/react-router';
+import { useSignUp } from '@clerk/react-router';
 import './Signup.css';
 
 const ClerkSignUp = () => {
@@ -14,17 +14,10 @@ const ClerkSignUp = () => {
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const { signUp, isLoaded, setActive } = useSignUp();
-  const { isSignedIn } = useAuth();
   const navigate = useNavigate();
-
-  if (isSignedIn) {
-    navigate('/home', { replace: true });
-    return null;
-  }
 
   const isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
-  // Handle code input
   const handleCodeChange = (index, value) => {
     if (!/^\d?$/.test(value)) return;
     const next = [...code];
@@ -53,10 +46,9 @@ const ClerkSignUp = () => {
     }
   };
 
-  // Step 1: Create sign-up
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!isLoaded) return;
+    if (!isLoaded) { setError('Loading, please wait...'); return; }
     if (!name.trim()) { setError('Name is required'); return; }
     if (!isValidEmail(email)) { setError('Valid email is required'); return; }
     if (!agreeTerms) { setError('Please agree to Terms & Conditions'); return; }
@@ -78,16 +70,17 @@ const ClerkSignUp = () => {
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
       setStep('verify');
     } catch (err) {
+      console.error('Sign-up error:', err);
       setError(err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || 'Sign up failed.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Step 2: Verify email
   const handleVerify = async () => {
     const otp = code.join('');
     if (otp.length < 6) { setError('Enter the full 6-digit code'); return; }
+    if (!isLoaded) return;
     setError('');
     setLoading(true);
 
@@ -100,15 +93,15 @@ const ClerkSignUp = () => {
         setError('Verification incomplete. Please try again.');
       }
     } catch (err) {
+      console.error('Verify error:', err);
       setError(err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || 'Invalid code.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Google OAuth
   const handleGoogleSignUp = async () => {
-    if (!isLoaded) return;
+    if (!isLoaded) { setError('Loading, please wait...'); return; }
     try {
       await signUp.authenticateWithRedirect({
         strategy: 'oauth_google',
@@ -116,6 +109,7 @@ const ClerkSignUp = () => {
         redirectUrlComplete: '/home',
       });
     } catch (err) {
+      console.error('Google error:', err);
       setError(err?.errors?.[0]?.message || 'Google sign-up failed.');
     }
   };

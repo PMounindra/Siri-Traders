@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiMail, FiSmartphone, FiArrowLeft } from 'react-icons/fi';
-import { useSignIn, useAuth } from '@clerk/react-router';
+import { useSignIn } from '@clerk/react-router';
 import './Login.css';
 
 const ClerkSignIn = () => {
@@ -12,14 +12,7 @@ const ClerkSignIn = () => {
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [verifyStrategy, setVerifyStrategy] = useState('');
   const { signIn, isLoaded, setActive } = useSignIn();
-  const { isSignedIn } = useAuth();
   const navigate = useNavigate();
-
-  // If already signed in, redirect
-  if (isSignedIn) {
-    navigate('/home', { replace: true });
-    return null;
-  }
 
   const isPhone = /^\d+$/.test(input.replace(/\s/g, '')) && input.replace(/\s/g, '').length >= 1;
   const isPhoneComplete = /^\d{10}$/.test(input.replace(/\s/g, ''));
@@ -41,12 +34,10 @@ const ClerkSignIn = () => {
 
   const handleCodeKeyDown = (index, e) => {
     if (e.key === 'Backspace' && !code[index] && index > 0) {
-      const el = document.getElementById(`otp-${index - 1}`);
-      el?.focus();
+      document.getElementById(`otp-${index - 1}`)?.focus();
     }
   };
 
-  // Handle paste for OTP
   const handleCodePaste = (e) => {
     e.preventDefault();
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
@@ -54,15 +45,17 @@ const ClerkSignIn = () => {
       const next = [...code];
       for (let i = 0; i < 6; i++) next[i] = pasted[i] || '';
       setCode(next);
-      const focusIdx = Math.min(pasted.length, 5);
-      document.getElementById(`otp-${focusIdx}`)?.focus();
+      document.getElementById(`otp-${Math.min(pasted.length, 5)}`)?.focus();
     }
   };
 
   // Step 1: Send identifier to Clerk
   const handleContinue = async (e) => {
     e.preventDefault();
-    if (!isLoaded || !canContinue) return;
+    if (!isLoaded || !canContinue) {
+      if (!isLoaded) setError('Authentication is loading, please wait...');
+      return;
+    }
     setError('');
     setLoading(true);
 
@@ -84,14 +77,15 @@ const ClerkSignIn = () => {
           setVerifyStrategy('phone_code');
           setStep('verify');
         } else {
-          setError('No supported sign-in method found.');
+          setError('No supported sign-in method found for this account.');
         }
       } else if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId });
         navigate('/home');
       }
     } catch (err) {
-      setError(err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || 'Sign in failed. Please try again.');
+      console.error('Sign-in error:', err);
+      setError(err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || 'Sign in failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -101,6 +95,7 @@ const ClerkSignIn = () => {
   const handleVerify = async () => {
     const otp = code.join('');
     if (otp.length < 6) { setError('Enter the full 6-digit code'); return; }
+    if (!isLoaded) return;
     setError('');
     setLoading(true);
 
@@ -113,6 +108,7 @@ const ClerkSignIn = () => {
         setError('Verification incomplete. Please try again.');
       }
     } catch (err) {
+      console.error('Verify error:', err);
       setError(err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || 'Invalid code. Please try again.');
     } finally {
       setLoading(false);
@@ -121,7 +117,10 @@ const ClerkSignIn = () => {
 
   // Google OAuth
   const handleGoogleSignIn = async () => {
-    if (!isLoaded) return;
+    if (!isLoaded) {
+      setError('Authentication is loading, please wait...');
+      return;
+    }
     try {
       await signIn.authenticateWithRedirect({
         strategy: 'oauth_google',
@@ -129,6 +128,7 @@ const ClerkSignIn = () => {
         redirectUrlComplete: '/home',
       });
     } catch (err) {
+      console.error('Google error:', err);
       setError(err?.errors?.[0]?.message || 'Google sign-in failed.');
     }
   };
@@ -181,7 +181,7 @@ const ClerkSignIn = () => {
               <button
                 type="submit"
                 className={`login-card__submit ${loading ? 'login-card__submit--loading' : ''}`}
-                disabled={!canContinue || loading}
+                disabled={loading}
               >
                 {loading ? <span className="login-card__spinner" /> : 'Continue'}
               </button>
