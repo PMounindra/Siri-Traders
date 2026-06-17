@@ -13,6 +13,9 @@ import ScrollControls from "./components/ScrollControls";
 import CartSummaryBar from "./components/CartSummaryBar";
 import ClerkSignIn from "./pages/ClerkSignIn";
 import ClerkSignUp from "./pages/ClerkSignUp";
+import { AuthenticateWithRedirectCallback } from "@clerk/react-router";
+
+const SSOCallback = () => <AuthenticateWithRedirectCallback />;
 import AdminLogin from "./pages/AdminLogin";
 import Home from "./pages/Home/index.jsx";
 import Categories from "./pages/Categories";
@@ -45,6 +48,8 @@ const AppLayout = () => {
       <main className="app__main">
         <Routes>
           <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/sign-in/sso-callback" element={<SSOCallback />} />
+          <Route path="/sign-up/sso-callback" element={<SSOCallback />} />
           <Route path="/sign-in/*" element={<ClerkSignIn />} />
           <Route path="/sign-up/*" element={<ClerkSignUp />} />
           <Route path="/admin-login" element={<AdminLogin />} />
