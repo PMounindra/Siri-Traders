@@ -234,6 +234,7 @@ const Profile = () => {
                     <option>UPI</option>
                     <option>Card</option>
                     <option>Wallet</option>
+                    <option>Net Banking</option>
                   </select>
                   <input value={paymentForm.value} onChange={(e) => setPaymentForm(prev => ({ ...prev, value: e.target.value }))} placeholder="UPI ID, card nickname, or wallet" />
                   <button className="profile-action-btn" onClick={addPayment}><FiPlus /> Add</button>
