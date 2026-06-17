@@ -53,7 +53,39 @@ const Profile = () => {
     reminders: false
   }));
   const [addressForm, setAddressForm] = useState({ name: user?.name || '', phone: user?.phone || '', address: '', pincode: '' });
-  const [paymentForm, setPaymentForm] = useState({ label: 'UPI', value: '' });
+  const [paymentForm, setPaymentForm] = useState({ label: 'UPI', upiId: '', cardNumber: '', cardExpiry: '', cardCvv: '', cardName: '', walletProvider: 'Paytm', walletPhone: '', bankName: 'SBI' });
+
+  const resetPaymentForm = (label = 'UPI') => {
+    setPaymentForm({ label, upiId: '', cardNumber: '', cardExpiry: '', cardCvv: '', cardName: '', walletProvider: 'Paytm', walletPhone: '', bankName: 'SBI' });
+  };
+
+  const addPayment = () => {
+    const f = paymentForm;
+    let value = '';
+    let displayValue = '';
+
+    if (f.label === 'UPI') {
+      if (!f.upiId.trim()) return;
+      value = f.upiId.trim();
+      displayValue = value;
+    } else if (f.label === 'Card') {
+      const num = f.cardNumber.replace(/\s/g, '');
+      if (!num || num.length < 13 || !f.cardExpiry.trim() || !f.cardCvv.trim()) return;
+      value = num;
+      displayValue = `•••• •••• •••• ${num.slice(-4)}${f.cardName ? ` (${f.cardName})` : ''}`;
+    } else if (f.label === 'Wallet') {
+      if (!f.walletPhone.trim()) return;
+      value = f.walletPhone.trim();
+      displayValue = `${f.walletProvider} — ${value}`;
+    } else if (f.label === 'Net Banking') {
+      value = f.bankName;
+      displayValue = `${f.bankName}`;
+    }
+
+    setPayments(prev => [{ id: Date.now().toString(), label: f.label, value, displayValue }, ...prev]);
+    resetPaymentForm('UPI');
+  };
+
 
   useEffect(() => {
     if (addressKey) localStorage.setItem(addressKey, JSON.stringify(addresses));
@@ -91,12 +123,7 @@ const Profile = () => {
     setActivePanel(null);
   };
 
-  const addPayment = () => {
-    const value = paymentForm.value.trim();
-    if (!value) return;
-    setPayments(prev => [{ id: Date.now().toString(), label: paymentForm.label, value }, ...prev]);
-    setPaymentForm({ label: 'UPI', value: '' });
-  };
+
 
   const menuSections = [
     {
@@ -229,15 +256,99 @@ const Profile = () => {
 
             {activePanel === 'payments' && (
               <div className="profile-panel">
-                <div className="profile-form-grid profile-form-grid--inline">
-                  <select value={paymentForm.label} onChange={(e) => setPaymentForm(prev => ({ ...prev, label: e.target.value }))}>
-                    <option>UPI</option>
-                    <option>Card</option>
-                    <option>Wallet</option>
-                    <option>Net Banking</option>
-                  </select>
-                  <input value={paymentForm.value} onChange={(e) => setPaymentForm(prev => ({ ...prev, value: e.target.value }))} placeholder="UPI ID, card nickname, or wallet" />
-                  <button className="profile-action-btn" onClick={addPayment}><FiPlus /> Add</button>
+                <div className="profile-payment-form">
+                  <div className="profile-payment-form__type">
+                    <label className="profile-payment-form__label">Payment Type</label>
+                    <select value={paymentForm.label} onChange={(e) => resetPaymentForm(e.target.value)}>
+                      <option>UPI</option>
+                      <option>Card</option>
+                      <option>Wallet</option>
+                      <option>Net Banking</option>
+                    </select>
+                  </div>
+
+                  {/* UPI Fields */}
+                  {paymentForm.label === 'UPI' && (
+                    <div className="profile-payment-form__fields">
+                      <div className="profile-payment-form__field">
+                        <label>UPI ID</label>
+                        <input value={paymentForm.upiId} onChange={(e) => setPaymentForm(prev => ({ ...prev, upiId: e.target.value }))} placeholder="yourname@upi" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Card Fields */}
+                  {paymentForm.label === 'Card' && (
+                    <div className="profile-payment-form__fields">
+                      <div className="profile-payment-form__field">
+                        <label>Card Number</label>
+                        <input value={paymentForm.cardNumber} onChange={(e) => setPaymentForm(prev => ({ ...prev, cardNumber: e.target.value.replace(/[^\d\s]/g, '').slice(0, 19) }))} placeholder="1234 5678 9012 3456" maxLength={19} inputMode="numeric" />
+                      </div>
+                      <div className="profile-payment-form__field">
+                        <label>Name on Card</label>
+                        <input value={paymentForm.cardName} onChange={(e) => setPaymentForm(prev => ({ ...prev, cardName: e.target.value }))} placeholder="John Doe" />
+                      </div>
+                      <div className="profile-payment-form__row">
+                        <div className="profile-payment-form__field">
+                          <label>Expiry (MM/YY)</label>
+                          <input value={paymentForm.cardExpiry} onChange={(e) => { let v = e.target.value.replace(/[^\d]/g, ''); if (v.length > 2) v = v.slice(0,2) + '/' + v.slice(2,4); setPaymentForm(prev => ({ ...prev, cardExpiry: v })); }} placeholder="MM/YY" maxLength={5} inputMode="numeric" />
+                        </div>
+                        <div className="profile-payment-form__field">
+                          <label>CVV</label>
+                          <input type="password" value={paymentForm.cardCvv} onChange={(e) => setPaymentForm(prev => ({ ...prev, cardCvv: e.target.value.replace(/[^\d]/g, '').slice(0, 4) }))} placeholder="•••" maxLength={4} inputMode="numeric" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Wallet Fields */}
+                  {paymentForm.label === 'Wallet' && (
+                    <div className="profile-payment-form__fields">
+                      <div className="profile-payment-form__field">
+                        <label>Wallet Provider</label>
+                        <select value={paymentForm.walletProvider} onChange={(e) => setPaymentForm(prev => ({ ...prev, walletProvider: e.target.value }))}>
+                          <option>Paytm</option>
+                          <option>PhonePe</option>
+                          <option>Amazon Pay</option>
+                          <option>Mobikwik</option>
+                          <option>Freecharge</option>
+                          <option>JioMoney</option>
+                        </select>
+                      </div>
+                      <div className="profile-payment-form__field">
+                        <label>Registered Mobile Number</label>
+                        <input value={paymentForm.walletPhone} onChange={(e) => setPaymentForm(prev => ({ ...prev, walletPhone: e.target.value.replace(/[^\d]/g, '').slice(0, 10) }))} placeholder="9876543210" maxLength={10} inputMode="numeric" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Net Banking Fields */}
+                  {paymentForm.label === 'Net Banking' && (
+                    <div className="profile-payment-form__fields">
+                      <div className="profile-payment-form__field">
+                        <label>Select Bank</label>
+                        <select value={paymentForm.bankName} onChange={(e) => setPaymentForm(prev => ({ ...prev, bankName: e.target.value }))}>
+                          <option>SBI (State Bank of India)</option>
+                          <option>HDFC Bank</option>
+                          <option>ICICI Bank</option>
+                          <option>Axis Bank</option>
+                          <option>Kotak Mahindra Bank</option>
+                          <option>Punjab National Bank</option>
+                          <option>Bank of Baroda</option>
+                          <option>Canara Bank</option>
+                          <option>Union Bank of India</option>
+                          <option>Indian Bank</option>
+                          <option>IDBI Bank</option>
+                          <option>Yes Bank</option>
+                          <option>IndusInd Bank</option>
+                          <option>Federal Bank</option>
+                          <option>South Indian Bank</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  <button className="profile-action-btn" onClick={addPayment}><FiPlus /> Add Payment Method</button>
                 </div>
                 <div className="profile-list">
                   {payments.length === 0 ? <p className="profile-empty">No payment methods saved. Cash on delivery is always available.</p> : payments.map(payment => (
@@ -245,7 +356,7 @@ const Profile = () => {
                       <FiCreditCard />
                       <div>
                         <strong>{payment.label}</strong>
-                        <span>{payment.value}</span>
+                        <span>{payment.displayValue || payment.value}</span>
                       </div>
                       <button onClick={() => setPayments(prev => prev.filter(item => item.id !== payment.id))}><FiTrash2 /></button>
                     </div>
