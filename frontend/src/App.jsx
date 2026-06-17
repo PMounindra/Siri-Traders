@@ -27,6 +27,7 @@ import Orders from "./pages/Orders";
 import Profile from "./pages/Profile";
 import TrackOrder from "./pages/TrackOrder";
 import Admin from "./pages/Admin";
+import Info from "./pages/Info";
 
 const AppLayout = () => {
   const location = useLocation();
@@ -61,6 +62,7 @@ const AppLayout = () => {
           <Route path="/track/:orderId" element={<TrackOrder />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/track/:orderId" element={<TrackOrder />} />
+          <Route path="/info" element={<Info />} />
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
       </main>

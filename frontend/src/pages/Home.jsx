@@ -753,10 +753,10 @@ const Home = () => {
             <div className="home__footer-links-col">
               <h4 className="home__footer-col-title">Quick Links</h4>
               <div className="home__footer-links">
-                <a href="#">About Us</a>
-                <a href="#">Contact</a>
-                <a href="#">Terms</a>
-                <a href="#">Privacy</a>
+                <a href="/info#about">About Us</a>
+                <a href="/info#contact">Contact</a>
+                <a href="/info#terms">Terms</a>
+                <a href="/info#privacy">Privacy</a>
               </div>
             </div>
 
