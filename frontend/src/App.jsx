@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import {
+  BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
@@ -11,11 +12,8 @@ import Navbar from "./components/Navbar";
 import BottomNav from "./components/BottomNav";
 import ScrollControls from "./components/ScrollControls";
 import CartSummaryBar from "./components/CartSummaryBar";
-import ClerkSignIn from "./pages/ClerkSignIn";
-import ClerkSignUp from "./pages/ClerkSignUp";
-import { AuthenticateWithRedirectCallback } from "@clerk/react-router";
-
-const SSOCallback = () => <AuthenticateWithRedirectCallback />;
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 import AdminLogin from "./pages/AdminLogin";
 import Home from "./pages/Home/index.jsx";
 import Categories from "./pages/Categories";
@@ -33,9 +31,9 @@ import Info from "./pages/Info";
 
 const AppLayout = () => {
   const location = useLocation();
-  const isAuthPage = ["/admin-login", "/admin"].includes(location.pathname)
-    || location.pathname.startsWith("/sign-in")
-    || location.pathname.startsWith("/sign-up");
+  const isAuthPage = ["/login", "/signup", "/admin-login", "/admin"].includes(
+    location.pathname,
+  );
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -48,10 +46,8 @@ const AppLayout = () => {
       <main className="app__main">
         <Routes>
           <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route path="/sign-in/sso-callback" element={<SSOCallback />} />
-          <Route path="/sign-up/sso-callback" element={<SSOCallback />} />
-          <Route path="/sign-in/*" element={<ClerkSignIn />} />
-          <Route path="/sign-up/*" element={<ClerkSignUp />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
           <Route path="/admin-login" element={<AdminLogin />} />
           <Route path="/home" element={<Home />} />
           <Route path="/categories" element={<Categories />} />
@@ -77,11 +73,13 @@ const AppLayout = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <CartProvider>
-        <AppLayout />
-      </CartProvider>
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <CartProvider>
+          <AppLayout />
+        </CartProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 

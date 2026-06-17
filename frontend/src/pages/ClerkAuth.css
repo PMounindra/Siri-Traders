@@ -1,9 +1,0 @@
-.clerk-auth {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: 2rem 1rem;
-  background: linear-gradient(135deg, #f0f4ee 0%, #e2ead9 50%, #d5dcc8 100%);
-}

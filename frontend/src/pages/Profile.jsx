@@ -106,7 +106,7 @@ const Profile = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/sign-in');
+    navigate('/login');
   };
 
   const addAddress = () => {
