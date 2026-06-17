@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import {
-  BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
@@ -12,8 +11,8 @@ import Navbar from "./components/Navbar";
 import BottomNav from "./components/BottomNav";
 import ScrollControls from "./components/ScrollControls";
 import CartSummaryBar from "./components/CartSummaryBar";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
+import ClerkSignIn from "./pages/ClerkSignIn";
+import ClerkSignUp from "./pages/ClerkSignUp";
 import AdminLogin from "./pages/AdminLogin";
 import Home from "./pages/Home/index.jsx";
 import Categories from "./pages/Categories";
@@ -31,9 +30,9 @@ import Info from "./pages/Info";
 
 const AppLayout = () => {
   const location = useLocation();
-  const isAuthPage = ["/login", "/signup", "/admin-login", "/admin"].includes(
-    location.pathname,
-  );
+  const isAuthPage = ["/admin-login", "/admin"].includes(location.pathname)
+    || location.pathname.startsWith("/sign-in")
+    || location.pathname.startsWith("/sign-up");
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -46,8 +45,8 @@ const AppLayout = () => {
       <main className="app__main">
         <Routes>
           <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+          <Route path="/sign-in/*" element={<ClerkSignIn />} />
+          <Route path="/sign-up/*" element={<ClerkSignUp />} />
           <Route path="/admin-login" element={<AdminLogin />} />
           <Route path="/home" element={<Home />} />
           <Route path="/categories" element={<Categories />} />
@@ -61,7 +60,6 @@ const AppLayout = () => {
           <Route path="/profile" element={<Profile />} />
           <Route path="/track/:orderId" element={<TrackOrder />} />
           <Route path="/admin" element={<Admin />} />
-          <Route path="/track/:orderId" element={<TrackOrder />} />
           <Route path="/info" element={<Info />} />
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
@@ -74,13 +72,11 @@ const AppLayout = () => {
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <CartProvider>
-          <AppLayout />
-        </CartProvider>
-      </AuthProvider>
-    </Router>
+    <AuthProvider>
+      <CartProvider>
+        <AppLayout />
+      </CartProvider>
+    </AuthProvider>
   );
 }
 

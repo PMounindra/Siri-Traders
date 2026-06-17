@@ -45,8 +45,8 @@ const Navbar = () => {
   });
   const addressStorageKey = getUserStorageKey(user, "addresses");
 
-  const hiddenRoutes = ["/login", "/signup", "/admin-login"];
-  const isHidden = hiddenRoutes.includes(routeLocation.pathname);
+  const hiddenRoutes = ["/sign-in", "/sign-up", "/admin-login"];
+  const isHidden = hiddenRoutes.some(r => routeLocation.pathname.startsWith(r));
 
   useEffect(() => {
     if (!addressStorageKey) {
@@ -325,7 +325,7 @@ const Navbar = () => {
             </Link>
 
             {!user && (
-              <Link to="/login" className="navbar__signin">
+              <Link to="/sign-in" className="navbar__signin">
                 <UserIcon className="navbar__action-icon" />
                 <span>Sign In</span>
               </Link>
@@ -382,7 +382,7 @@ const Navbar = () => {
                   </button>
                 </>
               ) : (
-                <Link to="/login" className="dropdown-link" onClick={() => setMenuOpen(false)}><UserIcon size={16} /> Sign In</Link>
+                <Link to="/sign-in" className="dropdown-link" onClick={() => setMenuOpen(false)}><UserIcon size={16} /> Sign In</Link>
               )}
             </div>
           </div>
