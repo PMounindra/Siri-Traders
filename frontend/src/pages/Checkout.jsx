@@ -141,15 +141,7 @@ const Checkout = () => {
     setAddressError('');
   };
 
-  const handlePlaceOrder = async () => {
-    let addressForOrder = selectedAddress;
-
-    if (showAddressForm || !addressForOrder) {
-      addressForOrder = saveAddress();
-    }
-
-    if (!addressForOrder) return;
-
+  const finalizeOrder = async (addressForOrder, paymentDetails = {}) => {
     const orderTotal = grandTotal;
     const orderItemsList = cartItems.map(item => ({
       productId: item.id,
@@ -221,7 +213,7 @@ const Checkout = () => {
       id: finalOrderId,
       date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
       status: selectedPayment === 'cod' ? 'preparing' : 'paid',
-      deliveryTime,
+      deliveryTime: getDeliveryTimeForAddress(addressForOrder),
       payment: selectedPayment,
       address: addressForOrder,
       items: cartItems.map(item => ({ ...item, qty: item.quantity })),
