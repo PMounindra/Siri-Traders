@@ -1,10 +1,8 @@
 import { db, products } from '../../db/index.js';
 import { eq } from 'drizzle-orm';
-import { createClerkClient } from '@clerk/backend';
 import { z } from 'zod';
 import { setCorsHeaders } from '../_cors.js';
-
-const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+import { isAdminRequest } from '../_adminAuth.js';
 
 const productUpdateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -22,15 +20,6 @@ const productUpdateSchema = z.object({
   isBestseller: z.boolean().optional(),
   variants: z.array(z.any()).optional()
 }).strict();
-
-async function verifyAdmin(req) {
-  const authRequest = await clerk.authenticateRequest(req);
-  const { userId } = authRequest;
-  if (!userId) return null;
-  const user = await clerk.users.getUser(userId);
-  if (user.publicMetadata?.role !== 'admin') return null;
-  return userId;
-}
 
 export default async function handler(req, res) {
   setCorsHeaders(req, res);
@@ -50,7 +39,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ── GET /api/products/:id ────────────────────────────────────────
+    // ── GET /api/products/:id — public ───────────────────────────────────
     if (req.method === 'GET') {
       const result = await db.select().from(products).where(eq(products.id, parsedId));
       if (!result.length) {
@@ -60,15 +49,10 @@ export default async function handler(req, res) {
       return res.status(200).json(result[0]);
     }
 
-    // ── PUT /api/products/:id — admin only ───────────────────────────
+    // ── PUT /api/products/:id — admin only ───────────────────────────────
     if (req.method === 'PUT') {
-      let adminId;
-      try {
-        adminId = await verifyAdmin(req);
-      } catch {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-      if (!adminId) return res.status(403).json({ error: 'Forbidden: admins only' });
+      const adminOk = await isAdminRequest(req);
+      if (!adminOk) return res.status(403).json({ error: 'Forbidden: admin access required' });
 
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
       const validation = productUpdateSchema.safeParse(body);
@@ -90,15 +74,10 @@ export default async function handler(req, res) {
       return res.status(200).json(updated[0]);
     }
 
-    // ── DELETE /api/products/:id — admin only ────────────────────────
+    // ── DELETE /api/products/:id — admin only ────────────────────────────
     if (req.method === 'DELETE') {
-      let adminId;
-      try {
-        adminId = await verifyAdmin(req);
-      } catch {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-      if (!adminId) return res.status(403).json({ error: 'Forbidden: admins only' });
+      const adminOk = await isAdminRequest(req);
+      if (!adminOk) return res.status(403).json({ error: 'Forbidden: admin access required' });
 
       const existing = await db.select().from(products).where(eq(products.id, parsedId));
       if (!existing.length) {

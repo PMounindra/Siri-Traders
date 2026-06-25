@@ -356,6 +356,7 @@ const Admin = () => {
   });
   const [productDraft, setProductDraft] = useState(blankProduct);
   const [apiLoading, setApiLoading] = useState(false);
+  const [saveToast, setSaveToast] = useState(null); // { type: 'success'|'error', msg }
   const [liveOrders, setLiveOrders] = useState(null); // null = not yet loaded
   const adminApi = useAdminApi();
   const [offerDraft, setOfferDraft] = useState(blankOffer);
@@ -587,9 +588,12 @@ const Admin = () => {
 
     // ── API sync ──────────────────────────────────────────────────────
     setApiLoading(true);
+    setSaveToast(null);
     try {
       const isEdit = Boolean(productDraft.id && typeof productDraft.id === 'number');
-      const { stockNote, id: _id, ...apiPayload } = nextProduct; // strip UI-only fields
+      // Strip UI-only fields that are not in the DB schema
+      const { stockNote, id: _id, wholesalePrice, bulkPackLabel, bulkPackPrice,
+              wholesaleCaseLabel, wholesaleCasePrice, ...apiPayload } = nextProduct;
       if (isEdit) {
         const saved = await adminApi.updateProduct(productDraft.id, apiPayload);
         nextProduct = { ...nextProduct, id: saved.id };
@@ -597,10 +601,13 @@ const Admin = () => {
         const saved = await adminApi.createProduct(apiPayload);
         nextProduct = { ...nextProduct, id: saved.id };
       }
+      setSaveToast({ type: 'success', msg: `✅ “${nextProduct.name}” saved to database (ID: ${nextProduct.id})` });
+      setTimeout(() => setSaveToast(null), 5000);
     } catch (err) {
-      console.warn('API sync failed, using local only:', err);
-      // Assign a local id if new and API failed
+      console.error('API sync failed:', err);
       if (!productDraft.id) nextProduct = { ...nextProduct, id: Date.now() };
+      setSaveToast({ type: 'error', msg: `⚠️ Saved locally only. DB error: ${err.message}` });
+      setTimeout(() => setSaveToast(null), 8000);
     } finally {
       setApiLoading(false);
     }
@@ -994,12 +1001,19 @@ const Admin = () => {
                   </div>
                 </div>
 
-                <div className="admin-form__actions">
-                  <button type="submit" className="admin__primary"><FiSave /> Save item</button>
+                <div className="admin-form__actions" style={{ alignItems: 'center' }}>
+                  <button type="submit" className="admin__primary" disabled={apiLoading}>
+                    {apiLoading ? <div className="admin-spinner" /> : <FiSave />} Save item
+                  </button>
                   {productDraft.id && (
                     <button type="button" className="admin__ghost" onClick={() => { setProductDraft(activeTab === 'wholesale-products' ? blankWholesaleProduct : blankProduct); setCheckedVariants([]); setVariantPrices({}); setCustomVariants([{ label: '', price: '' }]); }}>
                       <FiX /> Clear
                     </button>
+                  )}
+                  {saveToast && (
+                    <div style={{ marginLeft: 'auto', padding: '8px 12px', borderRadius: '6px', fontSize: '14px', background: saveToast.type === 'error' ? '#fee' : '#e6f4ea', color: saveToast.type === 'error' ? '#c00' : '#1e8e3e' }}>
+                      {saveToast.msg}
+                    </div>
                   )}
                 </div>
               </form>
