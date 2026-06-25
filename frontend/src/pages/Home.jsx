@@ -456,26 +456,24 @@ const Home = () => {
     <div className="page-wrapper">
       <div className={`home ${isWholesale ? 'home--wholesale' : ''}`}>
         <div className="container">
-          <div className={`home__mode-banner ${isWholesale ? 'home__mode-banner--wholesale' : ''}`}>
-            {isWholesale ? (
-              <>
-              <FiPackage />
-              <span>Wholesale Mode</span>
-              <span className="home__wholesale-banner-sep">|</span>
-              <span>Bulk Prices</span>
-              <span className="home__wholesale-banner-sep">|</span>
-              <span>Business Savings</span>
-              </>
-            ) : (
-              <>
-                <FiShoppingBag />
-                <span>Retail Mode</span>
-                <span className="home__wholesale-banner-sep">|</span>
-                <span>Daily Home Needs</span>
-                <span className="home__wholesale-banner-sep">|</span>
-                <span>Fast Delivery</span>
-              </>
-            )}
+          <div className={`home__mode-ribbon ${isWholesale ? 'home__mode-ribbon--wholesale' : ''}`} id="mode-ribbon">
+            <div className="home__mode-marquee">
+              <div className="home__mode-track">
+                {[...Array(4)].map((_, i) => (
+                  <span className="home__mode-slide" key={i}>
+                    {isWholesale ? <FiPackage /> : <FiShoppingBag />}
+                    <strong>{isWholesale ? 'WHOLESALE MODE' : 'RETAIL MODE'}</strong>
+                    <span className="home__mode-dot">✦</span>
+                    <span>{isWholesale ? 'Bulk Prices' : 'Daily Home Needs'}</span>
+                    <span className="home__mode-dot">✦</span>
+                    <span>{isWholesale ? 'Business Savings' : 'Fast Delivery'}</span>
+                    <span className="home__mode-dot">✦</span>
+                    <span>{isWholesale ? 'Big Orders' : 'Great Offers'}</span>
+                    <span className="home__mode-dot">✦</span>
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
 
           <WelcomeBanner customerType={customerType} />
@@ -757,10 +755,10 @@ const Home = () => {
             <div className="home__footer-links-col">
               <h4 className="home__footer-col-title">Quick Links</h4>
               <div className="home__footer-links">
-                <a href="#">About Us</a>
-                <a href="#">Contact</a>
-                <a href="#">Terms</a>
-                <a href="#">Privacy</a>
+                <a href="/info#about">About Us</a>
+                <a href="/info#contact">Contact</a>
+                <a href="/info#terms">Terms</a>
+                <a href="/info#privacy">Privacy</a>
               </div>
             </div>
 

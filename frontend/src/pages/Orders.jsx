@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiPackage, FiChevronDown, FiChevronUp, FiRefreshCw, FiShoppingBag } from 'react-icons/fi';
+import { FiPackage, FiChevronDown, FiChevronUp, FiRefreshCw, FiShoppingBag, FiNavigation } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { getUserStorageKey } from '../utils/userStorage';
@@ -139,7 +139,6 @@ const Orders = () => {
                         <span className="orders__card-summary">
                           {order.items.length} items · {formatPrice(order.total)}
                         </span>
-                        <span className="orders__card-delivery">Delivery {order.deliveryTime}</span>
                         {isExpanded ? <FiChevronUp /> : <FiChevronDown />}
                       </div>
                     </div>
@@ -155,12 +154,20 @@ const Orders = () => {
                         <div className="orders__detail-total">
                           <span>Total</span><span>{formatPrice(order.total)}</span>
                         </div>
-                        <button
-                          className={`orders__reorder-btn ${reordered === order.id ? 'orders__reorder-btn--done' : ''}`}
-                          onClick={() => handleReorder(order)}
-                        >
-                          <FiRefreshCw /> {reordered === order.id ? 'Added to Cart!' : 'Reorder'}
-                        </button>
+                        <div className="orders__detail-actions">
+                          <button
+                            className="orders__track-btn"
+                            onClick={() => navigate(`/track/${order.id}`)}
+                          >
+                            <FiNavigation /> Track Order
+                          </button>
+                          <button
+                            className={`orders__reorder-btn ${reordered === order.id ? 'orders__reorder-btn--done' : ''}`}
+                            onClick={() => handleReorder(order)}
+                          >
+                            <FiRefreshCw /> {reordered === order.id ? 'Added to Cart!' : 'Reorder'}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

@@ -53,7 +53,39 @@ const Profile = () => {
     reminders: false
   }));
   const [addressForm, setAddressForm] = useState({ name: user?.name || '', phone: user?.phone || '', address: '', pincode: '' });
-  const [paymentForm, setPaymentForm] = useState({ label: 'UPI', value: '' });
+  const [paymentForm, setPaymentForm] = useState({ label: 'UPI', upiId: '', cardNumber: '', cardExpiry: '', cardCvv: '', cardName: '', walletProvider: 'Paytm', walletPhone: '', bankName: 'SBI' });
+
+  const resetPaymentForm = (label = 'UPI') => {
+    setPaymentForm({ label, upiId: '', cardNumber: '', cardExpiry: '', cardCvv: '', cardName: '', walletProvider: 'Paytm', walletPhone: '', bankName: 'SBI' });
+  };
+
+  const addPayment = () => {
+    const f = paymentForm;
+    let value = '';
+    let displayValue = '';
+
+    if (f.label === 'UPI') {
+      if (!f.upiId.trim()) return;
+      value = f.upiId.trim();
+      displayValue = value;
+    } else if (f.label === 'Card') {
+      const num = f.cardNumber.replace(/\s/g, '');
+      if (!num || num.length < 13 || !f.cardExpiry.trim() || !f.cardCvv.trim()) return;
+      value = num;
+      displayValue = `•••• •••• •••• ${num.slice(-4)}${f.cardName ? ` (${f.cardName})` : ''}`;
+    } else if (f.label === 'Wallet') {
+      if (!f.walletPhone.trim()) return;
+      value = f.walletPhone.trim();
+      displayValue = `${f.walletProvider} — ${value}`;
+    } else if (f.label === 'Net Banking') {
+      value = f.bankName;
+      displayValue = `${f.bankName}`;
+    }
+
+    setPayments(prev => [{ id: Date.now().toString(), label: f.label, value, displayValue }, ...prev]);
+    resetPaymentForm('UPI');
+  };
+
 
   useEffect(() => {
     if (addressKey) localStorage.setItem(addressKey, JSON.stringify(addresses));
@@ -91,12 +123,7 @@ const Profile = () => {
     setActivePanel(null);
   };
 
-  const addPayment = () => {
-    const value = paymentForm.value.trim();
-    if (!value) return;
-    setPayments(prev => [{ id: Date.now().toString(), label: paymentForm.label, value }, ...prev]);
-    setPaymentForm({ label: 'UPI', value: '' });
-  };
+
 
   const menuSections = [
     {
@@ -118,6 +145,8 @@ const Profile = () => {
       items: [
         { icon: FiHelpCircle, label: 'Help & Support', panel: 'support' },
         { icon: FiInfo, label: 'About Siri Traders', panel: 'about' },
+        { icon: FiShield, label: 'Terms & Conditions', panel: 'terms' },
+        { icon: FiShield, label: 'Privacy Policy', panel: 'privacypolicy' },
       ]
     },
   ];
@@ -128,7 +157,9 @@ const Profile = () => {
     notifications: 'Notifications',
     privacy: 'Privacy & Security',
     support: 'Help & Support',
-    about: 'About Siri Traders'
+    about: 'About Siri Traders',
+    terms: 'Terms & Conditions',
+    privacypolicy: 'Privacy Policy'
   }[activePanel];
 
   if (!isAuthenticated) {
@@ -225,14 +256,99 @@ const Profile = () => {
 
             {activePanel === 'payments' && (
               <div className="profile-panel">
-                <div className="profile-form-grid profile-form-grid--inline">
-                  <select value={paymentForm.label} onChange={(e) => setPaymentForm(prev => ({ ...prev, label: e.target.value }))}>
-                    <option>UPI</option>
-                    <option>Card</option>
-                    <option>Wallet</option>
-                  </select>
-                  <input value={paymentForm.value} onChange={(e) => setPaymentForm(prev => ({ ...prev, value: e.target.value }))} placeholder="UPI ID, card nickname, or wallet" />
-                  <button className="profile-action-btn" onClick={addPayment}><FiPlus /> Add</button>
+                <div className="profile-payment-form">
+                  <div className="profile-payment-form__type">
+                    <label className="profile-payment-form__label">Payment Type</label>
+                    <select value={paymentForm.label} onChange={(e) => resetPaymentForm(e.target.value)}>
+                      <option>UPI</option>
+                      <option>Card</option>
+                      <option>Wallet</option>
+                      <option>Net Banking</option>
+                    </select>
+                  </div>
+
+                  {/* UPI Fields */}
+                  {paymentForm.label === 'UPI' && (
+                    <div className="profile-payment-form__fields">
+                      <div className="profile-payment-form__field">
+                        <label>UPI ID</label>
+                        <input value={paymentForm.upiId} onChange={(e) => setPaymentForm(prev => ({ ...prev, upiId: e.target.value }))} placeholder="yourname@upi" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Card Fields */}
+                  {paymentForm.label === 'Card' && (
+                    <div className="profile-payment-form__fields">
+                      <div className="profile-payment-form__field">
+                        <label>Card Number</label>
+                        <input value={paymentForm.cardNumber} onChange={(e) => setPaymentForm(prev => ({ ...prev, cardNumber: e.target.value.replace(/[^\d\s]/g, '').slice(0, 19) }))} placeholder="1234 5678 9012 3456" maxLength={19} inputMode="numeric" />
+                      </div>
+                      <div className="profile-payment-form__field">
+                        <label>Name on Card</label>
+                        <input value={paymentForm.cardName} onChange={(e) => setPaymentForm(prev => ({ ...prev, cardName: e.target.value }))} placeholder="John Doe" />
+                      </div>
+                      <div className="profile-payment-form__row">
+                        <div className="profile-payment-form__field">
+                          <label>Expiry (MM/YY)</label>
+                          <input value={paymentForm.cardExpiry} onChange={(e) => { let v = e.target.value.replace(/[^\d]/g, ''); if (v.length > 2) v = v.slice(0,2) + '/' + v.slice(2,4); setPaymentForm(prev => ({ ...prev, cardExpiry: v })); }} placeholder="MM/YY" maxLength={5} inputMode="numeric" />
+                        </div>
+                        <div className="profile-payment-form__field">
+                          <label>CVV</label>
+                          <input type="password" value={paymentForm.cardCvv} onChange={(e) => setPaymentForm(prev => ({ ...prev, cardCvv: e.target.value.replace(/[^\d]/g, '').slice(0, 4) }))} placeholder="•••" maxLength={4} inputMode="numeric" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Wallet Fields */}
+                  {paymentForm.label === 'Wallet' && (
+                    <div className="profile-payment-form__fields">
+                      <div className="profile-payment-form__field">
+                        <label>Wallet Provider</label>
+                        <select value={paymentForm.walletProvider} onChange={(e) => setPaymentForm(prev => ({ ...prev, walletProvider: e.target.value }))}>
+                          <option>Paytm</option>
+                          <option>PhonePe</option>
+                          <option>Amazon Pay</option>
+                          <option>Mobikwik</option>
+                          <option>Freecharge</option>
+                          <option>JioMoney</option>
+                        </select>
+                      </div>
+                      <div className="profile-payment-form__field">
+                        <label>Registered Mobile Number</label>
+                        <input value={paymentForm.walletPhone} onChange={(e) => setPaymentForm(prev => ({ ...prev, walletPhone: e.target.value.replace(/[^\d]/g, '').slice(0, 10) }))} placeholder="9876543210" maxLength={10} inputMode="numeric" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Net Banking Fields */}
+                  {paymentForm.label === 'Net Banking' && (
+                    <div className="profile-payment-form__fields">
+                      <div className="profile-payment-form__field">
+                        <label>Select Bank</label>
+                        <select value={paymentForm.bankName} onChange={(e) => setPaymentForm(prev => ({ ...prev, bankName: e.target.value }))}>
+                          <option>SBI (State Bank of India)</option>
+                          <option>HDFC Bank</option>
+                          <option>ICICI Bank</option>
+                          <option>Axis Bank</option>
+                          <option>Kotak Mahindra Bank</option>
+                          <option>Punjab National Bank</option>
+                          <option>Bank of Baroda</option>
+                          <option>Canara Bank</option>
+                          <option>Union Bank of India</option>
+                          <option>Indian Bank</option>
+                          <option>IDBI Bank</option>
+                          <option>Yes Bank</option>
+                          <option>IndusInd Bank</option>
+                          <option>Federal Bank</option>
+                          <option>South Indian Bank</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  <button className="profile-action-btn" onClick={addPayment}><FiPlus /> Add Payment Method</button>
                 </div>
                 <div className="profile-list">
                   {payments.length === 0 ? <p className="profile-empty">No payment methods saved. Cash on delivery is always available.</p> : payments.map(payment => (
@@ -240,7 +356,7 @@ const Profile = () => {
                       <FiCreditCard />
                       <div>
                         <strong>{payment.label}</strong>
-                        <span>{payment.value}</span>
+                        <span>{payment.displayValue || payment.value}</span>
                       </div>
                       <button onClick={() => setPayments(prev => prev.filter(item => item.id !== payment.id))}><FiTrash2 /></button>
                     </div>
@@ -274,18 +390,95 @@ const Profile = () => {
 
             {activePanel === 'support' && (
               <div className="profile-panel">
-                <a className="profile-contact-card" href="tel:+919876543210"><FiPhone /><span>Call support</span><strong>+91 98765 43210</strong></a>
-                <a className="profile-contact-card" href="mailto:support@siritraders.com"><FiMail /><span>Email us</span><strong>support@siritraders.com</strong></a>
+                <a className="profile-contact-card" href="tel:+918125702866"><FiPhone /><span>Call support</span><strong>+91 81257 02866</strong></a>
+                <a className="profile-contact-card" href="mailto:pothineni076@gmail.com"><FiMail /><span>Email us</span><strong>pothineni076@gmail.com</strong></a>
+                <div className="profile-legal-block">
+                  <h4>Store Address</h4>
+                  <p>H.No 10-152, Nagarjuna Colony Road No 12,<br />Chitkul, Isnapur Municipality,<br />Hyderabad — 502307</p>
+                </div>
                 <button className="profile-action-btn" onClick={() => navigate('/orders')}>Get help with an order</button>
               </div>
             )}
 
             {activePanel === 'about' && (
               <div className="profile-panel">
-                <div className="profile-about">
+                <div className="profile-legal-block">
+                  <h4>Welcome to Siri Traders</h4>
+                  <p>Established on 25 September 2025, Siri Traders is a dedicated e-commerce platform committed to providing high-quality grocery products to both retail and wholesale customers. Our objective is to simplify the grocery procurement process by offering a reliable, efficient, and customer-centric online shopping experience.</p>
+                </div>
+                <div className="profile-legal-block">
+                  <h4>Who We Serve</h4>
+                  <p>At Siri Traders, we understand the importance of quality, affordability, and timely access to essential products. We strive to bridge the gap between suppliers and consumers by creating a dependable marketplace that caters to households, businesses, retailers, restaurants, and institutional buyers.</p>
+                </div>
+                <div className="profile-legal-block">
+                  <h4>Our Products</h4>
+                  <p>Our extensive product portfolio includes a wide range of grocery essentials such as grains, pulses, spices, packaged foods, cooking ingredients, household necessities, and other daily-use products sourced from trusted suppliers.</p>
+                </div>
+                <div className="profile-legal-block">
+                  <h4>Our Mission</h4>
+                  <p>Our mission is to make grocery shopping seamless, accessible, and dependable while fostering long-term relationships built on trust and integrity. We continuously work towards becoming a preferred and trusted destination for quality grocery products by delivering value, convenience, and exceptional service.</p>
+                </div>
+                <div className="profile-legal-block">
+                  <h4>Contact</h4>
+                  <p>📞 81257 02866<br />✉️ pothineni076@gmail.com<br />📍 H.No 10-152, Nagarjuna Colony Road No 12, Chitkul, Isnapur Municipality, Hyderabad — 502307</p>
+                </div>
+                <div className="profile-about-version">
                   <strong>Siri Traders</strong>
-                  <span>Fast and reliable grocery delivery for everyday essentials, fresh produce, and festive deals.</span>
-                  <small>Version 1.0.0</small>
+                  <small>Version 1.0.0 · Est. 25 September 2025</small>
+                </div>
+              </div>
+            )}
+
+            {activePanel === 'terms' && (
+              <div className="profile-panel">
+                <div className="profile-legal-block">
+                  <p className="profile-legal-date">Last Updated: 25 September 2025</p>
+                  <p>By accessing or using the Siri Traders website, users agree to comply with all applicable laws and these Terms & Conditions.</p>
+                </div>
+                <div className="profile-legal-block">
+                  <h4>Product Information & Pricing</h4>
+                  <p>Siri Traders reserves the right to modify product information, pricing, availability, and website content without prior notice.</p>
+                </div>
+                <div className="profile-legal-block">
+                  <h4>Orders</h4>
+                  <p>Orders are subject to acceptance, verification, and availability. Users must provide accurate information and refrain from unlawful activities.</p>
+                </div>
+                <div className="profile-legal-block">
+                  <h4>Intellectual Property</h4>
+                  <p>All intellectual property on the website remains the property of Siri Traders.</p>
+                </div>
+                <div className="profile-legal-block">
+                  <h4>Governing Law</h4>
+                  <p>Any disputes shall be governed by the laws of India.</p>
+                </div>
+              </div>
+            )}
+
+            {activePanel === 'privacypolicy' && (
+              <div className="profile-panel">
+                <div className="profile-legal-block">
+                  <p className="profile-legal-date">Last Updated: 25 September 2025</p>
+                  <p>Siri Traders respects your privacy and is committed to protecting personal information collected through the website.</p>
+                </div>
+                <div className="profile-legal-block">
+                  <h4>Information We Collect</h4>
+                  <p>Information collected may include customer details, contact information, billing and shipping addresses, and technical website usage information.</p>
+                </div>
+                <div className="profile-legal-block">
+                  <h4>How We Use It</h4>
+                  <p>The information is used for order processing, customer support, website improvement, fraud prevention, and legal compliance.</p>
+                </div>
+                <div className="profile-legal-block">
+                  <h4>Data Sharing</h4>
+                  <p>Siri Traders does not sell or rent customer data and only shares information with authorised service providers when necessary.</p>
+                </div>
+                <div className="profile-legal-block">
+                  <h4>Security</h4>
+                  <p>Appropriate security measures are implemented to protect customer information.</p>
+                </div>
+                <div className="profile-legal-block">
+                  <h4>Contact Us</h4>
+                  <p>📞 81257 02866<br />✉️ pothineni076@gmail.com<br />📍 H.No 10-152, Nagarjuna Colony Road No 12, Chitkul, Isnapur Municipality, Hyderabad — 502307</p>
                 </div>
               </div>
             )}

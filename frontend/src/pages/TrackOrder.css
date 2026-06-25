@@ -1,0 +1,290 @@
+/* ============================
+   TRACK ORDER PAGE
+   ============================ */
+
+.track {
+  background: linear-gradient(180deg, #F1F8E9 0%, #FFFFFF 30%);
+  min-height: calc(100vh - 200px);
+}
+
+.track__shell {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 20px 16px 100px;
+}
+
+/* Header */
+.track__header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.track__back {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #FFFFFF;
+  border: 1px solid rgba(45, 80, 22, 0.15);
+  color: #2D5016;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.track__back:hover { background: #F1F8E9; }
+
+.track__title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #2D5016;
+  line-height: 1.1;
+}
+
+.track__order-id {
+  font-size: 12px;
+  color: #687466;
+  font-weight: 600;
+}
+
+/* ETA banner */
+.track__eta-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #2D5016, #3A6B1A);
+  color: #FFFFFF;
+  margin-bottom: 24px;
+  box-shadow: 0 8px 20px rgba(45, 80, 22, 0.2);
+}
+
+.track__eta-banner--done {
+  background: linear-gradient(135deg, #3A6B1A, #FFC107);
+}
+
+.track__eta-icon {
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+.track__eta-label {
+  font-size: 12px;
+  opacity: 0.85;
+  font-weight: 600;
+}
+
+.track__eta-time {
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+/* Stepper */
+.track__steps {
+  background: #FFFFFF;
+  border-radius: 16px;
+  padding: 20px 18px;
+  border: 1px solid rgba(45, 80, 22, 0.1);
+  box-shadow: 0 6px 18px rgba(45, 80, 22, 0.07);
+  margin-bottom: 18px;
+}
+
+.track__step {
+  display: flex;
+  gap: 16px;
+  opacity: 0.45;
+  transition: opacity 0.3s;
+}
+
+.track__step--done { opacity: 1; }
+.track__step--active { opacity: 1; }
+
+.track__step-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.track__step-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 2px solid #D1D5DB;
+  background: #F9F9F9;
+  color: #9CA3AF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.3s;
+}
+
+.track__step-circle--done {
+  border-color: #2D5016;
+  background: #F1F8E9;
+  color: #2D5016;
+}
+
+.track__step-circle--active {
+  border-color: #FFC107;
+  background: #2D5016;
+  color: #FFFFFF;
+  box-shadow: 0 0 0 4px rgba(255, 193, 7, 0.25);
+  animation: pulse-ring 1.5s infinite;
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.35); }
+  70% { box-shadow: 0 0 0 8px rgba(255, 193, 7, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+}
+
+.track__step-line {
+  width: 2px;
+  flex: 1;
+  min-height: 28px;
+  background: #E5E7EB;
+  margin: 4px 0;
+  border-radius: 2px;
+  transition: background 0.4s;
+}
+
+.track__step-line--done { background: #2D5016; }
+
+.track__step-right {
+  padding: 8px 0 24px;
+}
+
+.track__step-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #687466;
+  line-height: 1.2;
+}
+
+.track__step-label--active { color: #2D5016; font-size: 15px; }
+
+.track__step-sub {
+  font-size: 12px;
+  color: #9CA3AF;
+  margin-top: 2px;
+}
+
+.track__step-sub--live {
+  color: #3A6B1A;
+  font-weight: 700;
+  animation: blink 1.2s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Address */
+.track__address {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #FFFFFF;
+  border: 1px solid rgba(45, 80, 22, 0.1);
+  margin-bottom: 16px;
+}
+
+.track__address-icon {
+  color: #2D5016;
+  font-size: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.track__address-name { font-size: 14px; font-weight: 800; color: #2D5016; }
+.track__address-text { font-size: 12px; color: #687466; margin-top: 2px; }
+
+/* Items */
+.track__items {
+  background: #FFFFFF;
+  border-radius: 14px;
+  padding: 16px;
+  border: 1px solid rgba(45, 80, 22, 0.1);
+  margin-bottom: 20px;
+}
+
+.track__items-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #2D5016;
+  margin-bottom: 12px;
+}
+
+.track__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(45, 80, 22, 0.06);
+}
+
+.track__item-name { flex: 1; font-size: 13px; color: #1c1c1c; }
+.track__item-qty { font-size: 12px; color: #687466; }
+.track__item-price { font-size: 13px; font-weight: 700; color: #2D5016; }
+
+.track__total {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 10px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #2D5016;
+}
+
+/* Actions */
+.track__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.track__btn {
+  width: 100%;
+  height: 50px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+
+.track__btn--primary { background: #FFC107; color: #1C1C1C; border: none; }
+.track__btn--primary:hover { background: #F0B400; }
+.track__btn--secondary { background: #FFFFFF; color: #2D5016; border: 1.5px solid rgba(45,80,22,0.25); }
+.track__btn--secondary:hover { background: #F1F8E9; }
+
+/* Not found */
+.track__not-found {
+  text-align: center;
+  padding: 80px 24px;
+  color: #687466;
+}
+
+.track__not-found h2 { color: #2D5016; font-size: 20px; margin: 12px 0 8px; }
+.track__back-btn {
+  margin-top: 16px;
+  padding: 12px 24px;
+  border-radius: 12px;
+  background: #2D5016;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+}

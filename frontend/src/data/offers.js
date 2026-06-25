@@ -286,37 +286,47 @@ export const baseFestivalOffers = [
 
 const ADMIN_OFFERS_KEY = 'siri-admin-offers';
 
+const seedDefaultOffers = () => {
+  // Seed base offers into admin storage on first run
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const existing = localStorage.getItem(ADMIN_OFFERS_KEY);
+    if (existing) return; // already seeded
+    const allOffers = [
+      ...baseDailyOffers.map(o => ({ ...o, group: 'daily', active: true })),
+      ...baseFestivalOffers.map(o => ({ ...o, group: 'festival', active: true }))
+    ];
+    localStorage.setItem(ADMIN_OFFERS_KEY, JSON.stringify(allOffers));
+  } catch { /* ignore */ }
+};
+
 const readAdminOffers = () => {
+  seedDefaultOffers();
   if (typeof localStorage === 'undefined') return [];
   try {
     const saved = localStorage.getItem(ADMIN_OFFERS_KEY);
-    return saved ? JSON.parse(saved).filter(offer => offer.active) : [];
+    return saved ? JSON.parse(saved) : [];
   } catch {
     return [];
   }
 };
 
 const normalizeAdminOffer = (offer) => ({
-    ...offer,
-    image: offer.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=700&q=80',
-    badge: offer.badge || offer.type || 'Offer',
-    link: offer.link || '/categories',
-    source: 'admin'
+  ...offer,
+  image: offer.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=700&q=80',
+  badge: offer.badge || offer.type || 'Offer',
+  link: offer.link || '/categories',
 });
 
-export const getDailyOffers = () => [
-  ...readAdminOffers()
-    .filter(offer => (offer.group || 'daily') === 'daily')
-    .map(normalizeAdminOffer),
-  ...baseDailyOffers
-];
+export const getDailyOffers = () =>
+  readAdminOffers()
+    .filter(offer => offer.active && (offer.group || 'daily') === 'daily')
+    .map(normalizeAdminOffer);
 
-export const getFestivalOffers = () => [
-  ...readAdminOffers()
-    .filter(offer => offer.group === 'festival')
-    .map(normalizeAdminOffer),
-  ...baseFestivalOffers
-];
+export const getFestivalOffers = () =>
+  readAdminOffers()
+    .filter(offer => offer.active && offer.group === 'festival')
+    .map(normalizeAdminOffer);
 
 export const dailyOffers = getDailyOffers();
 export const festivalOffers = getFestivalOffers();

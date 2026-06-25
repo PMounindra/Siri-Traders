@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
 import { FiPackage, FiShoppingBag } from 'react-icons/fi';
-import { categories } from '../data/categories';
+import { categories, getAllCategories } from '../data/categories';
 import { getProducts, getProductsByCategory } from '../data/products';
 import ProductCard from '../components/ProductCard';
 import CategoryCard from '../components/CategoryCard';
@@ -14,6 +14,7 @@ const Categories = () => {
   const activeCat = searchParams.get('cat') || '';
   const searchQuery = searchParams.get('search') || '';
   const isWholesale = customerType === 'wholesale';
+  const allCats = getAllCategories();
 
   const filteredProducts = searchQuery
     ? getProducts(customerType).filter(p =>
@@ -26,7 +27,7 @@ const Categories = () => {
     ? getProductsByCategory(activeCat, customerType)
     : getProducts(customerType);
 
-  const activeCategory = categories.find(c => c.id === activeCat);
+  const activeCategory = allCats.find(c => c.id === activeCat);
 
   return (
     <div className="page-wrapper">
@@ -41,7 +42,7 @@ const Categories = () => {
             </span>
             <span className="categories__sidebar-name">All</span>
           </button>
-          {categories.map(cat => (
+          {allCats.map(cat => (
             <button
               key={cat.id}
               className={`categories__sidebar-item ${activeCat === cat.id ? 'categories__sidebar-item--active' : ''}`}
@@ -80,7 +81,7 @@ const Categories = () => {
 
           {!activeCat && !searchQuery && (
             <div className="categories__cat-grid">
-              {categories.map(cat => (
+              {allCats.map(cat => (
                 <CategoryCard key={cat.id} category={cat} size="large" />
               ))}
             </div>

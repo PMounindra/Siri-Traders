@@ -17,6 +17,7 @@ import {
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { getUserStorageKey } from "../utils/userStorage";
+import { getDeliveryTimeForAddress } from "../utils/deliveryZones";
 import "./Navbar.css";
 
 const emptyAddress = {
@@ -35,6 +36,7 @@ const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [addressMenuOpen, setAddressMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mapCoords, setMapCoords] = useState({ lat: 20.5937, lng: 78.9629 }); // default: India centre
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [addressForm, setAddressForm] = useState({
     ...emptyAddress,
@@ -132,6 +134,9 @@ const Navbar = () => {
   const currentAddressText =
     deliveryLocation.full || deliveryLocation.address || "Add address";
 
+  // Delivery time based on customer's pincode/area — set by admin in Delivery Zones
+  const deliveryTime = getDeliveryTimeForAddress(deliveryLocation);
+
   const changeCustomerType = (type) => {
     setCustomerType(type);
     setMenuOpen(false);
@@ -174,17 +179,131 @@ const Navbar = () => {
           </div>
 
           {/* Delivery address pill — desktop + mobile row 3 */}
-          <button
-            type="button"
-            className="navbar__address-pill"
-            onClick={() => { setAddressMenuOpen((p) => !p); setMenuOpen(false); }}
-          >
-            <span className="navbar__address-copy">
-              <span className="navbar__address-label">Delivery in 10 minutes</span>
-              <span className="navbar__address-text">{currentAddressText}</span>
-            </span>
-            <ChevronDownIcon className="navbar__chevron" />
-          </button>
+          <div className="navbar__address-wrap">
+            <button
+              type="button"
+              className="navbar__address-pill"
+              onClick={() => { setAddressMenuOpen((p) => !p); setMenuOpen(false); }}
+            >
+              <span className="navbar__address-copy">
+                <span className="navbar__address-label">Delivery in {deliveryTime}</span>
+                <span className="navbar__address-text">{currentAddressText}</span>
+              </span>
+              <ChevronDownIcon className="navbar__chevron" />
+            </button>
+
+            {/* Address dropdown — anchored directly below the pill */}
+            {addressMenuOpen && (
+              <div className="navbar__menu navbar__menu--address" role="dialog" aria-label="Delivery address">
+                <div className="navbar__menu-section">
+
+                  {/* Header */}
+                  <div className="navbar__menu-user navbar__menu-user--address">
+                    <span className="navbar__avatar navbar__avatar--large">
+                      <MapPinIcon className="navbar__avatar-icon" />
+                    </span>
+                    <div style={{flex:1}}>
+                      <p className="navbar__menu-name">Delivery address</p>
+                      <p className="navbar__menu-email">Choose your current location.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAddressMenuOpen(false)}
+                      style={{width:32,height:32,borderRadius:'50%',background:'#F1F8E9',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}
+                      aria-label="Close"
+                    >
+                      <XIcon size={16} color="#2D5016" />
+                    </button>
+                  </div>
+
+                  {/* Use current location button */}
+                  <button
+                    type="button"
+                    className="navbar__detect-btn"
+                    onClick={() => {
+                      if (!navigator.geolocation) {
+                        alert('Geolocation is not supported by your browser.');
+                        return;
+                      }
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                          const { latitude, longitude } = pos.coords;
+                          setMapCoords({ lat: latitude, lng: longitude });
+                          fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`)
+                            .then(r => r.json())
+                            .then(data => {
+                              const addr = data.address;
+                              const display = data.display_name?.split(',').slice(0,3).join(',') || 'Current location';
+                              const pincode = addr?.postcode || '';
+                              setLocation({ address: display, city: pincode, full: `${display}${pincode ? ', ' + pincode : ''}` });
+                              setAddressMenuOpen(false);
+                            })
+                            .catch(() => {
+                              setLocation({ address: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`, city: '', full: 'Current location' });
+                              setAddressMenuOpen(false);
+                            });
+                        },
+                        () => alert('Unable to get your location. Please allow location access.')
+                      );
+                    }}
+                  >
+                    <MapPinIcon size={16} />
+                    Use my current location
+                  </button>
+
+                  {/* Area search */}
+                  <div className="navbar__area-search">
+                    <SearchIcon size={15} className="navbar__area-search-icon" />
+                    <input
+                      type="text"
+                      placeholder="Search for your area, street, landmark..."
+                      className="navbar__area-search-input"
+                      onChange={(e) => {
+                        // TODO (backend): wire to Google Places Autocomplete API
+                      }}
+                    />
+                  </div>
+
+                  {/* Map placeholder removed — will be added when backend/Maps API is connected */}
+
+                  {/* Saved addresses */}
+                  {savedAddresses.length > 0 && (
+                    <div className="navbar__address-list">
+                      <p style={{fontSize:11,fontWeight:800,color:'#687466',marginBottom:4}}>SAVED ADDRESSES</p>
+                      {savedAddresses.map((address) => (
+                        <button
+                          key={address.id}
+                          type="button"
+                          className="navbar__address-item"
+                          onClick={() => selectAddress(address)}
+                        >
+                          <span className="navbar__address-item-title">{address.name}</span>
+                          <span className="navbar__address-item-text">{address.address}, {address.pincode}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Manual entry form */}
+                  <div className="navbar__address-form">
+                    <p style={{fontSize:11,fontWeight:800,color:'#687466',marginBottom:4}}>ADD MANUALLY</p>
+                    <input type="text" placeholder="Name" value={addressForm.name}
+                      onChange={(e) => setAddressForm((p) => ({ ...p, name: e.target.value }))} />
+                    <input type="text" placeholder="Phone" value={addressForm.phone}
+                      onChange={(e) => setAddressForm((p) => ({ ...p, phone: e.target.value }))} />
+                    <input type="text" placeholder="Address" value={addressForm.address}
+                      onChange={(e) => setAddressForm((p) => ({ ...p, address: e.target.value }))} />
+                    <div className="navbar__address-form-row">
+                      <input type="text" placeholder="Pincode" value={addressForm.pincode}
+                        onChange={(e) => setAddressForm((p) => ({ ...p, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))} />
+                      <button type="button" className="navbar__address-save" onClick={saveAddress}>Save</button>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Search bar */}
           <form className="navbar__search" onSubmit={handleSearch}>
@@ -233,54 +352,7 @@ const Navbar = () => {
           />
         )}
 
-        {/* Address dropdown */}
-        {addressMenuOpen && (
-          <div className="navbar__menu navbar__menu--address" role="dialog" aria-label="Delivery address">
-            <div className="navbar__menu-section">
-              <div className="navbar__menu-user navbar__menu-user--address">
-                <span className="navbar__avatar navbar__avatar--large">
-                  <MapPinIcon className="navbar__avatar-icon" />
-                </span>
-                <div>
-                  <p className="navbar__menu-name">Delivery address</p>
-                  <p className="navbar__menu-email">Choose where your order should arrive.</p>
-                </div>
-              </div>
-
-              <div className="navbar__address-list">
-                {savedAddresses.length > 0 ? (
-                  savedAddresses.map((address) => (
-                    <button
-                      key={address.id}
-                      type="button"
-                      className="navbar__address-item"
-                      onClick={() => selectAddress(address)}
-                    >
-                      <span className="navbar__address-item-title">{address.name}</span>
-                      <span className="navbar__address-item-text">{address.address}, {address.pincode}</span>
-                    </button>
-                  ))
-                ) : (
-                  <p className="navbar__address-empty">No saved addresses yet. Add one below.</p>
-                )}
-              </div>
-
-              <div className="navbar__address-form">
-                <input type="text" placeholder="Name" value={addressForm.name}
-                  onChange={(e) => setAddressForm((p) => ({ ...p, name: e.target.value }))} />
-                <input type="text" placeholder="Phone" value={addressForm.phone}
-                  onChange={(e) => setAddressForm((p) => ({ ...p, phone: e.target.value }))} />
-                <input type="text" placeholder="Address" value={addressForm.address}
-                  onChange={(e) => setAddressForm((p) => ({ ...p, address: e.target.value }))} />
-                <div className="navbar__address-form-row">
-                  <input type="text" placeholder="Pincode" value={addressForm.pincode}
-                    onChange={(e) => setAddressForm((p) => ({ ...p, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))} />
-                  <button type="button" className="navbar__address-save" onClick={saveAddress}>Save</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Address dropdown moved inside navbar__address-wrap above */}
 
         {/* Hamburger menu — full nav + account links */}
         {menuOpen && (

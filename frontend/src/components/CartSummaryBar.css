@@ -31,10 +31,10 @@
   min-width: 252px;
   justify-content: center;
   border-radius: 13px;
-  background: #1E3A5F;
+  background: #4A612F;
   color: #FFFFFF;
   padding: 0 24px;
-  box-shadow: 0 10px 22px rgba(30, 58, 95, 0.22);
+  box-shadow: 0 10px 22px rgba(74,97,47,0.28);
 }
 
 @media (max-width: 767px) {

@@ -131,3 +131,21 @@ export const categories = [
 
 export const getCategoryById = (id) => categories.find(c => c.id === id);
 export const getCategoryByName = (name) => categories.find(c => c.name === name);
+
+// Admin-added categories — stored in localStorage, merged at runtime
+const ADMIN_CATEGORIES_KEY = 'siri-admin-categories';
+
+export const getAdminCategories = () => {
+  try {
+    const saved = localStorage.getItem(ADMIN_CATEGORIES_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch { return []; }
+};
+
+export const saveAdminCategories = (cats) => {
+  localStorage.setItem(ADMIN_CATEGORIES_KEY, JSON.stringify(cats));
+};
+
+export const getAllCategories = () => {
+  return [...categories, ...getAdminCategories()];
+};

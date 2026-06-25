@@ -330,7 +330,7 @@
 }
 
 .signup-card__submit {
-  background: #1E3A5F;
+  background: #2D5016;
 }
 
 .signup-card__link,
@@ -345,7 +345,7 @@
 }
 
 .signup-card__otp-note {
-  color: #1E3A5F;
+  color: #2D5016;
   background: #F7F4EE;
   border-color: rgba(176, 141, 87, 0.28);
 }

@@ -136,3 +136,7 @@
   box-shadow: none;
   transform: translateY(-3px);
 }
+
+/* GREEN palette */
+.category-card__fallback { color: #2D5016 !important; background: #F1F8E9 !important; }
+.category-card__name { color: #2D5016 !important; }

@@ -1,11 +1,13 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiCheck, FiClock, FiCreditCard, FiMapPin, FiPlus, FiSmartphone } from 'react-icons/fi';
+import { FiArrowLeft, FiCheck, FiClock, FiCreditCard, FiGlobe, FiMapPin, FiPlus, FiSmartphone } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { getUserStorageKey } from '../utils/userStorage';
+import { getDeliveryTimeForAddress } from '../utils/deliveryZones';
 import { formatPrice } from '../utils/format';
+import NetBankingFlow from '../components/NetBankingFlow';
 import './Checkout.css';
 
 const timeSlots = [
@@ -45,6 +47,8 @@ const Checkout = () => {
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
+  const [selectedBank, setSelectedBank] = useState('');
+  const [showNetBankingFlow, setShowNetBankingFlow] = useState(false);
   const [showItems, setShowItems] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [placedAddress, setPlacedAddress] = useState(null);
@@ -217,11 +221,12 @@ const Checkout = () => {
       id: finalOrderId,
       date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
       status: selectedPayment === 'cod' ? 'preparing' : 'paid',
-      deliveryTime: timeSlots.find(s => s.id === selectedSlot)?.label || '10 mins',
+      deliveryTime,
       payment: selectedPayment,
       address: addressForOrder,
       items: cartItems.map(item => ({ ...item, qty: item.quantity })),
-      total: grandTotal
+      total: grandTotal,
+      ...paymentDetails,
     };
 
     try {
@@ -242,6 +247,46 @@ const Checkout = () => {
     clearCart();
   };
 
+  const handlePlaceOrder = () => {
+    let addressForOrder = selectedAddress;
+
+    if (showAddressForm || !addressForOrder) {
+      addressForOrder = saveAddress();
+    }
+
+    if (!addressForOrder) return;
+
+    // For net banking, open the multi-step bank flow instead of placing immediately
+    if (selectedPayment === 'netbanking') {
+      if (!selectedBank) {
+        return; // bank must be selected
+      }
+      setShowNetBankingFlow(true);
+      return;
+    }
+
+    finalizeOrder(addressForOrder);
+  };
+
+  const handleNetBankingSuccess = (paymentResult) => {
+    setShowNetBankingFlow(false);
+    const addressForOrder = selectedAddress || addresses[0];
+    finalizeOrder(addressForOrder, {
+      transactionId: paymentResult.transactionId,
+      bankCode: paymentResult.bankCode,
+      paymentSessionId: paymentResult.sessionId,
+    });
+  };
+
+  const handleNetBankingFailure = () => {
+    setShowNetBankingFlow(false);
+    // User stays on checkout to retry or choose another method
+  };
+
+  const handleNetBankingCancel = () => {
+    setShowNetBankingFlow(false);
+  };
+
   if (orderPlaced) {
     return (
       <div className="page-wrapper">
@@ -249,9 +294,11 @@ const Checkout = () => {
           <div className="checkout-success__icon">✅</div>
           <h2 className="checkout-success__title">Order Placed Successfully!</h2>
           <p className="checkout-success__order-id">Order #{orderId}</p>
-          <p className="checkout-success__text">
-            Estimated delivery: {timeSlots.find(s => s.id === selectedSlot)?.label}
-          </p>
+          {(placedAddress || selectedAddress) && (
+            <p className="checkout-success__text" style={{color:'#2D5016',fontWeight:700}}>
+              Estimated delivery: {getDeliveryTimeForAddress(placedAddress || selectedAddress)}
+            </p>
+          )}
           {(placedAddress || selectedAddress) && (
             <div className="checkout-success__address">
               <strong>Delivering to {(placedAddress || selectedAddress).name}</strong>
@@ -260,7 +307,7 @@ const Checkout = () => {
             </div>
           )}
           <div className="checkout-success__actions">
-            <button onClick={() => navigate('/orders')} className="checkout-success__btn checkout-success__btn--primary">
+            <button onClick={() => navigate(`/track/${orderId}`)} className="checkout-success__btn checkout-success__btn--primary">
               Track Order
             </button>
             <button onClick={() => navigate('/home')} className="checkout-success__btn checkout-success__btn--secondary">
@@ -368,25 +415,6 @@ const Checkout = () => {
             )}
           </div>
 
-          {/* Time slots */}
-          <div className="checkout__section">
-            <h3 className="checkout__section-title"><FiClock /> Delivery Time</h3>
-            <div className="checkout__slots">
-              {timeSlots.map(slot => (
-                <button
-                  key={slot.id}
-                  className={`checkout__slot ${selectedSlot === slot.id ? 'checkout__slot--active' : ''}`}
-                  onClick={() => setSelectedSlot(slot.id)}
-                >
-                  <span className="checkout__slot-icon">{slot.icon}</span>
-                  <span className="checkout__slot-label">{slot.label}</span>
-                  <span className="checkout__slot-sub">{slot.sub}</span>
-                  {selectedSlot === slot.id && <FiCheck className="checkout__slot-check" />}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Order summary */}
           <div className="checkout__section">
             <button className="checkout__summary-toggle" onClick={() => setShowItems(!showItems)}>
@@ -465,6 +493,37 @@ const Checkout = () => {
                   </div>
                 </div>
               )}
+
+              <button
+                className={`checkout__payment ${selectedPayment === 'netbanking' ? 'checkout__payment--active' : ''}`}
+                onClick={() => setSelectedPayment('netbanking')}
+              >
+                <span className="checkout__payment-icon"><FiGlobe /></span>
+                <div className="checkout__payment-info">
+                  <span className="checkout__payment-name">Net Banking</span>
+                  <span className="checkout__payment-desc">SBI, HDFC, ICICI, Axis & more</span>
+                </div>
+                {selectedPayment === 'netbanking' && <FiCheck className="checkout__payment-check" />}
+              </button>
+              {selectedPayment === 'netbanking' && (
+                <div className="checkout__payment-form">
+                  <select
+                    value={selectedBank}
+                    onChange={(e) => setSelectedBank(e.target.value)}
+                    className="checkout__input checkout__select"
+                  >
+                    <option value="">-- Select Your Bank --</option>
+                    <option value="sbi">State Bank of India (SBI)</option>
+                    <option value="hdfc">HDFC Bank</option>
+                    <option value="icici">ICICI Bank</option>
+                    <option value="axis">Axis Bank</option>
+                    <option value="kotak">Kotak Mahindra Bank</option>
+                    <option value="bob">Bank of Baroda</option>
+                    <option value="pnb">Punjab National Bank</option>
+                    <option value="canara">Canara Bank</option>
+                  </select>
+                </div>
+              )}
             </div>
           </div>
 
@@ -483,6 +542,26 @@ const Checkout = () => {
           <button className="checkout__place-btn" onClick={handlePlaceOrder} id="place-order-btn">
             {selectedPayment === 'cod' ? 'Place Order (COD)' : `Pay ${formatPrice(grandTotal)}`} →
           </button>
+
+          {/* Net Banking Flow Modal */}
+          {showNetBankingFlow && (
+            <NetBankingFlow
+              bankCode={selectedBank}
+              amount={grandTotal}
+              orderId={orderId}
+              cartItems={cartItems}
+              deliveryFee={deliveryFee}
+              handlingCharge={handlingCharge}
+              customerInfo={{
+                name: selectedAddress?.name || user?.name || '',
+                email: selectedAddress?.email || user?.email || '',
+                phone: selectedAddress?.phone || user?.phone || '',
+              }}
+              onSuccess={handleNetBankingSuccess}
+              onFailure={handleNetBankingFailure}
+              onCancel={handleNetBankingCancel}
+            />
+          )}
         </div>
       </div>
     </div>

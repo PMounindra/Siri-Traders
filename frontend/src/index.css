@@ -428,3 +428,15 @@ textarea {
 html {
   color-scheme: light only;
 }
+
+/* GREEN + GOLD PALETTE */
+:root {
+  --color-primary: #2D5016;
+  --color-primary-medium: #3A6B1A;
+  --color-primary-light: #5A9A28;
+  --color-accent: #FFC107;
+  --color-accent-light: #FFD54F;
+  --color-accent-pale: #FFFDE7;
+  --color-gold: #FFC107;
+  --color-gold-light: #FFFDE7;
+}

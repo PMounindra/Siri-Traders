@@ -297,3 +297,15 @@
     font-size: 15px;
   }
 }
+
+/* GREEN palette */
+.fopage__card-title { color: #2D5016 !important; }
+.fopage__card-price strong { color: #2D5016 !important; }
+.fopage__card-badge { background: #2D5016 !important; color: #FFFFFF !important; }
+.fopage__heading { color: #2D5016 !important; }
+.fopage__back-link { color: #2D5016 !important; }
+.fopage__back-link:hover { color: #3A6B1A !important; }
+.fopage__card-add { color: #2D5016 !important; border-color: #8AAE5D !important; }
+.fopage__card-add:hover { background: #2D5016 !important; color: #FFFFFF !important; }
+.fopage__card-stepper { border-color: #8AAE5D !important; color: #2D5016 !important; }
+.fopage__card-stepper button:hover { background: #2D5016 !important; color: #FFFFFF !important; }
