@@ -219,40 +219,8 @@ const Admin = () => {
     })))
   );
 
-  const [offers, setOffers] = useState(() => {
-    const V = 'v3';
-    if (localStorage.getItem('siri-offers-seed') !== V) {
-      const seeded = [
-        ...baseDailyOffers.map(o => ({ ...o, group: 'daily', active: true })),
-        ...baseFestivalOffers.map(o => ({ ...o, group: 'festival', active: true }))
-      ];
-      writeStorage(ADMIN_OFFERS_KEY, seeded);
-      localStorage.setItem('siri-offers-seed', V);
-      return seeded;
-    }
-    try { return JSON.parse(localStorage.getItem(ADMIN_OFFERS_KEY) || '[]'); } catch { return []; }
-  });
-
-  const [coupons, setCoupons] = useState(() => {
-    const V = 'v3';
-    if (localStorage.getItem('siri-coupons-seed') !== V) {
-      const seeded = [
-        { id: 'c1', code: 'SIRI20',   discount: '20% off up to Rs100',        limit: 'Orders above Rs399',        active: true },
-        { id: 'c2', code: 'WELCOME50', discount: 'Rs50 off first order',        limit: 'First order only',         active: true },
-        { id: 'c3', code: 'FESTIVE30', discount: '30% off up to Rs120',         limit: 'Festival orders',          active: true },
-        { id: 'c4', code: 'EID25',     discount: '25% off up to Rs90',          limit: 'Any order',                active: true },
-        { id: 'c5', code: 'FREEDEL',   discount: 'Free delivery fee',           limit: 'Orders above Rs199',       active: true },
-        { id: 'c6', code: 'SIRI10',    discount: 'Extra 10% off up to Rs150',   limit: 'Orders above Rs999',       active: true },
-        { id: 'c7', code: 'BULK200',   discount: 'Flat Rs200 off',              limit: 'Wholesale above Rs2999',   active: true },
-        { id: 'c8', code: 'WSFREE',    discount: 'Free delivery on wholesale',  limit: 'All wholesale orders',     active: true },
-        { id: 'c9', code: 'WSBIG15',   discount: 'Extra 15% off',               limit: 'Wholesale above Rs4999',   active: true },
-      ];
-      writeStorage(ADMIN_COUPONS_KEY, seeded);
-      localStorage.setItem('siri-coupons-seed', V);
-      return seeded;
-    }
-    return readStorage(ADMIN_COUPONS_KEY, []);
-  });
+  const [offers, setOffers] = useState([]);
+  const [coupons, setCoupons] = useState([]);
   const [productDraft, setProductDraft] = useState(blankProduct);
   const [apiLoading, setApiLoading] = useState(false);
   const [saveToast, setSaveToast] = useState(null); // { type: 'success'|'error', msg }
@@ -266,9 +234,7 @@ const Admin = () => {
   const [contentSearch, setContentSearch] = useState('');
   const [adminCategories, setAdminCategories] = useState(() => getAdminCategories());
   const [newCat, setNewCat] = useState({ name: '', image: '', color: '#F7F4EE' });
-  const [deliveryZones, setDeliveryZones] = useState(() =>
-    readStorage(ADMIN_DELIVERY_ZONES_KEY, defaultDeliveryZones)
-  );
+  const [deliveryZones, setDeliveryZones] = useState([]);
   const [newZone, setNewZone] = useState({ area: '', pincode: '', time: '30 mins', distance: '' });
   const persistDeliveryZones = (next) => {
     setDeliveryZones(next);
@@ -316,10 +282,13 @@ const Admin = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Load live orders and customers on mount ──
+  // ── Load live orders, customers, offers, coupons, zones on mount ──
   useEffect(() => {
     adminApi.fetchAllOrders().then(setLiveOrders).catch(() => setLiveOrders([]));
     adminApi.fetchAllUsers().then(setLiveCustomers).catch(() => setLiveCustomers([]));
+    fetch('/api/offers').then(r => r.json()).then(setOffers).catch(() => {});
+    fetch('/api/coupons').then(r => r.json()).then(setCoupons).catch(() => {});
+    fetch('/api/delivery_zones').then(r => r.json()).then(setDeliveryZones).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

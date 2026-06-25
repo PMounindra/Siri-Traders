@@ -7,6 +7,9 @@ import { categories } from './schema/categories.js';
 import { orders } from './schema/orders.js';
 import { orderItems } from './schema/order_items.js';
 import { users } from './schema/users.js';
+import { offers } from './schema/offers.js';
+import { coupons } from './schema/coupons.js';
+import { deliveryZones } from './schema/delivery_zones.js';
 
 // Load .env.local first (local dev), fall back to .env
 dotenv.config({ path: '.env.local' });
@@ -21,7 +24,10 @@ const schema = {
   categories,
   orders,
   orderItems,
-  users
+  users,
+  offers,
+  coupons,
+  deliveryZones
 };
 
 const sql = neon(process.env.DATABASE_URL);
@@ -33,3 +39,6 @@ export { categories } from './schema/categories.js';
 export { orders } from './schema/orders.js';
 export { orderItems } from './schema/order_items.js';
 export { users } from './schema/users.js';
+export { offers } from './schema/offers.js';
+export { coupons } from './schema/coupons.js';
+export { deliveryZones } from './schema/delivery_zones.js';
