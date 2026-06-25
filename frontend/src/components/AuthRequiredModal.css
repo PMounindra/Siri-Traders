@@ -25,8 +25,8 @@
   height: 54px;
   margin: 0 auto 12px;
   border-radius: 50%;
-  background: #FFF8DF;
-  color: #1E3A5F;
+  background: #F1F8E9;
+  color: #2D5016;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -59,16 +59,26 @@
   border-radius: 10px;
   font-size: 14px;
   font-weight: 800;
+  transition: background 0.18s ease, border-color 0.18s ease;
 }
 
 .auth-required__btn--login {
-  background: #1E3A5F;
+  background: #2D5016;
   color: #FFFFFF;
 }
 
+.auth-required__btn--login:hover {
+  background: #3A6B1A;
+}
+
 .auth-required__btn--signup {
-  background: #FFC107;
-  color: #1C1C1C;
+  background: #F1F8E9;
+  color: #2D5016;
+  border: 1.5px solid #2D5016;
+}
+
+.auth-required__btn--signup:hover {
+  background: #E4F0D6;
 }
 
 .auth-required__close {

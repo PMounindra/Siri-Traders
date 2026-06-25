@@ -13,9 +13,9 @@
   align-items: center;
   justify-content: center;
   color: #FFFFFF;
-  background: #1E3A5F;
+  background: #2D5016;
   border: 1px solid rgba(255, 255, 255, 0.45);
-  box-shadow: 0 10px 24px rgba(30, 58, 95, 0.22);
+  box-shadow: 0 10px 24px rgba(45, 80, 22, 0.24);
   pointer-events: auto;
 }
 
@@ -33,7 +33,7 @@
 }
 
 .scroll-controls__btn:hover {
-  background: #2B4F78;
+  background: #3A6B1A;
   transform: translateY(-1px);
 }
 
@@ -51,7 +51,7 @@
     right: 9px;
     width: 34px;
     height: 34px;
-    box-shadow: 0 8px 18px rgba(30, 58, 95, 0.2);
+    box-shadow: 0 8px 18px rgba(45, 80, 22, 0.22);
   }
 
   .scroll-controls__btn--top {

@@ -4,13 +4,13 @@
 
 .signup-page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
-  align-items: center;
-  justify-content: center;
   background: #FAFAF6;
   position: relative;
-  overflow: hidden;
-  padding: var(--space-md);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: var(--space-lg) var(--space-md);
 }
 
 .signup-floating {
@@ -35,6 +35,7 @@
   padding: 32px 28px;
   width: 100%;
   max-width: 420px;
+  margin: auto;
   box-shadow: 0 20px 60px rgba(49, 91, 63, 0.16);
   position: relative;
   z-index: 2;

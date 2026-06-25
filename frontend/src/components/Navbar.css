@@ -602,12 +602,21 @@
     display: inline-flex;
   }
 
-  /* Hide desktop-only sign in */
+  /* Compact icon-only sign in on mobile */
   .navbar__signin {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    gap: 0;
+    border-radius: 12px;
+  }
+
+  .navbar__signin span {
     display: none;
   }
 
   .navbar__cart,
+  .navbar__signin,
   .navbar__menu-toggle,
   .navbar__user-btn {
     width: 44px;
@@ -665,6 +674,7 @@
   }
 
   .navbar__cart,
+  .navbar__signin,
   .navbar__menu-toggle,
   .navbar__user-btn {
     width: 40px;
