@@ -138,108 +138,7 @@ const blankAdmin = {
   role: 'Manager'
 };
 
-const sampleCustomers = [
-  {
-    name: 'Ravi Kumar',
-    email: 'ravi.kumar@example.com',
-    phone: '+91 98765 43210',
-    address: 'Hitech City, Hyderabad, 500081',
-    orders: 6,
-    interest: 'Fresh vegetables',
-    bought: 'Fresh Tomatoes, Red Onions, Aashirvaad Atta',
-    purchases: [
-      { item: 'Fresh Tomatoes', quantity: '20 kg', cost: 2000 },
-      { item: 'Red Onions', quantity: '10 kg', cost: 650 },
-      { item: 'Aashirvaad Atta', quantity: '2 packs', cost: 190 }
-    ],
-    totalSpent: 2840
-  },
-  {
-    name: 'Priya Sharma',
-    email: 'priya.sharma@example.com',
-    phone: '+91 91234 56780',
-    address: 'Kukatpally, Hyderabad, 500072',
-    orders: 4,
-    interest: 'Dairy and breakfast',
-    bought: 'Amul Milk, Bread, Eggs, Butter',
-    purchases: [
-      { item: 'Amul Milk', quantity: '12 L', cost: 720 },
-      { item: 'Bread', quantity: '6 packs', cost: 270 },
-      { item: 'Eggs', quantity: '5 trays', cost: 625 },
-      { item: 'Butter', quantity: '2 packs', cost: 150 }
-    ],
-    totalSpent: 1765
-  },
-  {
-    name: 'Mohammed Imran',
-    email: 'imran.m@example.com',
-    phone: '+91 99887 76655',
-    address: 'Madhapur, Hyderabad, 500081',
-    orders: 8,
-    interest: 'Rice and atta',
-    bought: 'Basmati Rice, Sugar, Cooking Oil',
-    purchases: [
-      { item: 'Basmati Rice', quantity: '25 kg', cost: 2500 },
-      { item: 'Sugar', quantity: '12 kg', cost: 600 },
-      { item: 'Cooking Oil', quantity: '8 L', cost: 1020 }
-    ],
-    totalSpent: 4120
-  }
-];
-
-const demoOrders = [
-  {
-    id: 'ORD-1024',
-    customer: 'Mounindra Pullepu',
-    item: 'Green Capsicum, Fresh Tomatoes',
-    quantity: '8 kg total',
-    cost: 344,
-    status: 'Successfully delivered',
-    timelineLabel: 'Delivered',
-    timeline: '29 May 2026, 6:35 PM'
-  },
-  {
-    id: 'ORD-1025',
-    customer: 'Ravi Kumar',
-    item: 'Fresh Tomatoes',
-    quantity: '20 kg',
-    cost: 2000,
-    status: 'Successfully delivered',
-    timelineLabel: 'Delivered',
-    timeline: '29 May 2026, 4:10 PM'
-  },
-  {
-    id: 'ORD-1026',
-    customer: 'Priya Sharma',
-    item: 'Amul Milk, Eggs',
-    quantity: '12 L + 5 trays',
-    cost: 1345,
-    status: 'Successfully delivered',
-    timelineLabel: 'Delivered',
-    timeline: '28 May 2026, 8:20 PM'
-  },
-  {
-    id: 'ORD-1027',
-    customer: 'Mohammed Imran',
-    item: 'Basmati Rice, Cooking Oil',
-    quantity: '25 kg + 8 L',
-    cost: 3520,
-    status: 'Yet to be delivered',
-    timelineLabel: 'Expected',
-    timeline: '30 May 2026, 11:00 AM'
-  },
-  {
-    id: 'ORD-1028',
-    customer: 'Sai',
-    item: 'Fresh Bananas, Red Onions',
-    quantity: '6 kg + 5 kg',
-    cost: 690,
-    status: 'Yet to be delivered',
-    timelineLabel: 'Expected',
-    timeline: '30 May 2026, 2:30 PM'
-  }
-];
-
+// Dummy payments kept for placeholder
 const demoPayments = [
   {
     billNo: 'BILL-7821',
@@ -358,6 +257,7 @@ const Admin = () => {
   const [apiLoading, setApiLoading] = useState(false);
   const [saveToast, setSaveToast] = useState(null); // { type: 'success'|'error', msg }
   const [liveOrders, setLiveOrders] = useState(null); // null = not yet loaded
+  const [liveCustomers, setLiveCustomers] = useState(null);
   const adminApi = useAdminApi();
   const [offerDraft, setOfferDraft] = useState(blankOffer);
   const [couponDraft, setCouponDraft] = useState(blankCoupon);
@@ -416,51 +316,18 @@ const Admin = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Load live orders when orders tab is active ──
+  // ── Load live orders and customers on mount ──
   useEffect(() => {
-    if (activeTab !== 'orders') return;
     adminApi.fetchAllOrders().then(setLiveOrders).catch(() => setLiveOrders([]));
+    adminApi.fetchAllUsers().then(setLiveCustomers).catch(() => setLiveCustomers([]));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, []);
 
   // ── Switch mode and reset draft to appropriate blank ──
   const switchMode = (mode) => {
     setAdminMode(mode);
     setProductDraft(mode === 'wholesale' ? blankWholesaleProduct : blankProduct);
   };
-
-  const customers = useMemo(() => {
-    const realCustomers = getAccounts().map(account => {
-      const orders = getStoredList(getUserStorageKey(account, 'orders'));
-      const addresses = getStoredList(getUserStorageKey(account, 'addresses'));
-      const boughtItems = orders.flatMap(order => order.items || []);
-      const itemNames = [...new Set(boughtItems.map(item => item.name).filter(Boolean))];
-      const purchases = boughtItems.map(item => {
-        const quantity = Number(item.quantity || 1);
-        const weight = item.weight && item.unit ? `${item.weight}${item.unit}` : 'item';
-        return {
-          item: item.name,
-          quantity: `${quantity} x ${weight}`,
-          cost: Number(item.price || 0) * quantity
-        };
-      });
-      const interest = itemNames[0] || 'No purchase interest yet';
-      return {
-        ...account,
-        address: addresses[0] ? `${addresses[0].address}, ${addresses[0].pincode}` : 'No address saved',
-        orders: orders.length,
-        interest,
-        bought: itemNames.join(', ') || 'No orders yet',
-        purchases,
-        totalSpent: orders.reduce((sum, order) => sum + Number(order.total || 0), 0)
-      };
-    });
-    const realEmails = new Set(realCustomers.map(customer => customer.email.toLowerCase()));
-    return [
-      ...realCustomers,
-      ...sampleCustomers.filter(customer => !realEmails.has(customer.email.toLowerCase()))
-    ];
-  }, []);
 
   // ── Filtered products per tab ──
   const filteredRetailProducts = useMemo(() => {
@@ -491,8 +358,8 @@ const Admin = () => {
     { label: 'Wholesale products', value: wholesaleProducts.length, icon: FiPackage },
     { label: 'Live offers', value: offers.filter(offer => offer.active).length, icon: FiGift },
     { label: 'Coupons', value: coupons.filter(coupon => coupon.active).length, icon: FiTag },
-    { label: 'Customers', value: customers.length, icon: FiUsers },
-    { label: 'Orders', value: demoOrders.length, icon: FiTruck },
+    { label: 'Customers', value: liveCustomers ? liveCustomers.length : 0, icon: FiUsers },
+    { label: 'Orders', value: liveOrders ? liveOrders.length : 0, icon: FiTruck },
   ];
 
   const exportItems = () => {
@@ -505,18 +372,13 @@ const Admin = () => {
   };
 
   const exportCustomers = () => downloadCsv('siri-traders-customers.csv', [
-    ['Name', 'Email', 'Phone', 'Address', 'Orders', 'Interest', 'Bought Items', 'Quantities', 'Costs', 'Total Spent'],
-    ...customers.map(customer => [
+    ['Name', 'Email', 'Phone', 'Orders', 'Total Spent'],
+    ...(liveCustomers || []).map(customer => [
       customer.name,
       customer.email,
       customer.phone,
-      customer.address,
-      customer.orders,
-      customer.interest,
-      customer.bought,
-      (customer.purchases || []).map(item => `${item.item}: ${item.quantity}`).join(' | '),
-      (customer.purchases || []).map(item => `${item.item}: ${item.cost}`).join(' | '),
-      customer.totalSpent
+      customer.ordersCount || 0,
+      customer.totalSpent || 0
     ])
   ]);
 
@@ -1249,18 +1111,15 @@ const Admin = () => {
                 <h2>Customers</h2>
                 <button className="admin__ghost" onClick={exportCustomers}>Download customers</button>
               </div>
-              {customers.length === 0 ? (
+              {liveCustomers === null ? (
+                <p className="admin-muted">Loading customers...</p>
+              ) : liveCustomers.length === 0 ? (
                 <p className="admin-muted">No customers yet. New user signups will appear here automatically.</p>
-              ) : customers.map(customer => (
+              ) : liveCustomers.map(customer => (
                 <div key={customer.email} className="admin-customer admin-customer--readonly">
                   <div><strong>{customer.name}</strong><span>{customer.phone} / {customer.email}</span></div>
-                  <div><strong>Address</strong><span>{customer.address}</span></div>
-                  <div><strong>Interest</strong><span>{customer.interest}</span></div>
-                  <div><strong>Bought</strong><span>{customer.bought}</span></div>
-                  <div><strong>Quantity</strong><span>{(customer.purchases || []).map(item => `${item.item}: ${item.quantity}`).join(', ') || 'No quantity yet'}</span></div>
-                  <div><strong>Cost</strong><span>{(customer.purchases || []).map(item => `${item.item}: ${formatPrice(item.cost)}`).join(', ') || formatPrice(0)}</span></div>
-                  <div><strong>Orders</strong><span>{customer.orders}</span></div>
-                  <div><strong>Total spent</strong><span>{formatPrice(customer.totalSpent)}</span></div>
+                  <div><strong>Orders</strong><span>{customer.ordersCount || 0}</span></div>
+                  <div><strong>Total spent</strong><span>{formatPrice(customer.totalSpent || 0)}</span></div>
                 </div>
               ))}
             </section>

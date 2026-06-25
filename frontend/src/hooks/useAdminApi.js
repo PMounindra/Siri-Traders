@@ -75,6 +75,12 @@ export async function apiUpdateOrderStatus(id, status) {
   return json;
 }
 
+export async function apiFetchAllUsers() {
+  const res = await fetch('/api/admin/users', { headers: adminHeaders() });
+  if (!res.ok) throw new Error('Failed to load users');
+  return res.json();
+}
+
 // ── Hook (backwards compat) ───────────────────────────────────────────────
 // Admin.jsx calls adminApi.xxx(), so expose named methods as a plain object.
 export function useAdminApi() {
@@ -85,5 +91,6 @@ export function useAdminApi() {
     deleteProduct: apiDeleteProduct,
     fetchAllOrders: apiFetchAllOrders,
     updateOrderStatus: apiUpdateOrderStatus,
+    fetchAllUsers: apiFetchAllUsers,
   };
 }
