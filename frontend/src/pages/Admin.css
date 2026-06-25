@@ -728,6 +728,22 @@
   background: #FFF8DF;
 }
 
+.admin-status-select {
+  border: 1.5px solid rgba(45, 80, 22, 0.25);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  background: #fff;
+  color: #2D5016;
+  cursor: pointer;
+  outline: none;
+}
+.admin-status-select:focus {
+  border-color: #2D5016;
+  box-shadow: 0 0 0 2px rgba(45,80,22,0.12);
+}
+
 .admin-content-list {
   display: flex;
   flex-direction: column;

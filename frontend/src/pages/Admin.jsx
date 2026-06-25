@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FiBarChart2,
@@ -20,6 +20,7 @@ import {
   FiMapPin
 } from 'react-icons/fi';
 import { getAccounts } from '../context/AuthContext';
+import { useAdminApi } from '../hooks/useAdminApi';
 import { products as baseProducts, getProducts as getAllProducts } from '../data/products';
 import { categories, getAllCategories, getAdminCategories, saveAdminCategories } from '../data/categories';
 import { baseDailyOffers, baseFestivalOffers } from '../data/offers';
@@ -354,6 +355,9 @@ const Admin = () => {
     return readStorage(ADMIN_COUPONS_KEY, []);
   });
   const [productDraft, setProductDraft] = useState(blankProduct);
+  const [apiLoading, setApiLoading] = useState(false);
+  const [liveOrders, setLiveOrders] = useState(null); // null = not yet loaded
+  const adminApi = useAdminApi();
   const [offerDraft, setOfferDraft] = useState(blankOffer);
   const [couponDraft, setCouponDraft] = useState(blankCoupon);
   const [adminAccounts, setAdminAccounts] = useState(() => getAdminAccounts());
@@ -397,6 +401,26 @@ const Admin = () => {
     setCoupons(nextCoupons);
     writeStorage(ADMIN_COUPONS_KEY, nextCoupons);
   };
+
+  // ── Load products from DB on mount ──
+  useEffect(() => {
+    adminApi.fetchProducts().then(dbProducts => {
+      if (!dbProducts || dbProducts.length === 0) return;
+      // Separate retail (no wholesalePrice) vs wholesale
+      const retail = dbProducts.filter(p => !p.wholesalePrice);
+      const ws = dbProducts.filter(p => p.wholesalePrice);
+      if (retail.length > 0) persistRetailProducts(retail.map(p => ({ ...p, stockNote: p.inStock ? 'In stock' : 'Out of stock' })));
+      if (ws.length > 0) persistWholesaleProducts(ws.map(p => ({ ...p, stockNote: p.inStock ? 'In stock' : 'Out of stock' })));
+    }).catch(() => { /* offline – localStorage fallback still works */ });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Load live orders when orders tab is active ──
+  useEffect(() => {
+    if (activeTab !== 'orders') return;
+    adminApi.fetchAllOrders().then(setLiveOrders).catch(() => setLiveOrders([]));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // ── Switch mode and reset draft to appropriate blank ──
   const switchMode = (mode) => {
@@ -513,7 +537,7 @@ const Admin = () => {
     event.target.value = '';
   };
 
-  const saveProduct = (event) => {
+  const saveProduct = async (event) => {
     event.preventDefault();
     const isWholesale = activeTab === 'wholesale-products';
 
@@ -529,7 +553,6 @@ const Admin = () => {
 
     const baseNext = {
       ...productDraft,
-      id: productDraft.id || Date.now(),
       price: Number(productDraft.price) || (builtVariants[0]?.price || 0),
       mrp: Number(productDraft.mrp) || Number(productDraft.price) || 0,
       discount: Number(productDraft.discount) || 0,
@@ -539,6 +562,7 @@ const Admin = () => {
       variants: builtVariants.length > 0 ? builtVariants : undefined
     };
 
+    let nextProduct = baseNext;
     if (isWholesale) {
       const variants = builtVariants.length > 0 ? builtVariants : [];
       if (baseNext.weight && baseNext.price && variants.length === 0) {
@@ -550,7 +574,7 @@ const Admin = () => {
       if (productDraft.wholesaleCaseLabel && productDraft.wholesaleCasePrice) {
         variants.push({ label: productDraft.wholesaleCaseLabel, price: Number(productDraft.wholesaleCasePrice) || 0 });
       }
-      const nextProduct = {
+      nextProduct = {
         ...baseNext,
         wholesalePrice: Number(productDraft.wholesalePrice) || baseNext.price,
         bulkPackLabel: productDraft.bulkPackLabel || '',
@@ -559,6 +583,29 @@ const Admin = () => {
         wholesaleCasePrice: Number(productDraft.wholesaleCasePrice) || 0,
         variants: variants.length > 0 ? variants : undefined
       };
+    }
+
+    // ── API sync ──────────────────────────────────────────────────────
+    setApiLoading(true);
+    try {
+      const isEdit = Boolean(productDraft.id && typeof productDraft.id === 'number');
+      const { stockNote, id: _id, ...apiPayload } = nextProduct; // strip UI-only fields
+      if (isEdit) {
+        const saved = await adminApi.updateProduct(productDraft.id, apiPayload);
+        nextProduct = { ...nextProduct, id: saved.id };
+      } else {
+        const saved = await adminApi.createProduct(apiPayload);
+        nextProduct = { ...nextProduct, id: saved.id };
+      }
+    } catch (err) {
+      console.warn('API sync failed, using local only:', err);
+      // Assign a local id if new and API failed
+      if (!productDraft.id) nextProduct = { ...nextProduct, id: Date.now() };
+    } finally {
+      setApiLoading(false);
+    }
+
+    if (isWholesale) {
       const exists = wholesaleProducts.some(p => String(p.id) === String(nextProduct.id));
       const next = exists
         ? wholesaleProducts.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p)
@@ -566,10 +613,10 @@ const Admin = () => {
       persistWholesaleProducts(next);
       setProductDraft(blankWholesaleProduct);
     } else {
-      const exists = retailProducts.some(p => String(p.id) === String(baseNext.id));
+      const exists = retailProducts.some(p => String(p.id) === String(nextProduct.id));
       const next = exists
-        ? retailProducts.map(p => String(p.id) === String(baseNext.id) ? baseNext : p)
-        : [baseNext, ...retailProducts];
+        ? retailProducts.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p)
+        : [nextProduct, ...retailProducts];
       persistRetailProducts(next);
       setProductDraft(blankProduct);
     }
@@ -602,25 +649,39 @@ const Admin = () => {
     }, 150);
   };
 
-  // updateProductStock: applies to the correct array based on whether product has wholesalePrice
-  const updateProductStock = (productId, stockNote, isWholesale) => {
+  // updateProductStock: applies to the correct array + syncs to API
+  const updateProductStock = async (productId, stockNote, isWholesale) => {
+    const inStock = stockNote !== 'Out of stock';
     if (isWholesale) {
       persistWholesaleProducts(wholesaleProducts.map(p =>
-        p.id === productId ? { ...p, stockNote, inStock: stockNote !== 'Out of stock' } : p
+        p.id === productId ? { ...p, stockNote, inStock } : p
       ));
     } else {
       persistRetailProducts(retailProducts.map(p =>
-        p.id === productId ? { ...p, stockNote, inStock: stockNote !== 'Out of stock' } : p
+        p.id === productId ? { ...p, stockNote, inStock } : p
       ));
+    }
+    // Only sync numeric IDs (DB rows)
+    if (typeof productId === 'number') {
+      adminApi.updateProduct(productId, { inStock }).catch(err =>
+        console.warn('Stock sync failed:', err)
+      );
     }
   };
 
-  // removeProduct: removes from the correct mode's array
-  const removeProduct = (productId) => {
+  // removeProduct: removes from the correct mode's array + syncs to API
+  const removeProduct = async (productId) => {
+    if (!window.confirm('Delete this product? This cannot be undone.')) return;
     if (activeTab === 'wholesale-products') {
       persistWholesaleProducts(wholesaleProducts.filter(p => p.id !== productId));
     } else {
       persistRetailProducts(retailProducts.filter(p => p.id !== productId));
+    }
+    // Only sync numeric IDs (DB rows)
+    if (typeof productId === 'number') {
+      adminApi.deleteProduct(productId).catch(err =>
+        console.warn('Delete sync failed:', err)
+      );
     }
   };
 
@@ -1195,20 +1256,49 @@ const Admin = () => {
             <section className="admin-card admin-card--wide">
               <div className="admin-card__toolbar">
                 <h2>Customer orders</h2>
+                <button className="admin__ghost" onClick={() => adminApi.fetchAllOrders().then(setLiveOrders).catch(() => {})}>
+                  ↻ Refresh
+                </button>
               </div>
+              {liveOrders === null && <p className="admin-muted">Loading orders…</p>}
+              {liveOrders !== null && liveOrders.length === 0 && (
+                <p className="admin-muted">No orders yet. Orders placed by customers will appear here.</p>
+              )}
               <div className="admin-order-list">
-                {demoOrders.map(order => (
+                {(liveOrders || []).map(order => (
                   <div key={order.id} className="admin-order-card">
                     <FiTruck />
                     <div>
-                      <strong>{order.customer}</strong>
-                      <span>{order.id}</span>
+                      <strong>Order #{order.id}</strong>
+                      <span>User: {order.userId}</span>
                     </div>
-                    <div><strong>Item</strong><span>{order.item}</span></div>
-                    <div><strong>Quantity</strong><span>{order.quantity}</span></div>
-                    <div><strong>Cost</strong><span>{formatPrice(order.cost)}</span></div>
-                    <div><strong>Status</strong><span className={`admin-status-pill ${order.status === 'Yet to be delivered' ? 'admin-status-pill--pending' : ''}`}>{order.status}</span></div>
-                    <div><strong>{order.timelineLabel}</strong><span>{order.timeline}</span></div>
+                    <div><strong>Items</strong><span>{(order.items || []).map(i => `${i.name} ×${i.quantity}`).join(', ') || '—'}</span></div>
+                    <div><strong>Address</strong><span>{order.deliveryAddress || '—'}</span></div>
+                    <div><strong>Payment</strong><span>{order.paymentMethod || '—'}</span></div>
+                    <div><strong>Total</strong><span>{formatPrice(order.total)}</span></div>
+                    <div><strong>Placed</strong><span>{order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN') : '—'}</span></div>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <strong>Status</strong>
+                      <select
+                        value={order.status}
+                        className="admin-status-select"
+                        onChange={async (e) => {
+                          const newStatus = e.target.value;
+                          try {
+                            await adminApi.updateOrderStatus(order.id, newStatus);
+                            setLiveOrders(prev => prev.map(o =>
+                              o.id === order.id ? { ...o, status: newStatus } : o
+                            ));
+                          } catch (err) {
+                            alert('Failed to update status: ' + err.message);
+                          }
+                        }}
+                      >
+                        {['Pending','Preparing','In Transit','Delivered','Paid'].map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 ))}
               </div>

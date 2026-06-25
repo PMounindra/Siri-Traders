@@ -8,7 +8,9 @@ import { orders } from './schema/orders.js';
 import { orderItems } from './schema/order_items.js';
 import { users } from './schema/users.js';
 
-dotenv.config();
+// Load .env.local first (local dev), fall back to .env
+dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env' }); // no-op if already set
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is required but missing from configuration.");
