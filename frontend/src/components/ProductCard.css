@@ -23,7 +23,8 @@
 /* ── Image ── */
 .product-card__image-container {
   position: relative;
-  height: 90px;
+  aspect-ratio: 1 / 1;
+  width: 100%;
   background: #F7F4EE;
   overflow: hidden;
   display: flex;
@@ -304,7 +305,7 @@
 
 /* ── Compact variant ── */
 .product-card--compact .product-card__image-container {
-  height: 100px;
+  aspect-ratio: 1 / 1;
 }
 
 .product-card--compact .product-card__name {
@@ -318,7 +319,8 @@
   }
 
   .product-card__image-container {
-    height: 80px;
+    aspect-ratio: 1 / 1;
+    height: auto;
   }
 
   .product-card__info {
