@@ -30,37 +30,23 @@ const Signup = () => (
           },
           layout: { logoPlacement: 'none' },
           elements: {
-            rootBox: {
-              width: '100%',
-              display: 'block',
-            },
-            cardBox: {
-              width: '100%',
-              boxShadow: 'none',
-              margin: '0',
-            },
+            rootBox: { width: '100%' },
+            cardBox: { width: '100%', boxShadow: 'none', margin: '0' },
             card: {
               width: '100%',
               boxShadow: 'none',
+              border: 'none',
               background: 'transparent',
               margin: '0',
-              padding: '0',
+              padding: '24px',
             },
-            main: {
-              width: '100%',
-            },
+            main: { width: '100%' },
             header: { display: 'none' },
             headerTitle: { display: 'none' },
             headerSubtitle: { display: 'none' },
             logoBox: { display: 'none' },
-            form: {
-              width: '100%',
-            },
-            formField: {
-              width: '100%',
-              boxSizing: 'border-box',
-            },
-            /* CRITICAL: force First/Last name to stack vertically */
+            form: { width: '100%' },
+            formField: { width: '100%', boxSizing: 'border-box' },
             formFieldRow: {
               display: 'flex',
               flexDirection: 'column',
@@ -76,18 +62,15 @@ const Signup = () => (
               borderRadius: '10px',
             },
             formFieldLabel: {
-              textAlign: 'left',
               display: 'block',
               width: '100%',
+              textAlign: 'left',
             },
             socialButtonsBlockButton: {
               width: '100%',
               border: '1.5px solid rgba(45,80,22,0.2)',
               borderRadius: '10px',
               fontWeight: '700',
-            },
-            socialButtonsBlockButtonText: {
-              textAlign: 'center',
             },
             formButtonPrimary: {
               width: '100%',
@@ -98,7 +81,7 @@ const Signup = () => (
               height: '46px',
             },
             footerActionLink: { color: '#3A6B1A', fontWeight: '700' },
-          }
+          },
         }}
       />
     </div>
