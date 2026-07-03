@@ -30,9 +30,9 @@ const Login = () => (
           },
           layout: { logoPlacement: 'none' },
           elements: {
-            rootBox: { width: '100%', display: 'flex', justifyContent: 'center' },
+            rootBox: { width: '100%' },
             cardBox: { width: '100%', boxShadow: 'none', margin: '0' },
-            card: { width: '100%', maxWidth: '100%', boxShadow: 'none', padding: '0', background: 'transparent', margin: '0' },
+            card: { width: '100%', maxWidth: '100%', boxShadow: 'none', background: 'transparent', margin: '0' },
             main: { width: '100%' },
             header: { display: 'none' },
             headerTitle: { display: 'none' },

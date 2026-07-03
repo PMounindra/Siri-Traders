@@ -62,20 +62,91 @@
   background: #FFFFFF;
   border-radius: 18px;
   box-shadow: 0 16px 48px rgba(45, 80, 22, 0.12);
-  padding: 24px 24px 20px;
   box-sizing: border-box;
   overflow: hidden;
 }
 
+/* ============================
+   CLERK INTERNAL OVERRIDES
+   ============================ */
+
+/* Make the Clerk root and card fill our container properly */
+.signup-clerk-wrap .cl-rootBox,
+.signup-clerk-wrap .cl-cardBox,
+.signup-clerk-wrap .cl-card,
+.signup-clerk-wrap .cl-signUp-root {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-shadow: none !important;
+  border: none !important;
+  margin: 0 !important;
+}
+
+/* Restore proper internal padding so labels/inputs aren't flush to edge */
+.signup-clerk-wrap .cl-card {
+  padding: 24px 24px 20px !important;
+  background: transparent !important;
+}
+
+/* Social buttons full width and properly aligned */
+.signup-clerk-wrap .cl-socialButtonsBlockButton {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* CRITICAL: Fix two-column First/Last name row overflow on all screens */
+.signup-clerk-wrap .cl-formFieldRow {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Each field in the row should be full width */
+.signup-clerk-wrap .cl-formFieldRow .cl-formField {
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  flex: none !important;
+}
+
+/* All form fields full width */
+.signup-clerk-wrap .cl-formField {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Input full width */
+.signup-clerk-wrap .cl-formFieldInput {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Submit button full width */
+.signup-clerk-wrap .cl-formButtonPrimary {
+  width: 100% !important;
+}
+
+/* Hide the header since we have our own */
+.signup-clerk-wrap .cl-header {
+  display: none !important;
+}
+
+/* Footer alignment */
+.signup-clerk-wrap .cl-footer {
+  text-align: center !important;
+}
+
+/* Mobile */
 @media (max-width: 480px) {
   .signup-page {
     padding: 24px 12px;
     justify-content: center;
   }
 
-  .signup-clerk-wrap {
-    padding: 20px 16px;
-    border-radius: 16px;
+  .signup-clerk-wrap .cl-card {
+    padding: 20px 16px !important;
   }
 
   .signup-title {
