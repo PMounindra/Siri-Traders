@@ -26,24 +26,71 @@ const Signup = () => (
             borderRadius: '10px',
             fontFamily: 'Poppins, sans-serif',
             fontSize: '14px',
-            spacingUnit: '18px',
+            spacingUnit: '16px',
           },
           layout: { logoPlacement: 'none' },
           elements: {
-            rootBox: { width: '100%' },
-            cardBox: { width: '100%', boxShadow: 'none', margin: '0' },
-            card: { width: '100%', maxWidth: '100%', boxShadow: 'none', background: 'transparent', margin: '0' },
-            main: { width: '100%' },
+            rootBox: {
+              width: '100%',
+              display: 'block',
+            },
+            cardBox: {
+              width: '100%',
+              boxShadow: 'none',
+              margin: '0',
+            },
+            card: {
+              width: '100%',
+              boxShadow: 'none',
+              background: 'transparent',
+              margin: '0',
+              padding: '0',
+            },
+            main: {
+              width: '100%',
+            },
             header: { display: 'none' },
             headerTitle: { display: 'none' },
             headerSubtitle: { display: 'none' },
             logoBox: { display: 'none' },
+            form: {
+              width: '100%',
+            },
+            formField: {
+              width: '100%',
+              boxSizing: 'border-box',
+            },
+            /* CRITICAL: force First/Last name to stack vertically */
+            formFieldRow: {
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              width: '100%',
+              boxSizing: 'border-box',
+            },
+            formFieldInput: {
+              width: '100%',
+              boxSizing: 'border-box',
+              borderColor: 'rgba(45,80,22,0.2)',
+              background: '#F1F8E9',
+              borderRadius: '10px',
+            },
+            formFieldLabel: {
+              textAlign: 'left',
+              display: 'block',
+              width: '100%',
+            },
             socialButtonsBlockButton: {
+              width: '100%',
               border: '1.5px solid rgba(45,80,22,0.2)',
               borderRadius: '10px',
               fontWeight: '700',
             },
+            socialButtonsBlockButtonText: {
+              textAlign: 'center',
+            },
             formButtonPrimary: {
+              width: '100%',
               background: '#2D5016',
               color: '#ffffff',
               fontWeight: '800',
@@ -51,11 +98,6 @@ const Signup = () => (
               height: '46px',
             },
             footerActionLink: { color: '#3A6B1A', fontWeight: '700' },
-            formFieldInput: {
-              borderColor: 'rgba(45,80,22,0.2)',
-              background: '#F1F8E9',
-              borderRadius: '10px',
-            },
           }
         }}
       />

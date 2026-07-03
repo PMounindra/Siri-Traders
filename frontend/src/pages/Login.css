@@ -57,71 +57,16 @@
   color: #687466;
 }
 
-/* Clerk form container */
+/* Clerk form container — padding lives here since Clerk card has padding:0 */
 .login-clerk-wrap {
   width: 100%;
   max-width: 400px;
   background: #FFFFFF;
   border-radius: 18px;
   box-shadow: 0 16px 48px rgba(45, 80, 22, 0.12);
+  padding: 24px;
   box-sizing: border-box;
   overflow: hidden;
-}
-
-/* ============================
-   CLERK INTERNAL OVERRIDES
-   ============================ */
-
-/* Make the Clerk root and card fill our container properly */
-.login-clerk-wrap .cl-rootBox,
-.login-clerk-wrap .cl-cardBox,
-.login-clerk-wrap .cl-card,
-.login-clerk-wrap .cl-signIn-root {
-  width: 100% !important;
-  max-width: 100% !important;
-  box-shadow: none !important;
-  border: none !important;
-  margin: 0 !important;
-}
-
-/* Restore proper internal padding so labels/inputs aren't flush to edge */
-.login-clerk-wrap .cl-card {
-  padding: 24px 24px 20px !important;
-  background: transparent !important;
-}
-
-/* Social buttons full width and properly aligned */
-.login-clerk-wrap .cl-socialButtonsBlockButton {
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-/* Form fields full width */
-.login-clerk-wrap .cl-formField,
-.login-clerk-wrap .cl-formFieldRow {
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-/* Input full width */
-.login-clerk-wrap .cl-formFieldInput {
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-/* Submit button full width */
-.login-clerk-wrap .cl-formButtonPrimary {
-  width: 100% !important;
-}
-
-/* Hide the header since we have our own */
-.login-clerk-wrap .cl-header {
-  display: none !important;
-}
-
-/* Footer alignment */
-.login-clerk-wrap .cl-footer {
-  text-align: center !important;
 }
 
 /* Mobile */
@@ -131,8 +76,9 @@
     justify-content: center;
   }
 
-  .login-clerk-wrap .cl-card {
-    padding: 20px 16px !important;
+  .login-clerk-wrap {
+    padding: 20px 16px;
+    border-radius: 16px;
   }
 
   .login-title {
