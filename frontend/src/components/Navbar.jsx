@@ -324,13 +324,6 @@ const Navbar = () => {
               {cartCount > 0 && <span className="navbar__cart-badge">{cartCount}</span>}
             </Link>
 
-            {!user && (
-              <Link to="/login" className="navbar__signin">
-                <UserIcon className="navbar__action-icon" />
-                <span>Sign In</span>
-              </Link>
-            )}
-
             <button
               type="button"
               className="navbar__menu-toggle"

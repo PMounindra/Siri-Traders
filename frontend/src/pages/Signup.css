@@ -72,6 +72,35 @@
   box-sizing: border-box;
 }
 
+/* OTP / verification code boxes — span the full form width and
+   distribute evenly so they line up flush with the Continue button */
+.cl-otpCodeField,
+.cl-otpCodeFieldInputContainer,
+.cl-otpCodeFieldInputs {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.cl-otpCodeFieldInputs {
+  display: flex !important;
+  gap: 8px !important;
+  justify-content: space-between !important;
+}
+
+.cl-otpCodeFieldInput {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: 46px !important;
+  min-height: 46px !important;
+}
+
+.cl-otpCodeFieldInput input {
+  width: 100% !important;
+  height: 46px !important;
+  box-sizing: border-box !important;
+}
+
 /* Mobile */
 @media (max-width: 480px) {
   .signup-page {
