@@ -755,10 +755,10 @@ const Home = () => {
             <div className="home__footer-links-col">
               <h4 className="home__footer-col-title">Quick Links</h4>
               <div className="home__footer-links">
-                <a href="/info#about">About Us</a>
-                <a href="/info#contact">Contact</a>
-                <a href="/info#terms">Terms</a>
-                <a href="/info#privacy">Privacy</a>
+                <Link to="/info#about">About Us</Link>
+                <Link to="/info#contact">Contact</Link>
+                <Link to="/info#terms">Terms</Link>
+                <Link to="/info#privacy">Privacy</Link>
               </div>
             </div>
 

@@ -29,7 +29,9 @@ const Cart = lazy(() => import("./pages/Cart"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const Orders = lazy(() => import("./pages/Orders"));
 const Profile = lazy(() => import("./pages/Profile"));
-const Admin = lazy(() => import("./pages/Admin"));
+const Admin        = lazy(() => import("./pages/Admin"));
+const TrackOrder   = lazy(() => import("./pages/TrackOrder"));
+const Info         = lazy(() => import("./pages/Info"));
 import "./App.css";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -70,6 +72,8 @@ const AppLayout = () => {
             <Route path="/orders" element={<Orders />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/track/:orderId" element={<TrackOrder />} />
+            <Route path="/info" element={<Info />} />
             <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>
         </Suspense>
