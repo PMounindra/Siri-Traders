@@ -331,7 +331,7 @@ textarea {
 
 @media (max-width: 900px) {
   .page-wrapper {
-    padding-top: 136px;
+    padding-top: 144px;
   }
 }
 
@@ -342,7 +342,7 @@ textarea {
   }
 
   .page-wrapper {
-    padding-top: 148px;
+    padding-top: 170px;
     padding-bottom: 92px;
   }
 }

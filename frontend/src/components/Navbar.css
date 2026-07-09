@@ -78,6 +78,10 @@
   font-size: 11px;
   line-height: 1.2;
   margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 /* ── Mode switch ── */
@@ -147,6 +151,9 @@
   font-size: 13px;
   font-weight: 800;
   line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .navbar__address-text {
