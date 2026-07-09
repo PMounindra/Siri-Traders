@@ -18,6 +18,7 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { getUserStorageKey } from "../utils/userStorage";
 import { getDeliveryTimeForAddress } from "../utils/deliveryZones";
+import { SERVICEABLE_AREAS, isServiceableAddress } from "../utils/serviceableAreas";
 import "./Navbar.css";
 
 const emptyAddress = {
@@ -38,6 +39,8 @@ const Navbar = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mapCoords, setMapCoords] = useState({ lat: 20.5937, lng: 78.9629 }); // default: India centre
   const [savedAddresses, setSavedAddresses] = useState([]);
+  const [areaQuery, setAreaQuery] = useState("");
+  const [deliveryError, setDeliveryError] = useState("");
   const [addressForm, setAddressForm] = useState({
     ...emptyAddress,
     name: user?.name || "",
@@ -124,11 +127,33 @@ const Navbar = () => {
     );
     if (Object.values(trimmed).some((v) => !v)) return;
     if (!/^\d{6}$/.test(trimmed.pincode)) return;
+    if (!isServiceableAddress(trimmed.address, trimmed.pincode)) {
+      setDeliveryError("No delivery available to this location");
+      return;
+    }
+    setDeliveryError("");
     const nextAddress = { ...trimmed, id: Date.now().toString() };
     const nextAddresses = [nextAddress, ...savedAddresses.filter((a) => a.id !== nextAddress.id)];
     saveAddresses(nextAddresses);
     selectAddress(nextAddress);
     setAddressForm({ ...emptyAddress, name: user?.name || "", phone: user?.phone || "" });
+  };
+
+  const filteredAreas = SERVICEABLE_AREAS.filter((area) => {
+    const q = areaQuery.trim().toLowerCase();
+    if (!q) return true;
+    return area.name.toLowerCase().includes(q) || area.pincode.includes(q);
+  });
+
+  const selectServiceableArea = (area) => {
+    setDeliveryError("");
+    setAreaQuery("");
+    setLocation({
+      address: area.name,
+      city: area.pincode,
+      full: `${area.name}, ${area.pincode}`,
+    });
+    setAddressMenuOpen(false);
   };
 
   const currentAddressText =
@@ -235,12 +260,16 @@ const Navbar = () => {
                               const addr = data.address;
                               const display = data.display_name?.split(',').slice(0,3).join(',') || 'Current location';
                               const pincode = addr?.postcode || '';
+                              if (!isServiceableAddress(display, pincode)) {
+                                setDeliveryError("No delivery available to this location");
+                                return;
+                              }
+                              setDeliveryError("");
                               setLocation({ address: display, city: pincode, full: `${display}${pincode ? ', ' + pincode : ''}` });
                               setAddressMenuOpen(false);
                             })
                             .catch(() => {
-                              setLocation({ address: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`, city: '', full: 'Current location' });
-                              setAddressMenuOpen(false);
+                              setDeliveryError("Couldn't detect a serviceable location. Please pick an area below.");
                             });
                         },
                         () => alert('Unable to get your location. Please allow location access.')
@@ -256,15 +285,39 @@ const Navbar = () => {
                     <SearchIcon size={15} className="navbar__area-search-icon" />
                     <input
                       type="text"
-                      placeholder="Search for your area, street, landmark..."
+                      value={areaQuery}
+                      placeholder="Search your delivery area..."
                       className="navbar__area-search-input"
-                      onChange={(e) => {
-                        // TODO (backend): wire to Google Places Autocomplete API
-                      }}
+                      onChange={(e) => setAreaQuery(e.target.value)}
                     />
                   </div>
 
-                  {/* Map placeholder removed — will be added when backend/Maps API is connected */}
+                  {/* Serviceable areas — customers can only order from these */}
+                  <div className="navbar__areas">
+                    <p className="navbar__areas-title">WE DELIVER HERE</p>
+                    {filteredAreas.length > 0 ? (
+                      <div className="navbar__areas-list">
+                        {filteredAreas.map((area) => {
+                          const isActive =
+                            (deliveryLocation.address || "").toLowerCase() === area.name.toLowerCase();
+                          return (
+                            <button
+                              key={area.name}
+                              type="button"
+                              className={`navbar__area-item ${isActive ? "navbar__area-item--active" : ""}`}
+                              onClick={() => selectServiceableArea(area)}
+                            >
+                              <MapPinIcon size={15} className="navbar__area-item-icon" />
+                              <span className="navbar__area-item-name">{area.name}</span>
+                              <span className="navbar__area-item-pin">{area.pincode}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="navbar__area-empty">No delivery available to this location</p>
+                    )}
+                  </div>
 
                   {/* Saved addresses */}
                   {savedAddresses.length > 0 && (
@@ -298,6 +351,9 @@ const Navbar = () => {
                         onChange={(e) => setAddressForm((p) => ({ ...p, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))} />
                       <button type="button" className="navbar__address-save" onClick={saveAddress}>Save</button>
                     </div>
+                    {deliveryError && (
+                      <p className="navbar__delivery-error">{deliveryError}</p>
+                    )}
                   </div>
 
                 </div>

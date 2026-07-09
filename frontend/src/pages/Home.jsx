@@ -4,6 +4,7 @@ import {
   FiChevronRight,
   FiFacebook,
   FiInstagram,
+  FiMapPin,
   FiPackage,
   FiPercent,
   FiShoppingBag,
@@ -20,6 +21,7 @@ import { useCart } from '../context/CartContext';
 import { useProducts } from '../context/ProductContext';
 import { categories } from '../data/categories';
 import { getDailyOffers, getFestivalOffers } from '../data/offers';
+import { SERVICEABLE_AREAS } from '../utils/serviceableAreas';
 
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
@@ -477,6 +479,25 @@ const Home = () => {
           </div>
 
           <WelcomeBanner customerType={customerType} />
+
+          {/* Serviceable delivery areas — orders only available in these locations */}
+          <section className="home__delivery-areas" aria-label="Delivery areas">
+            <div className="home__delivery-areas-head">
+              <span className="home__delivery-areas-icon"><FiTruck /></span>
+              <div className="home__delivery-areas-copy">
+                <strong>We deliver to these areas</strong>
+                <span>Orders are available only in the locations listed below</span>
+              </div>
+            </div>
+            <div className="home__delivery-areas-chips">
+              {SERVICEABLE_AREAS.map((area) => (
+                <span className="home__delivery-chip" key={area.name}>
+                  <FiMapPin /> {area.name}
+                </span>
+              ))}
+            </div>
+          </section>
+
           <OffersSection customerType={customerType} />
 
           {/* Shop by Category */}
