@@ -2,9 +2,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  FiArrowLeft, FiAward, FiBriefcase, FiCalendar, FiCheck, FiCheckCircle, FiChevronRight,
-  FiClock, FiCreditCard, FiGlobe, FiHome, FiMoreHorizontal, FiPackage, FiPlus,
-  FiRefreshCw, FiShield, FiShoppingBag, FiSmartphone, FiTag, FiTruck, FiX, FiZap
+  FiArrowLeft, FiAward, FiBriefcase, FiCheck, FiCheckCircle, FiChevronRight,
+  FiCreditCard, FiGlobe, FiHome, FiMoreHorizontal, FiPlus,
+  FiRefreshCw, FiShield, FiShoppingBag, FiSmartphone, FiTag, FiTruck, FiX
 } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -16,13 +16,6 @@ import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
 import NetBankingFlow from '../components/NetBankingFlow';
 import './Checkout.css';
-
-const timeSlots = [
-  { id: 'express', label: '30-45 mins', sub: 'Express Delivery', icon: <FiZap />, recommended: true },
-  { id: '30min', label: '1-2 hours', sub: 'Standard Delivery', icon: <FiClock /> },
-  { id: '1hr', label: 'Evening Slot', sub: '4:00 PM - 8:00 PM', icon: <FiPackage /> },
-  { id: '2-4hr', label: 'Tomorrow', sub: 'Morning 8-10 AM', icon: <FiCalendar /> },
-];
 
 const addressTypes = [
   { id: 'home', label: 'Home', icon: <FiHome /> },
@@ -79,7 +72,6 @@ const Checkout = () => {
   const navigate = useNavigate();
   const addressStorageKey = getUserStorageKey(user, 'addresses');
   const orderStorageKey = getUserStorageKey(user, 'orders');
-  const [selectedSlot, setSelectedSlot] = useState('express');
   const [selectedPayment, setSelectedPayment] = useState('cod');
   const [upiId, setUpiId] = useState('');
   const [cardNumber, setCardNumber] = useState('');
@@ -184,7 +176,7 @@ const Checkout = () => {
     }
 
     if (!isServiceableAddress(trimmed.area, trimmed.pincode)) {
-      setAddressError('No delivery available to this location');
+      setAddressError("We can't deliver to this area.");
       return null;
     }
 
@@ -538,28 +530,6 @@ const Checkout = () => {
                     {addressError && <p className="checkout__address-error">{addressError}</p>}
                   </div>
                 )}
-              </div>
-
-              {/* Delivery slot */}
-              <div className="checkout__section">
-                <h3 className="checkout__section-title"><FiClock /> Delivery Slot</h3>
-                <p className="checkout__section-sub">Choose your preferred delivery time</p>
-                <div className="checkout__slots">
-                  {timeSlots.map(slot => (
-                    <button
-                      key={slot.id}
-                      type="button"
-                      className={`checkout__slot ${selectedSlot === slot.id ? 'checkout__slot--active' : ''}`}
-                      onClick={() => setSelectedSlot(slot.id)}
-                    >
-                      {selectedSlot === slot.id && <span className="checkout__slot-check"><FiCheckCircle /></span>}
-                      <span className="checkout__slot-icon">{slot.icon}</span>
-                      <span className="checkout__slot-label">{slot.label}</span>
-                      <span className="checkout__slot-sub">{slot.sub}</span>
-                      {slot.recommended && <span className="checkout__slot-badge">Recommended</span>}
-                    </button>
-                  ))}
-                </div>
               </div>
 
               {/* Payment */}

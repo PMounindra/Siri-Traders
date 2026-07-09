@@ -124,7 +124,7 @@ const Profile = () => {
       return;
     }
     if (!isServiceableAddress(trimmed.area, trimmed.pincode)) {
-      setAddressError('No delivery available to this location');
+      setAddressError("We can't deliver to this area.");
       return;
     }
     setAddressError('');

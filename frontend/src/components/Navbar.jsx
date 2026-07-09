@@ -128,7 +128,7 @@ const Navbar = () => {
     if (Object.values(trimmed).some((v) => !v)) return;
     if (!/^\d{6}$/.test(trimmed.pincode)) return;
     if (!isServiceableAddress(trimmed.address, trimmed.pincode)) {
-      setDeliveryError("No delivery available to this location");
+      setDeliveryError("We can't deliver to this area.");
       return;
     }
     setDeliveryError("");
@@ -261,7 +261,7 @@ const Navbar = () => {
                               const display = data.display_name?.split(',').slice(0,3).join(',') || 'Current location';
                               const pincode = addr?.postcode || '';
                               if (!isServiceableAddress(display, pincode)) {
-                                setDeliveryError("No delivery available to this location");
+                                setDeliveryError("We can't deliver to this area.");
                                 return;
                               }
                               setDeliveryError("");
@@ -315,7 +315,7 @@ const Navbar = () => {
                         })}
                       </div>
                     ) : (
-                      <p className="navbar__area-empty">No delivery available to this location</p>
+                      <p className="navbar__area-empty">We can't deliver to this area.</p>
                     )}
                   </div>
 
