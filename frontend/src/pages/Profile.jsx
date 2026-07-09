@@ -18,6 +18,7 @@ import {
 } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import { getUserStorageKey } from '../utils/userStorage';
+import { SERVICEABLE_AREAS, isServiceableAddress } from '../utils/serviceableAreas';
 import './Profile.css';
 
 const getStoredList = (key, fallback = []) => {
@@ -52,7 +53,8 @@ const Profile = () => {
     offers: true,
     reminders: false
   }));
-  const [addressForm, setAddressForm] = useState({ name: user?.name || '', phone: user?.phone || '', address: '', pincode: '' });
+  const [addressForm, setAddressForm] = useState({ name: user?.name || '', phone: user?.phone || '', address: '', area: '', pincode: '' });
+  const [addressError, setAddressError] = useState('');
   const [paymentForm, setPaymentForm] = useState({ label: 'UPI', upiId: '', cardNumber: '', cardExpiry: '', cardCvv: '', cardName: '', walletProvider: 'Paytm', walletPhone: '', bankName: 'SBI' });
 
   const resetPaymentForm = (label = 'UPI') => {
@@ -109,13 +111,27 @@ const Profile = () => {
     navigate('/login');
   };
 
+  const updateAddressArea = (areaName) => {
+    const area = SERVICEABLE_AREAS.find(a => a.name === areaName);
+    setAddressForm(prev => ({ ...prev, area: areaName, pincode: area ? area.pincode : '' }));
+    setAddressError('');
+  };
+
   const addAddress = () => {
     const trimmed = Object.fromEntries(Object.entries(addressForm).map(([key, value]) => [key, value.trim()]));
-    if (!trimmed.name || !trimmed.phone || !trimmed.address || !/^\d{6}$/.test(trimmed.pincode)) return;
+    if (!trimmed.name || !trimmed.phone || !trimmed.address || !trimmed.area || !/^\d{6}$/.test(trimmed.pincode)) {
+      setAddressError('Please fill all address details, including your delivery area.');
+      return;
+    }
+    if (!isServiceableAddress(trimmed.area, trimmed.pincode)) {
+      setAddressError('No delivery available to this location');
+      return;
+    }
+    setAddressError('');
     const nextAddress = { ...trimmed, id: Date.now().toString() };
     setAddresses(prev => [nextAddress, ...prev]);
     setLocation({ address: trimmed.address, city: trimmed.pincode, full: `${trimmed.address}, ${trimmed.pincode}`, contact: nextAddress });
-    setAddressForm({ name: user?.name || '', phone: user?.phone || '', address: '', pincode: '' });
+    setAddressForm({ name: user?.name || '', phone: user?.phone || '', address: '', area: '', pincode: '' });
   };
 
   const selectAddress = (address) => {
@@ -231,13 +247,22 @@ const Profile = () => {
                     <span>{location.full || location.address || 'No address selected'}</span>
                   </div>
                 </div>
+                <p className="profile-area-note">
+                  We currently deliver only to {SERVICEABLE_AREAS.map(a => a.name).join(', ')}.
+                </p>
                 <div className="profile-form-grid">
                   <input value={addressForm.name} onChange={(e) => setAddressForm(prev => ({ ...prev, name: e.target.value }))} placeholder="Name" />
                   <input value={addressForm.phone} onChange={(e) => setAddressForm(prev => ({ ...prev, phone: e.target.value }))} placeholder="Phone" />
-                  <input value={addressForm.address} onChange={(e) => setAddressForm(prev => ({ ...prev, address: e.target.value }))} placeholder="Flat, street, area" />
-                  <input value={addressForm.pincode} onChange={(e) => setAddressForm(prev => ({ ...prev, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) }))} placeholder="Pincode" />
+                  <input value={addressForm.address} onChange={(e) => setAddressForm(prev => ({ ...prev, address: e.target.value }))} placeholder="Flat, street, landmark" />
+                  <select className="profile-area-select" value={addressForm.area} onChange={(e) => updateAddressArea(e.target.value)}>
+                    <option value="">Select your delivery area</option>
+                    {SERVICEABLE_AREAS.map((area) => (
+                      <option key={area.name} value={area.name}>{area.name} — {area.pincode}</option>
+                    ))}
+                  </select>
                   <button className="profile-action-btn" onClick={addAddress}><FiPlus /> Add Address</button>
                 </div>
+                {addressError && <p className="profile-address-error">{addressError}</p>}
                 <div className="profile-list">
                   {addresses.length === 0 ? <p className="profile-empty">No saved addresses yet.</p> : addresses.map(address => (
                     <div key={address.id} className="profile-list__item">

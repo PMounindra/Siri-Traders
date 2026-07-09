@@ -225,8 +225,26 @@
 }
 
 .profile-form-grid input:nth-child(3),
+.profile-area-select,
 .profile-action-btn {
   grid-column: 1 / -1;
+}
+
+.profile-area-note {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin: -6px 0 10px;
+  line-height: 1.5;
+}
+
+.profile-address-error {
+  color: #C0442E;
+  background: #FFF0EA;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 8px;
 }
 
 .profile-form-grid--inline {

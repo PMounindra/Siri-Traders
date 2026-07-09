@@ -6,6 +6,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { getUserStorageKey } from '../utils/userStorage';
 import { getDeliveryTimeForAddress } from '../utils/deliveryZones';
+import { SERVICEABLE_AREAS, isServiceableAddress } from '../utils/serviceableAreas';
 import { formatPrice } from '../utils/format';
 import NetBankingFlow from '../components/NetBankingFlow';
 import './Checkout.css';
@@ -22,6 +23,7 @@ const emptyAddress = {
   phone: '',
   email: '',
   address: '',
+  area: '',
   pincode: ''
 };
 
@@ -62,6 +64,7 @@ const Checkout = () => {
     phone: user?.phone || '',
     email: user?.email || '',
     address: location.full || location.address || '',
+    area: '',
     pincode: ''
   }));
   const [addressError, setAddressError] = useState('');
@@ -100,6 +103,12 @@ const Checkout = () => {
     setAddressError('');
   };
 
+  const updateAddressArea = (areaName) => {
+    const area = SERVICEABLE_AREAS.find(a => a.name === areaName);
+    setAddressForm(prev => ({ ...prev, area: areaName, pincode: area ? area.pincode : '' }));
+    setAddressError('');
+  };
+
   const saveAddress = () => {
     const trimmed = Object.fromEntries(
       Object.entries(addressForm).map(([key, value]) => [key, value.trim()])
@@ -107,12 +116,17 @@ const Checkout = () => {
     const missing = Object.entries(trimmed).find(([, value]) => !value);
 
     if (missing) {
-      setAddressError('Please fill all address details before payment.');
+      setAddressError('Please fill all address details, including your delivery area, before payment.');
       return null;
     }
 
     if (!/^\d{6}$/.test(trimmed.pincode)) {
       setAddressError('Please enter a valid 6 digit pincode.');
+      return null;
+    }
+
+    if (!isServiceableAddress(trimmed.area, trimmed.pincode)) {
+      setAddressError('No delivery available to this location');
       return null;
     }
 
@@ -135,6 +149,7 @@ const Checkout = () => {
       phone: user?.phone || '',
       email: user?.email || '',
       address: '',
+      area: '',
       pincode: ''
     });
     setShowAddressForm(true);
@@ -307,6 +322,9 @@ const Checkout = () => {
           {/* Address */}
           <div className="checkout__section">
             <h3 className="checkout__section-title"><FiMapPin /> Delivery Address</h3>
+            <p className="checkout__area-note">
+              We currently deliver only to {SERVICEABLE_AREAS.map(a => a.name).join(', ')}.
+            </p>
             {addresses.length > 0 && (
               <div className="checkout__address-list">
                 {addresses.map(address => (
@@ -369,18 +387,19 @@ const Checkout = () => {
                   onChange={(e) => updateAddressField('address', e.target.value)}
                   className="checkout__input checkout__textarea"
                 />
-                <div className="checkout__input-row">
-                  <input
-                    type="text"
-                    placeholder="Pincode"
-                    value={addressForm.pincode}
-                    onChange={(e) => updateAddressField('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="checkout__input"
-                  />
-                  <button type="button" className="checkout__save-address" onClick={saveAddress}>
-                    Save Address
-                  </button>
-                </div>
+                <select
+                  value={addressForm.area}
+                  onChange={(e) => updateAddressArea(e.target.value)}
+                  className="checkout__input checkout__select"
+                >
+                  <option value="">Select your delivery area</option>
+                  {SERVICEABLE_AREAS.map((area) => (
+                    <option key={area.name} value={area.name}>{area.name} — {area.pincode}</option>
+                  ))}
+                </select>
+                <button type="button" className="checkout__save-address" onClick={saveAddress}>
+                  Save Address
+                </button>
                 {addresses.length > 0 && (
                   <button type="button" className="checkout__address-cancel" onClick={() => setShowAddressForm(false)}>
                     Cancel
