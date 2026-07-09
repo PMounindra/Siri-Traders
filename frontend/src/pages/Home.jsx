@@ -21,6 +21,7 @@ import { useCart } from '../context/CartContext';
 import { useProducts } from '../context/ProductContext';
 import { categories } from '../data/categories';
 import { getDailyOffers, getFestivalOffers } from '../data/offers';
+import { retailCoupons as retailCouponDefs, wholesaleCoupons as wholesaleCouponDefs } from '../data/coupons';
 import { SERVICEABLE_AREAS } from '../utils/serviceableAreas';
 
 import { formatPrice } from '../utils/format';
@@ -54,18 +55,10 @@ const ScrollRow = ({ children, className }) => {
   );
 };
 
-/* ── Coupon data ── */
-const retailCoupons = [
-  { icon: <FiPercent />, title: 'FLAT ₹50 OFF', desc: 'On your first order above ₹399', code: 'WELCOME50' },
-  { icon: <FiTruck />, title: 'FREE Delivery', desc: 'On all your orders above ₹199', code: 'FREEDEL' },
-  { icon: <FiTag />, title: 'Extra 10% OFF', desc: 'On orders above ₹999', code: 'SIRI10' }
-];
-
-const wholesaleCoupons = [
-  { icon: <FiPackage />, title: 'FLAT ₹200 OFF', desc: 'On bulk orders above ₹2999', code: 'BULK200' },
-  { icon: <FiTruck />, title: 'FREE Delivery', desc: 'On all wholesale orders', code: 'WSFREE' },
-  { icon: <FiPercent />, title: 'Extra 15% OFF', desc: 'On orders above ₹4999', code: 'WSBIG15' }
-];
+/* ── Coupon data — defined in ../data/coupons.js so Checkout can redeem the same codes ── */
+const couponIcons = { percent: <FiPercent />, truck: <FiTruck />, tag: <FiTag />, package: <FiPackage /> };
+const retailCoupons = retailCouponDefs.map(c => ({ ...c, icon: couponIcons[c.iconKey] }));
+const wholesaleCoupons = wholesaleCouponDefs.map(c => ({ ...c, icon: couponIcons[c.iconKey] }));
 
 /* ── Festive offers data ── */
 const festiveOffers = [

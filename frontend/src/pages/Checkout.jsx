@@ -1,31 +1,60 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiCheck, FiClock, FiCreditCard, FiGlobe, FiMapPin, FiPlus, FiShoppingBag, FiSmartphone } from 'react-icons/fi';
+import {
+  FiArrowLeft, FiAward, FiBriefcase, FiCalendar, FiCheck, FiCheckCircle, FiChevronRight,
+  FiClock, FiCreditCard, FiGlobe, FiHome, FiMoreHorizontal, FiPackage, FiPlus,
+  FiRefreshCw, FiShield, FiShoppingBag, FiSmartphone, FiTag, FiTruck, FiX, FiZap
+} from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { getUserStorageKey } from '../utils/userStorage';
 import { getDeliveryTimeForAddress } from '../utils/deliveryZones';
 import { SERVICEABLE_AREAS, isServiceableAddress } from '../utils/serviceableAreas';
+import { applyCoupon } from '../data/coupons';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
 import NetBankingFlow from '../components/NetBankingFlow';
 import './Checkout.css';
 
 const timeSlots = [
-  { id: 'express', label: '10 mins', sub: 'Express', icon: '⚡' },
-  { id: '30min', label: '30 mins', sub: 'Standard', icon: '🕐' },
-  { id: '1hr', label: '1 hour', sub: 'Economy', icon: '📦' },
-  { id: '2-4hr', label: '2-4 hours', sub: 'Scheduled', icon: '📅' },
+  { id: 'express', label: '30-45 mins', sub: 'Express Delivery', icon: <FiZap />, recommended: true },
+  { id: '30min', label: '1-2 hours', sub: 'Standard Delivery', icon: <FiClock /> },
+  { id: '1hr', label: 'Evening Slot', sub: '4:00 PM - 8:00 PM', icon: <FiPackage /> },
+  { id: '2-4hr', label: 'Tomorrow', sub: 'Morning 8-10 AM', icon: <FiCalendar /> },
+];
+
+const addressTypes = [
+  { id: 'home', label: 'Home', icon: <FiHome /> },
+  { id: 'work', label: 'Work', icon: <FiBriefcase /> },
+  { id: 'other', label: 'Other', icon: <FiMoreHorizontal /> },
+];
+
+const trustBadges = [
+  { icon: <FiCheckCircle />, title: 'Freshness Guaranteed', sub: 'Handpicked & quality checked' },
+  { icon: <FiRefreshCw />, title: 'Easy Returns', sub: 'Hassle-free returns within 24 hrs' },
+  { icon: <FiTruck />, title: 'On-time Delivery', sub: 'From our Isnapur store' },
+  { icon: <FiAward />, title: 'Quality Products', sub: 'Trusted local brands' },
+];
+
+const whyShopPoints = [
+  { title: 'Fresh & Quality', sub: 'Handpicked with care' },
+  { title: 'Safe & Hygienic Packing', sub: '100% contactless delivery' },
+  { title: 'On-time Delivery', sub: 'Fast and reliable' },
+  { title: 'Local & Trusted', sub: 'Serving the Isnapur community' },
 ];
 
 const emptyAddress = {
   name: '',
   phone: '',
+  alternatePhone: '',
   email: '',
-  address: '',
+  flatNo: '',
+  landmark: '',
   area: '',
-  pincode: ''
+  pincode: '',
+  type: 'home',
+  instructions: '',
 };
 
 const getSavedAddresses = (user) => {
@@ -38,9 +67,15 @@ const getSavedAddresses = (user) => {
   }
 };
 
+const addressLine1 = (address) => address.flatNo || address.address || '';
+const addressLine2 = (address) => {
+  const parts = [address.landmark, address.area].filter(Boolean);
+  return parts.length ? parts.join(', ') : (address.area || '');
+};
+
 const Checkout = () => {
-  const { cartItems, cartTotal, cartCount, clearCart, requireAuth } = useCart();
-  const { location, user, isAuthenticated, getToken } = useAuth();
+  const { cartItems, cartTotal, cartCount, cartSavings, clearCart, requireAuth } = useCart();
+  const { user, isAuthenticated, getToken, customerType } = useAuth();
   const navigate = useNavigate();
   const addressStorageKey = getUserStorageKey(user, 'addresses');
   const orderStorageKey = getUserStorageKey(user, 'orders');
@@ -63,16 +98,21 @@ const Checkout = () => {
     name: user?.name || '',
     phone: user?.phone || '',
     email: user?.email || '',
-    address: location.full || location.address || '',
-    area: '',
-    pincode: ''
   }));
   const [addressError, setAddressError] = useState('');
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState('');
 
-  const deliveryFee = cartTotal >= 500 ? 0 : 25;
-  const handlingCharge = 5;
-  const grandTotal = cartTotal + deliveryFee + handlingCharge;
   const selectedAddress = addresses.find(address => address.id === selectedAddressId);
+  const addressReady = !!selectedAddress && !showAddressForm;
+
+  const couponDiscount = appliedCoupon?.discount || 0;
+  const baseDeliveryFee = cartTotal >= 500 ? 0 : 25;
+  const deliveryFee = appliedCoupon?.freeDelivery ? 0 : baseDeliveryFee;
+  const handlingCharge = 5;
+  const grandTotal = Math.max(0, cartTotal + deliveryFee + handlingCharge - couponDiscount);
+  const totalSaved = cartSavings + couponDiscount + (appliedCoupon?.freeDelivery ? baseDeliveryFee : 0);
 
   useEffect(() => {
     if (addressStorageKey) {
@@ -109,14 +149,32 @@ const Checkout = () => {
     setAddressError('');
   };
 
+  const handleApplyCoupon = () => {
+    const result = applyCoupon(couponInput, cartTotal, customerType);
+    if (!result.valid) {
+      setCouponError(result.error);
+      setAppliedCoupon(null);
+      return;
+    }
+    setCouponError('');
+    setAppliedCoupon({ code: result.coupon.code, discount: result.discount, freeDelivery: result.freeDelivery });
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput('');
+    setCouponError('');
+  };
+
   const saveAddress = () => {
     const trimmed = Object.fromEntries(
-      Object.entries(addressForm).map(([key, value]) => [key, value.trim()])
+      Object.entries(addressForm).map(([key, value]) => [key, typeof value === 'string' ? value.trim() : value])
     );
-    const missing = Object.entries(trimmed).find(([, value]) => !value);
+    const requiredFields = ['name', 'phone', 'flatNo', 'area', 'pincode'];
+    const missingField = requiredFields.find(field => !trimmed[field]);
 
-    if (missing) {
-      setAddressError('Please fill all address details, including your delivery area, before payment.');
+    if (missingField) {
+      setAddressError('Please fill all required delivery details, including your delivery area.');
       return null;
     }
 
@@ -132,12 +190,13 @@ const Checkout = () => {
 
     const address = {
       ...trimmed,
+      address: trimmed.landmark ? `${trimmed.flatNo}, ${trimmed.landmark}` : trimmed.flatNo,
       id: Date.now().toString()
     };
     setAddresses(prev => [address, ...prev]);
     setSelectedAddressId(address.id);
     setShowAddressForm(false);
-    setAddressForm(emptyAddress);
+    setAddressForm({ ...emptyAddress, name: user?.name || '', phone: user?.phone || '', email: user?.email || '' });
     setAddressError('');
     return address;
   };
@@ -148,9 +207,6 @@ const Checkout = () => {
       name: user?.name || '',
       phone: user?.phone || '',
       email: user?.email || '',
-      address: '',
-      area: '',
-      pincode: ''
     });
     setShowAddressForm(true);
     setAddressError('');
@@ -179,6 +235,9 @@ const Checkout = () => {
       unit: item.unit || ''
     }));
 
+    const addressLine = [addressLine1(addressForOrder), addressForOrder.landmark, addressForOrder.area]
+      .filter(Boolean).join(', ');
+
     let finalOrderId = orderId;
     try {
       const orderRes = await fetch('/api/orders', {
@@ -190,7 +249,7 @@ const Checkout = () => {
         body: JSON.stringify({
           items: orderItemsList,
           total: grandTotal,
-          deliveryAddress: `${addressForOrder.address}, ${addressForOrder.pincode}`,
+          deliveryAddress: `${addressLine}, ${addressForOrder.pincode}`,
           paymentMethod: selectedPayment
         })
       });
@@ -217,6 +276,8 @@ const Checkout = () => {
       address: addressForOrder,
       items: cartItems.map(item => ({ ...item, qty: item.quantity })),
       total: grandTotal,
+      couponCode: appliedCoupon?.code || null,
+      discount: couponDiscount,
       ...paymentDetails,
     };
 
@@ -293,7 +354,7 @@ const Checkout = () => {
           {(placedAddress || selectedAddress) && (
             <div className="checkout-success__address">
               <strong>Delivering to {(placedAddress || selectedAddress).name}</strong>
-              <span>{(placedAddress || selectedAddress).address}, {(placedAddress || selectedAddress).pincode}</span>
+              <span>{addressLine1(placedAddress || selectedAddress)}{addressLine2(placedAddress || selectedAddress) ? `, ${addressLine2(placedAddress || selectedAddress)}` : ''}</span>
               <span>{(placedAddress || selectedAddress).phone}</span>
             </div>
           )}
@@ -310,6 +371,13 @@ const Checkout = () => {
     );
   }
 
+  const steps = [
+    { id: 1, label: 'Cart', state: 'done' },
+    { id: 2, label: 'Address', state: addressReady ? 'done' : 'current' },
+    { id: 3, label: 'Payment', state: addressReady ? 'done' : 'upcoming' },
+    { id: 4, label: 'Review', state: addressReady ? 'current' : 'upcoming' },
+  ];
+
   return (
     <div className="page-wrapper">
       <div className="checkout">
@@ -317,241 +385,377 @@ const Checkout = () => {
           <div className="checkout__header">
             <button className="checkout__back" onClick={() => navigate(-1)}><FiArrowLeft /></button>
             <h1 className="checkout__title">Checkout</h1>
+            <div className="checkout__stepper">
+              {steps.map((step, i) => (
+                <div className="checkout__step" key={step.id}>
+                  <div className={`checkout__step-dot checkout__step-dot--${step.state}`}>
+                    {step.state === 'done' ? <FiCheck /> : step.id}
+                  </div>
+                  <span className={`checkout__step-label checkout__step-label--${step.state}`}>{step.label}</span>
+                  {i < steps.length - 1 && <span className={`checkout__step-line checkout__step-line--${step.state === 'upcoming' ? 'upcoming' : 'done'}`} />}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="checkout__secure-banner">
+            <FiShield /> 100% Secure Payments <span className="checkout__secure-dot">•</span> Your data is safe and encrypted
           </div>
 
           <div className="checkout__layout">
-          <div className="checkout__main">
+            <div className="checkout__main">
 
-          {/* Address */}
-          <div className="checkout__section">
-            <h3 className="checkout__section-title"><FiMapPin /> Delivery Address</h3>
-            <p className="checkout__area-note">
-              We currently deliver only to {SERVICEABLE_AREAS.map(a => a.name).join(', ')}.
-            </p>
-            {addresses.length > 0 && (
-              <div className="checkout__address-list">
-                {addresses.map(address => (
-                  <button
-                    key={address.id}
-                    type="button"
-                    className={`checkout__address-card ${selectedAddressId === address.id ? 'checkout__address-card--active' : ''}`}
-                    onClick={() => {
-                      setSelectedAddressId(address.id);
-                      setShowAddressForm(false);
-                    }}
-                  >
-                    <span className="checkout__address-check">
-                      {selectedAddressId === address.id && <FiCheck />}
-                    </span>
-                    <span className="checkout__address-text">
-                      <strong>{address.name}</strong>
-                      <span>{address.phone} · {address.email}</span>
-                      <span>{address.address}, {address.pincode}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
+              {/* Delivery details */}
+              <div className="checkout__section">
+                <h3 className="checkout__section-title"><FiTruck /> Delivery Details</h3>
 
-            {!showAddressForm && (
-              <button type="button" className="checkout__address-add" onClick={handleAddNewAddress}>
-                <FiPlus /> Add New Address
-              </button>
-            )}
-
-            {showAddressForm && (
-              <div className="checkout__address-form">
-                <div className="checkout__input-row">
-                  <input
-                    type="text"
-                    placeholder="Name"
-                    value={addressForm.name}
-                    onChange={(e) => updateAddressField('name', e.target.value)}
-                    className="checkout__input"
-                  />
-                  <input
-                    type="tel"
-                    placeholder="Phone number"
-                    value={addressForm.phone}
-                    onChange={(e) => updateAddressField('phone', e.target.value)}
-                    className="checkout__input"
-                  />
-                </div>
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={addressForm.email}
-                  onChange={(e) => updateAddressField('email', e.target.value)}
-                  className="checkout__input"
-                />
-                <textarea
-                  placeholder="Address"
-                  value={addressForm.address}
-                  onChange={(e) => updateAddressField('address', e.target.value)}
-                  className="checkout__input checkout__textarea"
-                />
-                <select
-                  value={addressForm.area}
-                  onChange={(e) => updateAddressArea(e.target.value)}
-                  className="checkout__input checkout__select"
-                >
-                  <option value="">Select your delivery area</option>
-                  {SERVICEABLE_AREAS.map((area) => (
-                    <option key={area.name} value={area.name}>{area.name} — {area.pincode}</option>
-                  ))}
-                </select>
-                <button type="button" className="checkout__save-address" onClick={saveAddress}>
-                  Save Address
-                </button>
                 {addresses.length > 0 && (
-                  <button type="button" className="checkout__address-cancel" onClick={() => setShowAddressForm(false)}>
-                    Cancel
+                  <div className="checkout__address-list">
+                    {addresses.map(address => (
+                      <button
+                        key={address.id}
+                        type="button"
+                        className={`checkout__address-card ${selectedAddressId === address.id ? 'checkout__address-card--active' : ''}`}
+                        onClick={() => {
+                          setSelectedAddressId(address.id);
+                          setShowAddressForm(false);
+                        }}
+                      >
+                        <span className="checkout__address-check">
+                          {selectedAddressId === address.id && <FiCheck />}
+                        </span>
+                        <span className="checkout__address-text">
+                          <strong>{address.name} {address.type && <span className="checkout__address-type">{address.type}</span>}</strong>
+                          <span>{address.phone}{address.email ? ` · ${address.email}` : ''}</span>
+                          <span>{addressLine1(address)}{addressLine2(address) ? `, ${addressLine2(address)}` : ''}, {address.pincode}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {!showAddressForm && (
+                  <button type="button" className="checkout__address-add" onClick={handleAddNewAddress}>
+                    <FiPlus /> Add New Address
                   </button>
                 )}
-                {addressError && <p className="checkout__address-error">{addressError}</p>}
-              </div>
-            )}
-          </div>
 
-          {/* Payment */}
-          <div className="checkout__section">
-            <h3 className="checkout__section-title"><FiCreditCard /> Payment Method</h3>
-            <div className="checkout__payments">
-              <button
-                className={`checkout__payment ${selectedPayment === 'cod' ? 'checkout__payment--active' : ''}`}
-                onClick={() => setSelectedPayment('cod')}
-              >
-                <span className="checkout__payment-icon">💵</span>
-                <div className="checkout__payment-info">
-                  <span className="checkout__payment-name">Cash on Delivery</span>
-                  <span className="checkout__payment-desc">Pay when delivered</span>
-                </div>
-                {selectedPayment === 'cod' && <FiCheck className="checkout__payment-check" />}
-              </button>
+                {showAddressForm && (
+                  <div className="checkout__address-form">
+                    <p className="checkout__form-subhead">Contact Information</p>
+                    <div className="checkout__input-row">
+                      <label className="checkout__field">
+                        <span>Full Name *</span>
+                        <input type="text" placeholder="Your name" value={addressForm.name}
+                          onChange={(e) => updateAddressField('name', e.target.value)} className="checkout__input" />
+                      </label>
+                      <label className="checkout__field">
+                        <span>Mobile Number *</span>
+                        <input type="tel" placeholder="10-digit mobile number" value={addressForm.phone}
+                          onChange={(e) => updateAddressField('phone', e.target.value.replace(/\D/g, '').slice(0, 10))} className="checkout__input" />
+                      </label>
+                    </div>
+                    <div className="checkout__input-row">
+                      <label className="checkout__field">
+                        <span>Email ID (optional)</span>
+                        <input type="email" placeholder="you@example.com" value={addressForm.email}
+                          onChange={(e) => updateAddressField('email', e.target.value)} className="checkout__input" />
+                      </label>
+                      <label className="checkout__field">
+                        <span>Alternate Number (optional)</span>
+                        <input type="tel" placeholder="Backup contact" value={addressForm.alternatePhone}
+                          onChange={(e) => updateAddressField('alternatePhone', e.target.value.replace(/\D/g, '').slice(0, 10))} className="checkout__input" />
+                      </label>
+                    </div>
 
-              <button
-                className={`checkout__payment ${selectedPayment === 'upi' ? 'checkout__payment--active' : ''}`}
-                onClick={() => setSelectedPayment('upi')}
-              >
-                <span className="checkout__payment-icon"><FiSmartphone /></span>
-                <div className="checkout__payment-info">
-                  <span className="checkout__payment-name">UPI Payment</span>
-                  <span className="checkout__payment-desc">GPay, PhonePe, Paytm</span>
-                </div>
-                {selectedPayment === 'upi' && <FiCheck className="checkout__payment-check" />}
-              </button>
-              {selectedPayment === 'upi' && (
-                <div className="checkout__payment-form">
-                  <input type="text" placeholder="Enter UPI ID (e.g., name@upi)"
-                    value={upiId} onChange={(e) => setUpiId(e.target.value)}
-                    className="checkout__input" />
-                </div>
-              )}
+                    <p className="checkout__form-subhead">Delivery Address</p>
+                    <div className="checkout__address-tabs">
+                      {addressTypes.map((t) => (
+                        <button
+                          type="button"
+                          key={t.id}
+                          className={`checkout__address-tab ${addressForm.type === t.id ? 'checkout__address-tab--active' : ''}`}
+                          onClick={() => updateAddressField('type', t.id)}
+                        >
+                          {t.icon} {t.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="checkout__input-row">
+                      <label className="checkout__field">
+                        <span>Flat / House No. *</span>
+                        <input type="text" placeholder="e.g. 12-3-456/7" value={addressForm.flatNo}
+                          onChange={(e) => updateAddressField('flatNo', e.target.value)} className="checkout__input" />
+                      </label>
+                      <label className="checkout__field">
+                        <span>Landmark (optional)</span>
+                        <input type="text" placeholder="Nearby landmark" value={addressForm.landmark}
+                          onChange={(e) => updateAddressField('landmark', e.target.value)} className="checkout__input" />
+                      </label>
+                    </div>
+                    <div className="checkout__input-row">
+                      <label className="checkout__field">
+                        <span>Delivery Area *</span>
+                        <select
+                          value={addressForm.area}
+                          onChange={(e) => updateAddressArea(e.target.value)}
+                          className="checkout__input checkout__select"
+                        >
+                          <option value="">Select your delivery area</option>
+                          {SERVICEABLE_AREAS.map((area) => (
+                            <option key={area.name} value={area.name}>{area.name}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="checkout__field">
+                        <span>Pincode</span>
+                        <input type="text" placeholder="Auto-filled" value={addressForm.pincode} readOnly
+                          className="checkout__input checkout__input--readonly" />
+                      </label>
+                    </div>
+                    <p className="checkout__area-note">
+                      We currently deliver only to {SERVICEABLE_AREAS.map(a => a.name).join(', ')}.
+                    </p>
+                    <label className="checkout__field">
+                      <span>Delivery Instructions (optional)</span>
+                      <textarea
+                        placeholder="E.g. Leave at door, call before delivery..."
+                        value={addressForm.instructions}
+                        maxLength={120}
+                        onChange={(e) => updateAddressField('instructions', e.target.value)}
+                        className="checkout__input checkout__textarea"
+                      />
+                    </label>
 
-              <button
-                className={`checkout__payment ${selectedPayment === 'card' ? 'checkout__payment--active' : ''}`}
-                onClick={() => setSelectedPayment('card')}
-              >
-                <span className="checkout__payment-icon"><FiCreditCard /></span>
-                <div className="checkout__payment-info">
-                  <span className="checkout__payment-name">Credit / Debit Card</span>
-                  <span className="checkout__payment-desc">Visa, Mastercard, RuPay</span>
-                </div>
-                {selectedPayment === 'card' && <FiCheck className="checkout__payment-check" />}
-              </button>
-              {selectedPayment === 'card' && (
-                <div className="checkout__payment-form">
-                  <input type="text" placeholder="Card Number" value={cardNumber}
-                    onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16))}
-                    className="checkout__input" />
-                  <div className="checkout__input-row">
-                    <input type="text" placeholder="MM/YY" value={cardExpiry}
-                      onChange={(e) => setCardExpiry(e.target.value)} className="checkout__input" />
-                    <input type="text" placeholder="CVV" value={cardCvv}
-                      onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, '').slice(0, 3))}
-                      className="checkout__input" />
+                    <button type="button" className="checkout__save-address" onClick={saveAddress}>
+                      Save Address
+                    </button>
+                    {addresses.length > 0 && (
+                      <button type="button" className="checkout__address-cancel" onClick={() => setShowAddressForm(false)}>
+                        Cancel
+                      </button>
+                    )}
+                    {addressError && <p className="checkout__address-error">{addressError}</p>}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              <button
-                className={`checkout__payment ${selectedPayment === 'netbanking' ? 'checkout__payment--active' : ''}`}
-                onClick={() => setSelectedPayment('netbanking')}
-              >
-                <span className="checkout__payment-icon"><FiGlobe /></span>
-                <div className="checkout__payment-info">
-                  <span className="checkout__payment-name">Net Banking</span>
-                  <span className="checkout__payment-desc">SBI, HDFC, ICICI, Axis & more</span>
+              {/* Delivery slot */}
+              <div className="checkout__section">
+                <h3 className="checkout__section-title"><FiClock /> Delivery Slot</h3>
+                <p className="checkout__section-sub">Choose your preferred delivery time</p>
+                <div className="checkout__slots">
+                  {timeSlots.map(slot => (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      className={`checkout__slot ${selectedSlot === slot.id ? 'checkout__slot--active' : ''}`}
+                      onClick={() => setSelectedSlot(slot.id)}
+                    >
+                      {selectedSlot === slot.id && <span className="checkout__slot-check"><FiCheckCircle /></span>}
+                      <span className="checkout__slot-icon">{slot.icon}</span>
+                      <span className="checkout__slot-label">{slot.label}</span>
+                      <span className="checkout__slot-sub">{slot.sub}</span>
+                      {slot.recommended && <span className="checkout__slot-badge">Recommended</span>}
+                    </button>
+                  ))}
                 </div>
-                {selectedPayment === 'netbanking' && <FiCheck className="checkout__payment-check" />}
-              </button>
-              {selectedPayment === 'netbanking' && (
-                <div className="checkout__payment-form">
-                  <select
-                    value={selectedBank}
-                    onChange={(e) => setSelectedBank(e.target.value)}
-                    className="checkout__input checkout__select"
+              </div>
+
+              {/* Payment */}
+              <div className="checkout__section">
+                <h3 className="checkout__section-title"><FiCreditCard /> Payment Method</h3>
+                <p className="checkout__section-sub">All transactions are secure and encrypted</p>
+                <div className="checkout__payments">
+                  <button
+                    className={`checkout__payment ${selectedPayment === 'cod' ? 'checkout__payment--active' : ''}`}
+                    onClick={() => setSelectedPayment('cod')}
                   >
-                    <option value="">-- Select Your Bank --</option>
-                    <option value="sbi">State Bank of India (SBI)</option>
-                    <option value="hdfc">HDFC Bank</option>
-                    <option value="icici">ICICI Bank</option>
-                    <option value="axis">Axis Bank</option>
-                    <option value="kotak">Kotak Mahindra Bank</option>
-                    <option value="bob">Bank of Baroda</option>
-                    <option value="pnb">Punjab National Bank</option>
-                    <option value="canara">Canara Bank</option>
-                  </select>
+                    <span className="checkout__payment-icon">💵</span>
+                    <div className="checkout__payment-info">
+                      <span className="checkout__payment-name">Cash on Delivery</span>
+                      <span className="checkout__payment-desc">Pay when your order is delivered</span>
+                    </div>
+                    {selectedPayment === 'cod' ? <FiCheck className="checkout__payment-check" /> : <FiChevronRight className="checkout__payment-chevron" />}
+                  </button>
+
+                  <button
+                    className={`checkout__payment ${selectedPayment === 'upi' ? 'checkout__payment--active' : ''}`}
+                    onClick={() => setSelectedPayment('upi')}
+                  >
+                    <span className="checkout__payment-icon"><FiSmartphone /></span>
+                    <div className="checkout__payment-info">
+                      <span className="checkout__payment-name">UPI Payment</span>
+                      <span className="checkout__payment-desc">Pay using GPay, PhonePe, Paytm & more</span>
+                    </div>
+                    {selectedPayment === 'upi' ? <FiCheck className="checkout__payment-check" /> : <FiChevronRight className="checkout__payment-chevron" />}
+                  </button>
+                  {selectedPayment === 'upi' && (
+                    <div className="checkout__payment-form">
+                      <input type="text" placeholder="Enter UPI ID (e.g., name@upi)"
+                        value={upiId} onChange={(e) => setUpiId(e.target.value)}
+                        className="checkout__input" />
+                    </div>
+                  )}
+
+                  <button
+                    className={`checkout__payment ${selectedPayment === 'card' ? 'checkout__payment--active' : ''}`}
+                    onClick={() => setSelectedPayment('card')}
+                  >
+                    <span className="checkout__payment-icon"><FiCreditCard /></span>
+                    <div className="checkout__payment-info">
+                      <span className="checkout__payment-name">Credit / Debit Card</span>
+                      <span className="checkout__payment-desc">Visa, Mastercard, RuPay & more</span>
+                    </div>
+                    {selectedPayment === 'card' ? <FiCheck className="checkout__payment-check" /> : <FiChevronRight className="checkout__payment-chevron" />}
+                  </button>
+                  {selectedPayment === 'card' && (
+                    <div className="checkout__payment-form">
+                      <input type="text" placeholder="Card Number" value={cardNumber}
+                        onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16))}
+                        className="checkout__input" />
+                      <div className="checkout__input-row">
+                        <input type="text" placeholder="MM/YY" value={cardExpiry}
+                          onChange={(e) => setCardExpiry(e.target.value)} className="checkout__input" />
+                        <input type="text" placeholder="CVV" value={cardCvv}
+                          onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                          className="checkout__input" />
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    className={`checkout__payment ${selectedPayment === 'netbanking' ? 'checkout__payment--active' : ''}`}
+                    onClick={() => setSelectedPayment('netbanking')}
+                  >
+                    <span className="checkout__payment-icon"><FiGlobe /></span>
+                    <div className="checkout__payment-info">
+                      <span className="checkout__payment-name">Net Banking</span>
+                      <span className="checkout__payment-desc">SBI, HDFC, ICICI, Axis & more</span>
+                    </div>
+                    {selectedPayment === 'netbanking' ? <FiCheck className="checkout__payment-check" /> : <FiChevronRight className="checkout__payment-chevron" />}
+                  </button>
+                  {selectedPayment === 'netbanking' && (
+                    <div className="checkout__payment-form">
+                      <select
+                        value={selectedBank}
+                        onChange={(e) => setSelectedBank(e.target.value)}
+                        className="checkout__input checkout__select"
+                      >
+                        <option value="">-- Select Your Bank --</option>
+                        <option value="sbi">State Bank of India (SBI)</option>
+                        <option value="hdfc">HDFC Bank</option>
+                        <option value="icici">ICICI Bank</option>
+                        <option value="axis">Axis Bank</option>
+                        <option value="kotak">Kotak Mahindra Bank</option>
+                        <option value="bob">Bank of Baroda</option>
+                        <option value="pnb">Punjab National Bank</option>
+                        <option value="canara">Canara Bank</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
 
-          </div>
-          {/* end checkout__main */}
-
-          <aside className="checkout__aside">
-            <div className="checkout__order-card">
-              <h3 className="checkout__order-card-title"><FiShoppingBag /> Order Summary ({cartCount} items)</h3>
-
-              <div className="checkout__order-items">
-                {cartItems.map(item => (
-                  <div key={item.id} className="checkout__order-item">
-                    <span className="checkout__order-item-img-wrap">
-                      <img src={toWebpImage(item.image)} alt={item.name} />
-                      <span className="checkout__order-item-qty">{item.quantity}</span>
-                    </span>
-                    <span className="checkout__order-item-info">
-                      <strong>{item.name}</strong>
-                      {(item.weight || item.unit) && (
-                        <span>{item.weight}{item.unit ? ` ${item.unit}` : ''}</span>
-                      )}
-                    </span>
-                    <span className="checkout__order-item-price">{formatPrice(item.price * item.quantity)}</span>
+              {/* Trust badges */}
+              <div className="checkout__trust-row">
+                {trustBadges.map((badge) => (
+                  <div className="checkout__trust-badge" key={badge.title}>
+                    <span className="checkout__trust-icon">{badge.icon}</span>
+                    <span className="checkout__trust-title">{badge.title}</span>
+                    <span className="checkout__trust-sub">{badge.sub}</span>
                   </div>
                 ))}
               </div>
-
-              {/* Bill */}
-              <div className="checkout__bill">
-                <div className="checkout__bill-row"><span>Item Total</span><span>{formatPrice(cartTotal)}</span></div>
-                <div className="checkout__bill-row">
-                  <span>Delivery Fee</span>
-                  <span>{deliveryFee === 0 ? <span style={{color:'var(--color-accent)', fontWeight:600}}>FREE</span> : formatPrice(deliveryFee)}</span>
-                </div>
-                <div className="checkout__bill-row"><span>Handling Charge</span><span>{formatPrice(handlingCharge)}</span></div>
-                <div className="checkout__bill-total"><span>Total</span><span>{formatPrice(grandTotal)}</span></div>
-              </div>
-
-              {/* Place Order */}
-              <button className="checkout__place-btn" onClick={handlePlaceOrder} id="place-order-btn">
-                {selectedPayment === 'cod' ? 'Place Order (COD)' : `Pay ${formatPrice(grandTotal)}`} →
-              </button>
             </div>
-          </aside>
 
+            {/* Order summary — right rail */}
+            <aside className="checkout__aside">
+              <div className="checkout__summary-card">
+                <h3 className="checkout__summary-title"><FiShoppingBag /> Order Summary ({cartCount} item{cartCount !== 1 ? 's' : ''})</h3>
+
+                <div className="checkout__summary-items">
+                  {cartItems.map(item => (
+                    <div key={item.id} className="checkout__summary-item">
+                      <img src={toWebpImage(item.image)} alt={item.name} className="checkout__summary-item-img" />
+                      <div className="checkout__summary-item-info">
+                        <strong>{item.name}</strong>
+                        <span>{[item.weight, item.unit].filter(Boolean).join(' ')} {item.quantity > 1 ? `× ${item.quantity}` : ''}</span>
+                      </div>
+                      <span className="checkout__summary-item-price">{formatPrice(item.price * item.quantity)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="checkout__coupon">
+                  {appliedCoupon ? (
+                    <div className="checkout__coupon-applied">
+                      <span><FiTag /> Coupon <strong>{appliedCoupon.code}</strong> applied</span>
+                      <button type="button" onClick={removeCoupon} aria-label="Remove coupon"><FiX /></button>
+                    </div>
+                  ) : (
+                    <div className="checkout__coupon-input-row">
+                      <input
+                        type="text"
+                        placeholder="Have a coupon code?"
+                        value={couponInput}
+                        onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(''); }}
+                        className="checkout__input checkout__coupon-input"
+                      />
+                      <button type="button" className="checkout__coupon-apply" onClick={handleApplyCoupon}>Apply</button>
+                    </div>
+                  )}
+                  {couponError && <p className="checkout__address-error">{couponError}</p>}
+                </div>
+
+                <div className="checkout__bill">
+                  <div className="checkout__bill-row"><span>Subtotal</span><span>{formatPrice(cartTotal)}</span></div>
+                  <div className="checkout__bill-row">
+                    <span>Delivery Fee</span>
+                    <span>{deliveryFee === 0 ? <span className="checkout__bill-free">FREE</span> : formatPrice(deliveryFee)}</span>
+                  </div>
+                  <div className="checkout__bill-row"><span>Handling Charge</span><span>{formatPrice(handlingCharge)}</span></div>
+                  {couponDiscount > 0 && (
+                    <div className="checkout__bill-row checkout__bill-row--discount">
+                      <span>Coupon ({appliedCoupon.code})</span><span>-{formatPrice(couponDiscount)}</span>
+                    </div>
+                  )}
+                  <div className="checkout__bill-total"><span>Total</span><span>{formatPrice(grandTotal)}</span></div>
+                  {totalSaved > 0 && (
+                    <p className="checkout__saved"><FiCheckCircle /> You saved {formatPrice(totalSaved)} on this order</p>
+                  )}
+                </div>
+
+                <div className="checkout__why-shop">
+                  <p className="checkout__why-shop-title">Why shop with Siri Traders?</p>
+                  {whyShopPoints.map(point => (
+                    <div className="checkout__why-shop-item" key={point.title}>
+                      <FiCheckCircle />
+                      <div>
+                        <strong>{point.title}</strong>
+                        <span>{point.sub}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button className="checkout__place-btn" onClick={handlePlaceOrder} id="place-order-btn">
+                  <span>{selectedPayment === 'cod' ? 'Place Order (COD)' : 'Pay Now'} →</span>
+                  <span className="checkout__place-btn-sub">
+                    {selectedPayment === 'cod' ? `Pay ${formatPrice(grandTotal)} on delivery` : `Pay ${formatPrice(grandTotal)} now`}
+                  </span>
+                </button>
+
+                <div className="checkout__secure-footer">
+                  <span><FiShield /> Secure Payments</span>
+                  <span><FiCheckCircle /> 100% Secure</span>
+                </div>
+                <p className="checkout__delivery-footer">
+                  <FiTruck /> Delivering to you in {getDeliveryTimeForAddress(selectedAddress || addressForm)}
+                </p>
+              </div>
+            </aside>
           </div>
-          {/* end checkout__layout */}
 
           {/* Net Banking Flow Modal */}
           {showNetBankingFlow && (
