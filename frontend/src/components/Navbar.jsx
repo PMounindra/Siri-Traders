@@ -41,7 +41,6 @@ const Navbar = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mapCoords, setMapCoords] = useState({ lat: 20.5937, lng: 78.9629 }); // default: India centre
   const [savedAddresses, setSavedAddresses] = useState([]);
-  const [areaQuery, setAreaQuery] = useState("");
   const [deliveryError, setDeliveryError] = useState("");
   const flatNoInputRef = useRef(null);
   const [addressForm, setAddressForm] = useState({
@@ -148,15 +147,8 @@ const Navbar = () => {
     setAddressForm({ ...emptyAddress, name: user?.name || "", phone: user?.phone || "" });
   };
 
-  const filteredAreas = SERVICEABLE_AREAS.filter((area) => {
-    const q = areaQuery.trim().toLowerCase();
-    if (!q) return true;
-    return area.name.toLowerCase().includes(q) || area.pincode.includes(q);
-  });
-
   const pickArea = (area) => {
     setDeliveryError("");
-    setAreaQuery("");
     setAddressForm((p) => ({ ...p, area: area.name, pincode: area.pincode }));
     // Prompt for the door number/landmark right away instead of saving immediately
     requestAnimationFrame(() => flatNoInputRef.current?.focus());
@@ -286,42 +278,22 @@ const Navbar = () => {
                     Use my current location
                   </button>
 
-                  {/* Area search */}
-                  <div className="navbar__area-search">
-                    <SearchIcon size={15} className="navbar__area-search-icon" />
-                    <input
-                      type="text"
-                      value={areaQuery}
-                      placeholder="Search your delivery area..."
-                      className="navbar__area-search-input"
-                      onChange={(e) => setAreaQuery(e.target.value)}
-                    />
-                  </div>
-
                   {/* Serviceable areas — pick one, then fill in your door number below */}
                   <div className="navbar__areas">
                     <p className="navbar__areas-title">WE DELIVER HERE</p>
-                    {filteredAreas.length > 0 ? (
-                      <div className="navbar__areas-list">
-                        {filteredAreas.map((area) => {
-                          const isActive = addressForm.area === area.name;
-                          return (
-                            <button
-                              key={area.name}
-                              type="button"
-                              className={`navbar__area-item ${isActive ? "navbar__area-item--active" : ""}`}
-                              onClick={() => pickArea(area)}
-                            >
-                              <MapPinIcon size={15} className="navbar__area-item-icon" />
-                              <span className="navbar__area-item-name">{area.name}</span>
-                              <span className="navbar__area-item-pin">{area.pincode}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="navbar__area-empty">We can't deliver to this area.</p>
-                    )}
+                    <select
+                      className="navbar__area-select"
+                      value={addressForm.area}
+                      onChange={(e) => {
+                        const area = SERVICEABLE_AREAS.find((a) => a.name === e.target.value);
+                        if (area) pickArea(area);
+                      }}
+                    >
+                      <option value="">Select your delivery area</option>
+                      {SERVICEABLE_AREAS.map((area) => (
+                        <option key={area.name} value={area.name}>{area.name} — {area.pincode}</option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* Saved addresses */}

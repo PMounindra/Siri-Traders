@@ -808,39 +808,7 @@
   background: #C8E6C9;
 }
 
-/* ── Area search ── */
-.navbar__area-search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(45,80,22,0.2);
-  background: #F9FFF6;
-  margin-bottom: 10px;
-}
-
-.navbar__area-search-icon {
-  color: #687466;
-  flex-shrink: 0;
-}
-
-.navbar__area-search-input {
-  flex: 1;
-  background: transparent;
-  font-size: 13px;
-  color: #1c1c1c;
-  border: none;
-  outline: none;
-}
-
-.navbar__area-search-input::placeholder {
-  color: #9ca3af;
-  font-size: 12px;
-}
-
-/* ── Serviceable areas list ── */
+/* ── Serviceable areas dropdown ── */
 .navbar__areas {
   display: flex;
   flex-direction: column;
@@ -855,60 +823,29 @@
   letter-spacing: 0.3px;
 }
 
-.navbar__areas-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  max-height: 176px;
-  overflow-y: auto;
-}
-
-.navbar__area-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 10px;
+.navbar__area-select {
+  height: 44px;
+  padding: 0 36px 0 12px;
   border-radius: 10px;
-  background: #F1F8E9;
-  border: 1.5px solid transparent;
+  border: 1.5px solid rgba(45,80,22,0.2);
+  background-color: #F9FFF6;
   color: #2D5016;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.18s, border-color 0.18s;
-}
-
-.navbar__area-item:hover {
-  background: #E4F0D6;
-}
-
-.navbar__area-item--active {
-  border-color: #2D5016;
-  background: #E4F0D6;
-}
-
-.navbar__area-item-icon {
-  flex-shrink: 0;
-  color: #2D5016;
-}
-
-.navbar__area-item-name {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%232D5016' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  transition: border-color 0.18s;
 }
 
-.navbar__area-item-pin {
-  font-size: 11px;
-  font-weight: 600;
-  color: #687466;
-  flex-shrink: 0;
+.navbar__area-select:focus {
+  outline: none;
+  border-color: #2D5016;
 }
 
-.navbar__area-empty,
 .navbar__delivery-error {
   padding: 10px 12px;
   border-radius: 10px;
@@ -917,17 +854,7 @@
   font-size: 12.5px;
   font-weight: 700;
   text-align: center;
-}
-
-.navbar__delivery-error {
   margin-top: 8px;
-}
-
-@media (max-width: 520px) {
-  .navbar__areas-list {
-    grid-template-columns: 1fr;
-    max-height: 208px;
-  }
 }
 
 /* ── Map placeholder ── */
