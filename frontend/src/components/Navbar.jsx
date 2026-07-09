@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   ChevronDownIcon,
@@ -24,7 +24,9 @@ import "./Navbar.css";
 const emptyAddress = {
   name: "",
   phone: "",
-  address: "",
+  flatNo: "",
+  landmark: "",
+  area: "",
   pincode: "",
 };
 
@@ -41,6 +43,7 @@ const Navbar = () => {
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [areaQuery, setAreaQuery] = useState("");
   const [deliveryError, setDeliveryError] = useState("");
+  const flatNoInputRef = useRef(null);
   const [addressForm, setAddressForm] = useState({
     ...emptyAddress,
     name: user?.name || "",
@@ -125,14 +128,20 @@ const Navbar = () => {
     const trimmed = Object.fromEntries(
       Object.entries(addressForm).map(([k, v]) => [k, v.trim()])
     );
-    if (Object.values(trimmed).some((v) => !v)) return;
+    const requiredFields = ["name", "phone", "flatNo", "area", "pincode"];
+    const missingField = requiredFields.find((field) => !trimmed[field]);
+    if (missingField) {
+      setDeliveryError("Please select a delivery area and fill in your door number.");
+      return;
+    }
     if (!/^\d{6}$/.test(trimmed.pincode)) return;
-    if (!isServiceableAddress(trimmed.address, trimmed.pincode)) {
+    if (!isServiceableAddress(trimmed.area, trimmed.pincode)) {
       setDeliveryError("We can't deliver to this area.");
       return;
     }
     setDeliveryError("");
-    const nextAddress = { ...trimmed, id: Date.now().toString() };
+    const address = trimmed.landmark ? `${trimmed.flatNo}, ${trimmed.landmark}` : trimmed.flatNo;
+    const nextAddress = { ...trimmed, address, id: Date.now().toString() };
     const nextAddresses = [nextAddress, ...savedAddresses.filter((a) => a.id !== nextAddress.id)];
     saveAddresses(nextAddresses);
     selectAddress(nextAddress);
@@ -145,15 +154,12 @@ const Navbar = () => {
     return area.name.toLowerCase().includes(q) || area.pincode.includes(q);
   });
 
-  const selectServiceableArea = (area) => {
+  const pickArea = (area) => {
     setDeliveryError("");
     setAreaQuery("");
-    setLocation({
-      address: area.name,
-      city: area.pincode,
-      full: `${area.name}, ${area.pincode}`,
-    });
-    setAddressMenuOpen(false);
+    setAddressForm((p) => ({ ...p, area: area.name, pincode: area.pincode }));
+    // Prompt for the door number/landmark right away instead of saving immediately
+    requestAnimationFrame(() => flatNoInputRef.current?.focus());
   };
 
   const currentAddressText =
@@ -292,20 +298,19 @@ const Navbar = () => {
                     />
                   </div>
 
-                  {/* Serviceable areas — customers can only order from these */}
+                  {/* Serviceable areas — pick one, then fill in your door number below */}
                   <div className="navbar__areas">
                     <p className="navbar__areas-title">WE DELIVER HERE</p>
                     {filteredAreas.length > 0 ? (
                       <div className="navbar__areas-list">
                         {filteredAreas.map((area) => {
-                          const isActive =
-                            (deliveryLocation.address || "").toLowerCase() === area.name.toLowerCase();
+                          const isActive = addressForm.area === area.name;
                           return (
                             <button
                               key={area.name}
                               type="button"
                               className={`navbar__area-item ${isActive ? "navbar__area-item--active" : ""}`}
-                              onClick={() => selectServiceableArea(area)}
+                              onClick={() => pickArea(area)}
                             >
                               <MapPinIcon size={15} className="navbar__area-item-icon" />
                               <span className="navbar__area-item-name">{area.name}</span>
@@ -337,20 +342,26 @@ const Navbar = () => {
                     </div>
                   )}
 
-                  {/* Manual entry form */}
+                  {/* Address details — required once an area is picked above */}
                   <div className="navbar__address-form">
-                    <p style={{fontSize:11,fontWeight:800,color:'#687466',marginBottom:4}}>ADD MANUALLY</p>
+                    <p style={{fontSize:11,fontWeight:800,color:'#687466',marginBottom:4}}>YOUR ADDRESS DETAILS</p>
+                    {addressForm.area ? (
+                      <div className="navbar__selected-area">
+                        <MapPinIcon size={14} />
+                        <span>{addressForm.area}, {addressForm.pincode}</span>
+                      </div>
+                    ) : (
+                      <p className="navbar__area-hint">Select a delivery area above to continue.</p>
+                    )}
                     <input type="text" placeholder="Name" value={addressForm.name}
                       onChange={(e) => setAddressForm((p) => ({ ...p, name: e.target.value }))} />
                     <input type="text" placeholder="Phone" value={addressForm.phone}
                       onChange={(e) => setAddressForm((p) => ({ ...p, phone: e.target.value }))} />
-                    <input type="text" placeholder="Address" value={addressForm.address}
-                      onChange={(e) => setAddressForm((p) => ({ ...p, address: e.target.value }))} />
-                    <div className="navbar__address-form-row">
-                      <input type="text" placeholder="Pincode" value={addressForm.pincode}
-                        onChange={(e) => setAddressForm((p) => ({ ...p, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) }))} />
-                      <button type="button" className="navbar__address-save" onClick={saveAddress}>Save</button>
-                    </div>
+                    <input ref={flatNoInputRef} type="text" placeholder="Door / Flat / House No." value={addressForm.flatNo}
+                      onChange={(e) => setAddressForm((p) => ({ ...p, flatNo: e.target.value }))} />
+                    <input type="text" placeholder="Landmark (optional)" value={addressForm.landmark}
+                      onChange={(e) => setAddressForm((p) => ({ ...p, landmark: e.target.value }))} />
+                    <button type="button" className="navbar__address-save" onClick={saveAddress}>Save Address</button>
                     {deliveryError && (
                       <p className="navbar__delivery-error">{deliveryError}</p>
                     )}

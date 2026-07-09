@@ -521,14 +521,27 @@
   border-color: rgba(176, 141, 87, 0.5);
 }
 
-.navbar__address-form-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
+.navbar__selected-area {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #F1F8E9;
+  color: #2D5016;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.navbar__area-hint {
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 600;
 }
 
 .navbar__address-save {
-  min-width: 80px;
+  width: 100%;
+  height: 42px;
   padding: 0 14px;
   border-radius: 10px;
   background: #1E3A5F;
