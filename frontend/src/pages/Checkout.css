@@ -2,7 +2,122 @@
    CHECKOUT PAGE
    ============================ */
 
-.checkout { max-width: 700px; margin: 0 auto; padding-bottom: var(--space-lg); }
+.checkout { max-width: 1120px; margin: 0 auto; padding-bottom: var(--space-lg); }
+
+.checkout__layout {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  align-items: start;
+  gap: var(--space-xl);
+}
+
+.checkout__main {
+  min-width: 0;
+}
+
+.checkout__aside {
+  position: sticky;
+  top: 110px;
+}
+
+.checkout__order-card {
+  background: #FFFFFF;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.checkout__order-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--space-sm);
+  color: var(--color-text);
+}
+.checkout__order-card-title svg { color: var(--color-accent); }
+
+.checkout__order-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 2px;
+  margin-bottom: var(--space-md);
+}
+
+.checkout__order-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.checkout__order-item-img-wrap {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.checkout__order-item-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.checkout__order-item-qty {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  box-shadow: 0 0 0 2px #FFFFFF;
+}
+
+.checkout__order-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.checkout__order-item-info strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.checkout__order-item-info span {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.checkout__order-item-price {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text);
+  flex-shrink: 0;
+}
 
 .checkout__header {
   display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-lg);
@@ -130,21 +245,6 @@
   position: absolute; top: 6px; right: 6px; color: var(--color-accent); font-size: 14px;
 }
 
-/* Order summary */
-.checkout__summary-toggle {
-  width: 100%; display: flex; justify-content: space-between; padding: var(--space-md);
-  background: var(--color-bg-alt); border-radius: var(--radius-md); font-size: 14px; font-weight: 600;
-}
-.checkout__summary-items {
-  padding: var(--space-sm) var(--space-md); background: var(--color-bg-alt);
-  border-radius: 0 0 var(--radius-md) var(--radius-md); margin-top: -4px;
-  animation: fadeIn var(--transition-fast);
-}
-.checkout__summary-item {
-  display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0;
-  color: var(--color-text-secondary);
-}
-
 /* Payment */
 .checkout__payments { display: flex; flex-direction: column; gap: var(--space-xs); }
 .checkout__payment {
@@ -240,9 +340,30 @@
 .checkout-success__btn--secondary { background: var(--color-bg-alt); color: var(--color-text); }
 .checkout-success__btn--secondary:hover { background: var(--color-border); }
 
+@media (max-width: 900px) {
+  .checkout__layout {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+  }
+
+  .checkout__aside {
+    position: static;
+    top: auto;
+  }
+
+  .checkout__order-items {
+    max-height: none;
+  }
+}
+
 @media (max-width: 767px) {
   .checkout {
     padding-bottom: 104px;
+  }
+
+  .checkout__order-card {
+    padding: 14px;
+    border-radius: 14px;
   }
 
   .checkout__container {
@@ -267,7 +388,6 @@
   }
 
   .checkout__address-card,
-  .checkout__summary-toggle,
   .checkout__address-form,
   .checkout__bill {
     border-radius: 14px;

@@ -1,13 +1,14 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiCheck, FiClock, FiCreditCard, FiGlobe, FiMapPin, FiPlus, FiSmartphone } from 'react-icons/fi';
+import { FiArrowLeft, FiCheck, FiClock, FiCreditCard, FiGlobe, FiMapPin, FiPlus, FiShoppingBag, FiSmartphone } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { getUserStorageKey } from '../utils/userStorage';
 import { getDeliveryTimeForAddress } from '../utils/deliveryZones';
 import { SERVICEABLE_AREAS, isServiceableAddress } from '../utils/serviceableAreas';
 import { formatPrice } from '../utils/format';
+import { toWebpImage } from '../utils/images';
 import NetBankingFlow from '../components/NetBankingFlow';
 import './Checkout.css';
 
@@ -51,7 +52,6 @@ const Checkout = () => {
   const [cardCvv, setCardCvv] = useState('');
   const [selectedBank, setSelectedBank] = useState('');
   const [showNetBankingFlow, setShowNetBankingFlow] = useState(false);
-  const [showItems, setShowItems] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [placedAddress, setPlacedAddress] = useState(null);
   const [orderId, setOrderId] = useState(() => `ORD-${Date.now().toString().slice(-6)}`);
@@ -319,6 +319,9 @@ const Checkout = () => {
             <h1 className="checkout__title">Checkout</h1>
           </div>
 
+          <div className="checkout__layout">
+          <div className="checkout__main">
+
           {/* Address */}
           <div className="checkout__section">
             <h3 className="checkout__section-title"><FiMapPin /> Delivery Address</h3>
@@ -406,24 +409,6 @@ const Checkout = () => {
                   </button>
                 )}
                 {addressError && <p className="checkout__address-error">{addressError}</p>}
-              </div>
-            )}
-          </div>
-
-          {/* Order summary */}
-          <div className="checkout__section">
-            <button className="checkout__summary-toggle" onClick={() => setShowItems(!showItems)}>
-              <span>Order Summary ({cartCount} items)</span>
-              <span>{showItems ? '▲' : '▼'}</span>
-            </button>
-            {showItems && (
-              <div className="checkout__summary-items">
-                {cartItems.map(item => (
-                  <div key={item.id} className="checkout__summary-item">
-                    <span>{item.name} × {item.quantity}</span>
-                    <span>{formatPrice(item.price * item.quantity)}</span>
-                  </div>
-                ))}
               </div>
             )}
           </div>
@@ -522,21 +507,51 @@ const Checkout = () => {
             </div>
           </div>
 
-          {/* Bill */}
-          <div className="checkout__bill">
-            <div className="checkout__bill-row"><span>Item Total</span><span>{formatPrice(cartTotal)}</span></div>
-            <div className="checkout__bill-row">
-              <span>Delivery Fee</span>
-              <span>{deliveryFee === 0 ? <span style={{color:'var(--color-accent)', fontWeight:600}}>FREE</span> : formatPrice(deliveryFee)}</span>
-            </div>
-            <div className="checkout__bill-row"><span>Handling Charge</span><span>{formatPrice(handlingCharge)}</span></div>
-            <div className="checkout__bill-total"><span>Total</span><span>{formatPrice(grandTotal)}</span></div>
           </div>
+          {/* end checkout__main */}
 
-          {/* Place Order */}
-          <button className="checkout__place-btn" onClick={handlePlaceOrder} id="place-order-btn">
-            {selectedPayment === 'cod' ? 'Place Order (COD)' : `Pay ${formatPrice(grandTotal)}`} →
-          </button>
+          <aside className="checkout__aside">
+            <div className="checkout__order-card">
+              <h3 className="checkout__order-card-title"><FiShoppingBag /> Order Summary ({cartCount} items)</h3>
+
+              <div className="checkout__order-items">
+                {cartItems.map(item => (
+                  <div key={item.id} className="checkout__order-item">
+                    <span className="checkout__order-item-img-wrap">
+                      <img src={toWebpImage(item.image)} alt={item.name} />
+                      <span className="checkout__order-item-qty">{item.quantity}</span>
+                    </span>
+                    <span className="checkout__order-item-info">
+                      <strong>{item.name}</strong>
+                      {(item.weight || item.unit) && (
+                        <span>{item.weight}{item.unit ? ` ${item.unit}` : ''}</span>
+                      )}
+                    </span>
+                    <span className="checkout__order-item-price">{formatPrice(item.price * item.quantity)}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Bill */}
+              <div className="checkout__bill">
+                <div className="checkout__bill-row"><span>Item Total</span><span>{formatPrice(cartTotal)}</span></div>
+                <div className="checkout__bill-row">
+                  <span>Delivery Fee</span>
+                  <span>{deliveryFee === 0 ? <span style={{color:'var(--color-accent)', fontWeight:600}}>FREE</span> : formatPrice(deliveryFee)}</span>
+                </div>
+                <div className="checkout__bill-row"><span>Handling Charge</span><span>{formatPrice(handlingCharge)}</span></div>
+                <div className="checkout__bill-total"><span>Total</span><span>{formatPrice(grandTotal)}</span></div>
+              </div>
+
+              {/* Place Order */}
+              <button className="checkout__place-btn" onClick={handlePlaceOrder} id="place-order-btn">
+                {selectedPayment === 'cod' ? 'Place Order (COD)' : `Pay ${formatPrice(grandTotal)}`} →
+              </button>
+            </div>
+          </aside>
+
+          </div>
+          {/* end checkout__layout */}
 
           {/* Net Banking Flow Modal */}
           {showNetBankingFlow && (
