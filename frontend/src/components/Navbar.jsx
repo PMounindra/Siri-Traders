@@ -351,7 +351,7 @@ const Navbar = () => {
             <SearchIcon className="navbar__search-icon" />
             <input
               type="text"
-              placeholder="Search for groceries..."
+              placeholder="Search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="navbar__search-input"
