@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { baseProducts, toWholesaleProduct, mergeCatalog, ADMIN_PRODUCTS_KEY } from '../data/products';
+import { baseProducts, toWholesaleProduct } from '../data/products';
 import { useAuth } from './AuthContext';
 
 const ProductContext = createContext();
@@ -40,16 +40,12 @@ export const ProductProvider = ({ children }) => {
     fetchProducts();
   }, []);
 
+  // Returns the live API products (no localStorage merge — admin saves go to DB, not localStorage)
   const getProductsForType = (customerType = 'retail') => {
-    // Read local admin products (if any exist in local storage)
-    const saved = localStorage.getItem(ADMIN_PRODUCTS_KEY);
-    const adminProducts = saved ? JSON.parse(saved) : [];
-    
     if (customerType === 'wholesale') {
-      const wholesaleCatalog = products.map(toWholesaleProduct);
-      return mergeCatalog(wholesaleCatalog, adminProducts);
+      return products.map(toWholesaleProduct);
     }
-    return mergeCatalog(products, adminProducts);
+    return products;
   };
 
   const addProduct = async (productData) => {
@@ -67,7 +63,7 @@ export const ProductProvider = ({ children }) => {
         body: JSON.stringify(productData)
       });
       if (res.ok) {
-        await fetchProducts(); // Refresh list
+        await fetchProducts(); // Refresh list from DB
         return true;
       }
     } catch (err) {

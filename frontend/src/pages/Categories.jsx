@@ -1,10 +1,10 @@
 import { useSearchParams } from 'react-router-dom';
 import { FiPackage, FiShoppingBag } from 'react-icons/fi';
-import { getProducts, getProductsByCategory } from '../data/products';
 import ProductCard from '../components/ProductCard';
 import CategoryCard from '../components/CategoryCard';
 import { useAuth } from '../context/AuthContext';
 import { useSiteData } from '../context/SiteDataContext';
+import { useProducts } from '../context/ProductContext';
 import { toWebpImage } from '../utils/images';
 import './Categories.css';
 
@@ -12,20 +12,23 @@ const Categories = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { customerType } = useAuth();
   const { categories: allCats } = useSiteData();
+  const { getProductsForType, loading } = useProducts();
   const activeCat = searchParams.get('cat') || '';
   const searchQuery = searchParams.get('search') || '';
   const isWholesale = customerType === 'wholesale';
 
+  const allProducts = getProductsForType(customerType);
+
   const filteredProducts = searchQuery
-    ? getProducts(customerType).filter(p =>
+    ? allProducts.filter(p =>
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (p.brand || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.description.toLowerCase().includes(searchQuery.toLowerCase())
+        (p.description || '').toLowerCase().includes(searchQuery.toLowerCase())
       )
     : activeCat
-    ? getProductsByCategory(activeCat, customerType)
-    : getProducts(customerType);
+    ? allProducts.filter(p => p.category === activeCat)
+    : allProducts;
 
   const activeCategory = allCats.find(c => c.id === activeCat);
 
@@ -75,7 +78,7 @@ const Categories = () => {
           <h1 className="categories__heading">
             {searchQuery ? `Results for "${searchQuery}"` : activeCategory ? activeCategory.name : 'All Products'}
             <span className="categories__count">
-              {filteredProducts.length} items
+              {loading ? '…' : `${filteredProducts.length} items`}
             </span>
           </h1>
 
@@ -93,7 +96,7 @@ const Categories = () => {
             ))}
           </div>
 
-          {filteredProducts.length === 0 && (
+          {!loading && filteredProducts.length === 0 && (
             <div className="categories__empty">
               <FiPackage className="categories__empty-icon" />
               <p>No products found in this category</p>

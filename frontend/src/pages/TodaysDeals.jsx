@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
-import { FiChevronRight, FiPackage, FiShoppingBag, FiTag } from 'react-icons/fi';
-import { getProducts } from '../data/products';
+import { FiChevronRight, FiPackage, FiTag } from 'react-icons/fi';
 import ProductCard from '../components/ProductCard';
 import { useAuth } from '../context/AuthContext';
 import { useSiteData } from '../context/SiteDataContext';
+import { useProducts } from '../context/ProductContext';
 import { toWebpImage } from '../utils/images';
 import { useSearchParams } from 'react-router-dom';
 import './TodaysDeals.css';
@@ -11,11 +11,12 @@ import './TodaysDeals.css';
 const TodaysDeals = () => {
   const { customerType } = useAuth();
   const { categories } = useSiteData();
+  const { getProductsForType, loading } = useProducts();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeCat = searchParams.get('cat') || '';
   const isWholesale = customerType === 'wholesale';
 
-  const allProducts = getProducts(customerType);
+  const allProducts = getProductsForType(customerType);
   const dealProducts = allProducts.filter(p => p.discount >= 10);
 
   // Priority order: pulses, rice, atta, oils, masala first, then everything else
@@ -77,7 +78,7 @@ const TodaysDeals = () => {
             <h1 className="tdpage__heading">
               <FiTag className="tdpage__heading-icon" />
               Today's Deals
-              <span className="tdpage__count">{filteredProducts.length} items</span>
+              <span className="tdpage__count">{loading ? '…' : `${filteredProducts.length} items`}</span>
             </h1>
             <Link to="/categories" className="tdpage__back-link">
               All Categories <FiChevronRight />
@@ -90,7 +91,7 @@ const TodaysDeals = () => {
             ))}
           </div>
 
-          {filteredProducts.length === 0 && (
+          {!loading && filteredProducts.length === 0 && (
             <div className="tdpage__empty">
               <FiPackage className="tdpage__empty-icon" />
               <p>No deals in this category right now</p>

@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
-import { FiChevronRight, FiPackage, FiShoppingBag, FiStar } from 'react-icons/fi';
-import { getProducts } from '../data/products';
+import { FiChevronRight, FiPackage, FiStar } from 'react-icons/fi';
 import ProductCard from '../components/ProductCard';
 import { useAuth } from '../context/AuthContext';
 import { useSiteData } from '../context/SiteDataContext';
+import { useProducts } from '../context/ProductContext';
 import { toWebpImage } from '../utils/images';
 import { useSearchParams } from 'react-router-dom';
 import './Bestsellers.css';
@@ -11,11 +11,12 @@ import './Bestsellers.css';
 const Bestsellers = () => {
   const { customerType } = useAuth();
   const { categories } = useSiteData();
+  const { getProductsForType, loading } = useProducts();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeCat = searchParams.get('cat') || '';
   const isWholesale = customerType === 'wholesale';
 
-  const allProducts = getProducts(customerType);
+  const allProducts = getProductsForType(customerType);
   const bestsellerProducts = allProducts.filter(p => p.isBestseller);
 
   // Priority order: pulses, rice, atta, oils, masala first, then everything else
@@ -77,7 +78,7 @@ const Bestsellers = () => {
             <h1 className="bspage__heading">
               <FiStar className="bspage__heading-icon" />
               Bestsellers
-              <span className="bspage__count">{filteredProducts.length} items</span>
+              <span className="bspage__count">{loading ? '…' : `${filteredProducts.length} items`}</span>
             </h1>
             <Link to="/categories" className="bspage__back-link">
               All Categories <FiChevronRight />
@@ -90,7 +91,7 @@ const Bestsellers = () => {
             ))}
           </div>
 
-          {filteredProducts.length === 0 && (
+          {!loading && filteredProducts.length === 0 && (
             <div className="bspage__empty">
               <FiPackage className="bspage__empty-icon" />
               <p>No bestsellers in this category</p>

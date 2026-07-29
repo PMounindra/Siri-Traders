@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
-import { getProductById, getProductsByCategory } from "../data/products";
+import { useProducts } from "../context/ProductContext";
 import { formatPrice } from "../utils/format";
 import { toWebpImage } from "../utils/images";
 import ProductCard from "../components/ProductCard";
@@ -26,6 +26,7 @@ const ProductDetail = () => {
   const { addToCart, removeFromCart, updateQuantity, getItemQuantity } =
     useCart();
   const { customerType } = useAuth();
+  const { getProductsForType, loading: productsLoading } = useProducts();
 
   const [product, setProduct] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
@@ -41,7 +42,14 @@ const ProductDetail = () => {
     setLocalQuantity(1);
     setImageFailed(false);
 
-    const nextProduct = getProductById(id, customerType);
+    if (productsLoading) return; // Wait until products are fetched from API
+
+    const allProducts = getProductsForType(customerType);
+
+    // Match by numeric id OR string id
+    const nextProduct = allProducts.find(
+      (p) => String(p.id) === String(id)
+    );
 
     if (!nextProduct) {
       setProduct(null);
@@ -52,8 +60,12 @@ const ProductDetail = () => {
 
     setProduct(nextProduct);
     setRelatedProducts(
-      getProductsByCategory(nextProduct.category, customerType)
-        .filter((item) => String(item.id) !== String(nextProduct.id))
+      allProducts
+        .filter(
+          (item) =>
+            item.category === nextProduct.category &&
+            String(item.id) !== String(nextProduct.id)
+        )
         .slice(0, 8),
     );
     // Set default variant
@@ -62,7 +74,7 @@ const ProductDetail = () => {
     ];
     setSelectedVariant(variants[0]);
     setLoading(false);
-  }, [id]);
+  }, [id, productsLoading, customerType]); // Re-run when products load or customer type changes
 
   const variants = product
     ? (product.variants || [{ label: `${product.weight} ${product.unit}`, price: product.price }])
@@ -86,7 +98,7 @@ const ProductDetail = () => {
     return product.category.replace(/-/g, " ");
   }, [product]);
 
-  if (loading) return <Loading />;
+  if (loading || productsLoading) return <Loading />;
 
   if (!product) {
     return (
