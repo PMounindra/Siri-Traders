@@ -1,8 +1,8 @@
-import { db, orders, orderItems } from '../../../db/index.js';
+import { db, orders, orderItems } from '../../db/index.js';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { setCorsHeaders } from '../../_cors.js';
-import { isAdminRequest } from '../../_adminAuth.js';
+import { setCorsHeaders } from '../_cors.js';
+import { isAdminRequest } from '../_adminAuth.js';
 
 const VALID_STATUSES = ['Pending', 'Preparing', 'In Transit', 'Delivered', 'Paid'];
 
@@ -21,14 +21,31 @@ export default async function handler(req, res) {
   if (!adminOk) return res.status(403).json({ error: 'Forbidden: admin access required' });
 
   const { id } = req.query;
-  if (!id) return res.status(400).json({ error: 'Missing order ID' });
-
-  const parsedId = parseInt(id, 10);
-  if (Number.isNaN(parsedId) || parsedId <= 0) {
-    return res.status(400).json({ error: 'Invalid order ID' });
-  }
 
   try {
+    // ── Collection: /api/admin/orders ─────────────────────────────────────
+    if (!id) {
+      if (req.method !== 'GET') {
+        return res.status(405).json({ error: 'Method not allowed' });
+      }
+
+      const allOrders = await db.select().from(orders).orderBy(orders.createdAt);
+      const allItems = await db.select().from(orderItems);
+
+      const ordersWithItems = allOrders.map(order => ({
+        ...order,
+        items: allItems.filter(item => item.orderId === order.id)
+      }));
+
+      return res.status(200).json(ordersWithItems);
+    }
+
+    // ── Item: /api/admin/orders?id=:id ─────────────────────────────────────
+    const parsedId = parseInt(id, 10);
+    if (Number.isNaN(parsedId) || parsedId <= 0) {
+      return res.status(400).json({ error: 'Invalid order ID' });
+    }
+
     if (req.method === 'GET') {
       const orderResult = await db.select().from(orders).where(eq(orders.id, parsedId));
       if (!orderResult.length) return res.status(404).json({ error: 'Order not found' });
@@ -57,7 +74,7 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
-    console.error('Error in /api/admin/orders/[id]:', error);
+    console.error('Error in /api/admin/orders:', error);
     return res.status(500).json({ error: 'Something went wrong' });
   }
 }

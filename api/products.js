@@ -1,6 +1,7 @@
 import { db, products } from '../db/index.js';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { setCorsHeaders } from './_cors.js';
 import { isAdminRequest } from './_adminAuth.js';
 
 const productSchema = z.object({
@@ -20,54 +21,111 @@ const productSchema = z.object({
   variants: z.array(z.any()).optional()
 });
 
+const productUpdateSchema = productSchema.partial().strict();
+
 export default async function handler(req, res) {
-  // CORS setup
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-admin-secret');
+  setCorsHeaders(req, res);
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
+  const { id } = req.query;
+
   try {
-    if (req.method === 'GET') {
-      const { category } = req.query;
-      let limitVal = parseInt(req.query.limit, 10);
-      let offsetVal = parseInt(req.query.offset, 10);
+    // ── Collection: /api/products ──────────────────────────────────────
+    if (!id) {
+      if (req.method === 'GET') {
+        const { category } = req.query;
+        let limitVal = parseInt(req.query.limit, 10);
+        let offsetVal = parseInt(req.query.offset, 10);
 
-      if (Number.isNaN(limitVal)) limitVal = 20;
-      if (Number.isNaN(offsetVal)) offsetVal = 0;
+        if (Number.isNaN(limitVal)) limitVal = 20;
+        if (Number.isNaN(offsetVal)) offsetVal = 0;
 
-      const parsedLimit = Math.min(500, Math.max(1, limitVal));
-      const parsedOffset = Math.max(0, offsetVal);
+        const parsedLimit = Math.min(500, Math.max(1, limitVal));
+        const parsedOffset = Math.max(0, offsetVal);
 
-      let query = db.select().from(products);
-      if (category) {
-        query = query.where(eq(products.category, category));
+        let query = db.select().from(products);
+        if (category) {
+          query = query.where(eq(products.category, category));
+        }
+
+        const allProducts = await query.limit(parsedLimit).offset(parsedOffset);
+
+        res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=3600, stale-while-revalidate=600');
+        return res.status(200).json(allProducts);
       }
 
-      const allProducts = await query.limit(parsedLimit).offset(parsedOffset);
+      if (req.method === 'POST') {
+        const adminOk = await isAdminRequest(req);
+        if (!adminOk) {
+          return res.status(403).json({ error: 'Forbidden: admin access required' });
+        }
 
-      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=3600, stale-while-revalidate=600');
-      return res.status(200).json(allProducts);
+        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        const validationResult = productSchema.safeParse(body);
+        if (!validationResult.success) {
+          return res.status(400).json({ error: 'Validation failed', details: validationResult.error.errors });
+        }
+
+        const newProduct = await db.insert(products).values(validationResult.data).returning();
+        return res.status(201).json(newProduct[0]);
+      }
+
+      return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    if (req.method === 'POST') {
-      const adminOk = await isAdminRequest(req);
-      if (!adminOk) {
-        return res.status(403).json({ error: 'Forbidden: admin access required' });
+    // ── Item: /api/products?id=:id ─────────────────────────────────────
+    const parsedId = parseInt(id, 10);
+    if (Number.isNaN(parsedId) || parsedId <= 0) {
+      return res.status(400).json({ error: 'Invalid product ID' });
+    }
+
+    if (req.method === 'GET') {
+      const result = await db.select().from(products).where(eq(products.id, parsedId));
+      if (!result.length) {
+        return res.status(404).json({ error: 'Product not found' });
       }
+      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=3600, stale-while-revalidate=600');
+      return res.status(200).json(result[0]);
+    }
+
+    if (req.method === 'PUT') {
+      const adminOk = await isAdminRequest(req);
+      if (!adminOk) return res.status(403).json({ error: 'Forbidden: admin access required' });
 
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-      const validationResult = productSchema.safeParse(body);
-      if (!validationResult.success) {
-        return res.status(400).json({ error: 'Validation failed', details: validationResult.error.errors });
+      const validation = productUpdateSchema.safeParse(body);
+      if (!validation.success) {
+        return res.status(400).json({ error: 'Validation failed', details: validation.error.errors });
       }
 
-      const validatedData = validationResult.data;
-      const newProduct = await db.insert(products).values(validatedData).returning();
-      return res.status(201).json(newProduct[0]);
+      const existing = await db.select().from(products).where(eq(products.id, parsedId));
+      if (!existing.length) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+
+      const updated = await db
+        .update(products)
+        .set(validation.data)
+        .where(eq(products.id, parsedId))
+        .returning();
+
+      return res.status(200).json(updated[0]);
+    }
+
+    if (req.method === 'DELETE') {
+      const adminOk = await isAdminRequest(req);
+      if (!adminOk) return res.status(403).json({ error: 'Forbidden: admin access required' });
+
+      const existing = await db.select().from(products).where(eq(products.id, parsedId));
+      if (!existing.length) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+
+      await db.delete(products).where(eq(products.id, parsedId));
+      return res.status(200).json({ success: true, id: parsedId });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });

@@ -57,3 +57,4 @@ backend/.env.*
 # Vercel
 .vercel
 .env*
+.env*.local

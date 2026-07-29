@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiEye, FiEyeOff, FiLock, FiMail } from 'react-icons/fi';
-import { loginAdmin } from '../utils/adminAuth';
+import { apiAdminLogin } from '../hooks/useAdminApi';
 import './AdminLogin.css';
 
 const AdminLogin = () => {
@@ -10,15 +10,20 @@ const AdminLogin = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    const session = loginAdmin(email, password);
-    if (!session) {
-      setError('Invalid admin email or password');
-      return;
+    setError('');
+    setSubmitting(true);
+    try {
+      await apiAdminLogin(email, password);
+      navigate('/admin');
+    } catch (err) {
+      setError(err.message || 'Invalid admin email or password');
+    } finally {
+      setSubmitting(false);
     }
-    navigate('/admin');
   };
 
   return (
@@ -54,7 +59,7 @@ const AdminLogin = () => {
               </button>
             </div>
           </label>
-          <button className="admin-login__submit">Login to admin</button>
+          <button className="admin-login__submit" disabled={submitting}>{submitting ? 'Signing in…' : 'Login to admin'}</button>
         </form>
       </section>
     </main>

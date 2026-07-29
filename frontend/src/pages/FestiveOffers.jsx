@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { FiChevronRight, FiPackage, FiGift } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { getFestivalOffers } from '../data/offers';
+import { useSiteData } from '../context/SiteDataContext';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
 import './FestiveOffers.css';
@@ -10,8 +10,8 @@ import './FestiveOffers.css';
 const FestiveOffers = () => {
   const { customerType } = useAuth();
   const { addToCart, removeFromCart, updateQuantity, getItemQuantity } = useCart();
+  const { festivalOffers: offers } = useSiteData();
   const isWholesale = customerType === 'wholesale';
-  const offers = getFestivalOffers();
 
   const getCartId = (offer) => `offer-${offer.id || offer.title}`;
 

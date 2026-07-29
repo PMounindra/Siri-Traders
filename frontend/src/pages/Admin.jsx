@@ -22,38 +22,15 @@ import {
 import { getAccounts } from '../context/AuthContext';
 import { useAdminApi } from '../hooks/useAdminApi';
 import { products as baseProducts, getProducts as getAllProducts } from '../data/products';
-import { categories, getAllCategories, getAdminCategories, saveAdminCategories } from '../data/categories';
+import { categories } from '../data/categories';
 import { baseDailyOffers, baseFestivalOffers } from '../data/offers';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
-import { getAdminAccounts, getAdminSession, logoutAdmin, saveAdminAccounts, savePendingAdminAccount } from '../utils/adminAuth';
 import { getUserStorageKey } from '../utils/userStorage';
 import './Admin.css';
 
 const ADMIN_PRODUCTS_RETAIL_KEY = 'siri-admin-products-retail';
 const ADMIN_PRODUCTS_WHOLESALE_KEY = 'siri-admin-products-wholesale';
-const ADMIN_OFFERS_KEY = 'siri-admin-offers';
-const ADMIN_COUPONS_KEY = 'siri-admin-coupons';
-const ADMIN_DELIVERY_ZONES_KEY = 'siri-admin-delivery-zones';
-
-// Default Hyderabad delivery zones from shop at Isnapur
-const defaultDeliveryZones = [
-  { id: 'z1',  area: 'Isnapur / Chitkul',       pincode: '502307', time: '10 mins',   distance: '0 km (shop location)' },
-  { id: 'z2',  area: 'Patancheru',               pincode: '502319', time: '15 mins',   distance: '~4 km' },
-  { id: 'z3',  area: 'Miyapur',                  pincode: '500049', time: '25 mins',   distance: '~12 km' },
-  { id: 'z4',  area: 'Kukatpally',               pincode: '500072', time: '30 mins',   distance: '~16 km' },
-  { id: 'z5',  area: 'KPHB Colony',              pincode: '500085', time: '30 mins',   distance: '~17 km' },
-  { id: 'z6',  area: 'Bachupally',               pincode: '500090', time: '20 mins',   distance: '~8 km' },
-  { id: 'z7',  area: 'Nizampet',                 pincode: '500090', time: '20 mins',   distance: '~9 km' },
-  { id: 'z8',  area: 'Kompally',                 pincode: '500014', time: '25 mins',   distance: '~14 km' },
-  { id: 'z9',  area: 'Medchal',                  pincode: '501401', time: '40 mins',   distance: '~22 km' },
-  { id: 'z10', area: 'Hitech City / Madhapur',   pincode: '500081', time: '45 mins',   distance: '~28 km' },
-  { id: 'z11', area: 'Gachibowli',               pincode: '500032', time: '50 mins',   distance: '~32 km' },
-  { id: 'z12', area: 'Banjara Hills',            pincode: '500034', time: '55 mins',   distance: '~36 km' },
-  { id: 'z13', area: 'Secunderabad',             pincode: '500003', time: '60 mins',   distance: '~40 km' },
-  { id: 'z14', area: 'LB Nagar',                 pincode: '500074', time: '75 mins',   distance: '~52 km' },
-  { id: 'z15', area: 'Outside Hyderabad',        pincode: 'Other',  time: 'Same day',  distance: '50+ km' },
-];
 
 const readStorage = (key, fallback) => {
   try {
@@ -126,8 +103,13 @@ const blankOffer = {
 const blankCoupon = {
   id: '',
   code: '',
-  discount: '',
-  limit: '',
+  type: 'flat',
+  value: '',
+  minOrder: '',
+  maxDiscount: '',
+  title: '',
+  description: '',
+  customerType: 'retail',
   active: true
 };
 
@@ -200,7 +182,8 @@ const getStoredList = (key) => {
 const Admin = () => {
   const navigate = useNavigate();
   const editFormRef = useRef(null);
-  const [adminSession, setAdminSession] = useState(() => getAdminSession());
+  const [adminSession, setAdminSession] = useState(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [adminMode, setAdminMode] = useState('retail'); // 'retail' | 'wholesale'
   const [searchQuery, setSearchQuery] = useState('');
@@ -229,19 +212,14 @@ const Admin = () => {
   const adminApi = useAdminApi();
   const [offerDraft, setOfferDraft] = useState(blankOffer);
   const [couponDraft, setCouponDraft] = useState(blankCoupon);
-  const [adminAccounts, setAdminAccounts] = useState(() => getAdminAccounts());
+  const [adminAccounts, setAdminAccounts] = useState([]);
   const [adminDraft, setAdminDraft] = useState(blankAdmin);
+  const [adminError, setAdminError] = useState('');
   const [contentSearch, setContentSearch] = useState('');
-  const [adminCategories, setAdminCategories] = useState(() => getAdminCategories());
+  const [dbCategories, setDbCategories] = useState([]);
   const [newCat, setNewCat] = useState({ name: '', image: '', color: '#F7F4EE' });
   const [deliveryZones, setDeliveryZones] = useState([]);
   const [newZone, setNewZone] = useState({ area: '', pincode: '', time: '30 mins', distance: '' });
-  const persistDeliveryZones = (next) => {
-    setDeliveryZones(next);
-    writeStorage(ADMIN_DELIVERY_ZONES_KEY, next);
-    // Also write to a public key so the app can read it
-    localStorage.setItem('siri-delivery-zones', JSON.stringify(next));
-  };
   // Variant builder: predefined checkboxes + custom entries
   const defaultVariantOptions = ['100 g','200 g','250 g','500 g','1 kg','2 kg','5 kg','10 kg','100 ml','200 ml','500 ml','1 L','5 L','15 L'];
   const [checkedVariants, setCheckedVariants] = useState([]);
@@ -259,15 +237,7 @@ const Admin = () => {
     writeStorage(ADMIN_PRODUCTS_WHOLESALE_KEY, next);
   };
 
-  const persistOffers = (nextOffers) => {
-    setOffers(nextOffers);
-    writeStorage(ADMIN_OFFERS_KEY, nextOffers);
-  };
-
-  const persistCoupons = (nextCoupons) => {
-    setCoupons(nextCoupons);
-    writeStorage(ADMIN_COUPONS_KEY, nextCoupons);
-  };
+  const normalizeOffer = (o) => ({ ...o, group: o.groupType || o.group || 'daily' });
 
   // ── Load products from DB on mount ──
   useEffect(() => {
@@ -282,13 +252,24 @@ const Admin = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Load live orders, customers, offers, coupons, zones on mount ──
+  // ── Check real admin session on mount ──
+  useEffect(() => {
+    adminApi.me().then(session => {
+      setAdminSession(session);
+      setSessionChecked(true);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Load live orders, customers, offers, coupons, zones, categories, admins on mount ──
   useEffect(() => {
     adminApi.fetchAllOrders().then(setLiveOrders).catch(() => setLiveOrders([]));
     adminApi.fetchAllUsers().then(setLiveCustomers).catch(() => setLiveCustomers([]));
-    fetch('/api/offers').then(r => r.json()).then(setOffers).catch(() => {});
-    fetch('/api/coupons').then(r => r.json()).then(setCoupons).catch(() => {});
-    fetch('/api/delivery_zones').then(r => r.json()).then(setDeliveryZones).catch(() => {});
+    adminApi.fetchOffers().then(data => setOffers(data.map(normalizeOffer))).catch(() => {});
+    adminApi.fetchCoupons().then(setCoupons).catch(() => {});
+    adminApi.fetchDeliveryZones().then(setDeliveryZones).catch(() => {});
+    adminApi.fetchCategories().then(setDbCategories).catch(() => {});
+    adminApi.fetchAdminUsers().then(setAdminAccounts).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -523,47 +504,63 @@ const Admin = () => {
     }
   };
 
-  const saveOffer = (event) => {
+  const saveOffer = async (event) => {
     event.preventDefault();
     const festiveKeywords = /diwali|eid|holi|christmas|navratri|rakhi|onam|sankranti|ramzan|ugadi|ganesh|dussehra|festival|wedding|party/i;
     const group = festiveKeywords.test(offerDraft.title + ' ' + offerDraft.badge) ? 'festival' : 'daily';
-    const nextOffer = {
+    const payload = {
       ...offerDraft,
-      id: offerDraft.id || `offer-${Date.now()}`,
       group,
       price: Number(offerDraft.price) || 0,
       mrp: Number(offerDraft.mrp) || 0,
       active: true,
       image: offerDraft.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=700&q=80'
     };
-    persistOffers([nextOffer, ...offers.filter(offer => offer.id !== nextOffer.id)]);
-    setOfferDraft(blankOffer);
+    try {
+      const saved = normalizeOffer(await adminApi.saveOffer(payload));
+      setOffers(prev => [saved, ...prev.filter(offer => offer.id !== saved.id)]);
+      setOfferDraft(blankOffer);
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
-  const saveCoupon = (event) => {
+  const saveCoupon = async (event) => {
     event.preventDefault();
-    const nextCoupon = { ...couponDraft, id: couponDraft.id || `coupon-${Date.now()}`, code: couponDraft.code.trim().toUpperCase() };
-    persistCoupons([nextCoupon, ...coupons.filter(coupon => coupon.id !== nextCoupon.id)]);
-    setCouponDraft(blankCoupon);
+    const payload = {
+      ...couponDraft,
+      code: couponDraft.code.trim().toUpperCase(),
+      value: Number(couponDraft.value) || 0,
+      minOrder: Number(couponDraft.minOrder) || 0,
+      maxDiscount: couponDraft.maxDiscount ? Number(couponDraft.maxDiscount) : null
+    };
+    try {
+      const saved = await adminApi.saveCoupon(payload);
+      setCoupons(prev => [saved, ...prev.filter(coupon => coupon.id !== saved.id)]);
+      setCouponDraft(blankCoupon);
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
-  const saveAdmin = (event) => {
+  const saveAdmin = async (event) => {
     event.preventDefault();
+    setAdminError('');
     const email = adminDraft.email.trim().toLowerCase();
     if (!adminDraft.name.trim() || !email || !adminDraft.password.trim()) return;
-    const nextAdmin = {
-      id: `admin-${Date.now()}`,
-      name: adminDraft.name.trim(),
-      email,
-      password: adminDraft.password,
-      role: adminDraft.role,
-      createdAt: new Date().toLocaleDateString('en-IN')
-    };
-    const nextAccounts = [nextAdmin, ...adminAccounts.filter(account => account.email.toLowerCase() !== email)];
-    setAdminAccounts(nextAccounts);
-    saveAdminAccounts(nextAccounts);
-    savePendingAdminAccount(nextAdmin);
-    setAdminDraft(blankAdmin);
+    try {
+      await adminApi.createAdminUser({
+        name: adminDraft.name.trim(),
+        email,
+        password: adminDraft.password,
+        role: adminDraft.role
+      });
+      const refreshed = await adminApi.fetchAdminUsers();
+      setAdminAccounts(refreshed);
+      setAdminDraft(blankAdmin);
+    } catch (err) {
+      setAdminError(err.message || 'Failed to create admin');
+    }
   };
 
   const updateProductField = (productId, field, value, isWholesale) => {
@@ -588,11 +585,15 @@ const Admin = () => {
     (product.brand || '').toLowerCase().includes(contentSearch.toLowerCase())
   );
 
-  const handleAdminLogout = () => {
-    logoutAdmin();
+  const handleAdminLogout = async () => {
+    await adminApi.logout();
     setAdminSession(null);
     navigate('/admin-login');
   };
+
+  if (!sessionChecked) {
+    return <div className="admin-auth-required" />;
+  }
 
   if (!adminSession) {
     return (
@@ -727,7 +728,7 @@ const Admin = () => {
                   <input value={productDraft.name} onChange={(e) => setProductDraft(prev => ({ ...prev, name: e.target.value }))} placeholder="Product name" required />
                   <input value={productDraft.brand} onChange={(e) => setProductDraft(prev => ({ ...prev, brand: e.target.value }))} placeholder="Brand" required />
                   <select value={productDraft.category} onChange={(e) => setProductDraft(prev => ({ ...prev, category: e.target.value }))}>
-                    {[...categories, ...adminCategories].map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                    {(dbCategories.length ? dbCategories : categories).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
                   </select>
                   <select value={productDraft.stockNote} onChange={(e) => setProductDraft(prev => ({ ...prev, stockNote: e.target.value }))}>
                     <option>In stock</option>
@@ -902,31 +903,28 @@ const Admin = () => {
                   type="button"
                   className="admin__primary"
                   style={{marginTop:12}}
-                  onClick={() => {
+                  onClick={async () => {
                     if (!newCat.name.trim()) return;
-                    const id = newCat.name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-                    const existing = [...categories, ...adminCategories].find(c => c.id === id);
-                    if (existing) { alert('Category already exists'); return; }
-                    const next = [...adminCategories, {
-                      id,
-                      name: newCat.name.trim(),
-                      image: newCat.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=300&q=80',
-                      color: '#F1F8E9',
-                      itemCount: 0,
-                      isAdmin: true
-                    }];
-                    setAdminCategories(next);
-                    saveAdminCategories(next);
-                    setNewCat({ name: '', image: '', color: '#F1F8E9' });
+                    try {
+                      const saved = await adminApi.createCategory({
+                        name: newCat.name.trim(),
+                        image: newCat.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=300&q=80',
+                        color: '#F1F8E9'
+                      });
+                      setDbCategories(prev => [...prev, saved]);
+                      setNewCat({ name: '', image: '', color: '#F1F8E9' });
+                    } catch (err) {
+                      alert(err.message);
+                    }
                   }}
                 >
                   <FiPlus /> Add Category
                 </button>
 
-                {adminCategories.length > 0 && (
+                {dbCategories.length > 0 && (
                   <div style={{marginTop:16}}>
-                    <strong style={{fontSize:12,color:'#687466',display:'block',marginBottom:8}}>Admin-added categories</strong>
-                    {adminCategories.map(cat => (
+                    <strong style={{fontSize:12,color:'#687466',display:'block',marginBottom:8}}>Categories</strong>
+                    {dbCategories.map(cat => (
                       <div key={cat.id} className="admin-row admin-row--plain" style={{marginTop:6,padding:'8px 10px',borderRadius:10,border:'1px solid rgba(45,80,22,0.1)',background:'#FAFFF6'}}>
                         {cat.image && <img src={cat.image} alt={cat.name} style={{width:38,height:38,borderRadius:8,objectFit:'cover',flexShrink:0}} />}
                         <span style={{flex:1}}>
@@ -936,18 +934,16 @@ const Admin = () => {
                         <button
                           className="admin-danger"
                           style={{display:'flex',alignItems:'center',gap:4,fontSize:12,padding:'4px 10px',borderRadius:7,height:'auto'}}
-                          onClick={() => {
+                          onClick={async () => {
                             if (!window.confirm(`Delete "${cat.name}" and all its products?`)) return;
-                            // Remove category
-                            const nextCats = adminCategories.filter(c => c.id !== cat.id);
-                            setAdminCategories(nextCats);
-                            saveAdminCategories(nextCats);
-                            // Remove all retail products in this category
-                            const nextRetail = retailProducts.filter(p => p.category !== cat.id);
-                            persistRetailProducts(nextRetail);
-                            // Remove all wholesale products in this category
-                            const nextWS = wholesaleProducts.filter(p => p.category !== cat.id);
-                            persistWholesaleProducts(nextWS);
+                            try {
+                              await adminApi.deleteCategory(cat.id);
+                              setDbCategories(prev => prev.filter(c => c.id !== cat.id));
+                              persistRetailProducts(retailProducts.filter(p => p.category !== cat.id));
+                              persistWholesaleProducts(wholesaleProducts.filter(p => p.category !== cat.id));
+                            } catch (err) {
+                              alert(err.message);
+                            }
                           }}
                         >
                           <FiTrash2 size={13} /> Delete
@@ -1019,9 +1015,29 @@ const Admin = () => {
 
               <form className="admin-form" onSubmit={saveCoupon}>
                 <h2>Add coupon</h2>
-                <input value={couponDraft.code} onChange={(e) => setCouponDraft(prev => ({ ...prev, code: e.target.value }))} placeholder="Coupon code" required />
-                <input value={couponDraft.discount} onChange={(e) => setCouponDraft(prev => ({ ...prev, discount: e.target.value }))} placeholder="Discount details e.g. 20% off up to ₹100" />
-                <input value={couponDraft.limit} onChange={(e) => setCouponDraft(prev => ({ ...prev, limit: e.target.value }))} placeholder="Usage condition e.g. Orders above ₹399" />
+                <input value={couponDraft.code} onChange={(e) => setCouponDraft(prev => ({ ...prev, code: e.target.value }))} placeholder="Coupon code e.g. WELCOME50" required />
+                <input value={couponDraft.title} onChange={(e) => setCouponDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Banner title e.g. FLAT ₹50 OFF" />
+                <input value={couponDraft.description} onChange={(e) => setCouponDraft(prev => ({ ...prev, description: e.target.value }))} placeholder="Banner subtext e.g. On your first order above ₹399" />
+                <div className="admin-form__grid admin-form__grid--two">
+                  <select value={couponDraft.type} onChange={(e) => setCouponDraft(prev => ({ ...prev, type: e.target.value }))}>
+                    <option value="flat">Flat ₹ off</option>
+                    <option value="percent">Percent % off</option>
+                    <option value="freeDelivery">Free delivery</option>
+                  </select>
+                  <select value={couponDraft.customerType} onChange={(e) => setCouponDraft(prev => ({ ...prev, customerType: e.target.value }))}>
+                    <option value="retail">Retail</option>
+                    <option value="wholesale">Wholesale</option>
+                  </select>
+                </div>
+                {couponDraft.type !== 'freeDelivery' && (
+                  <div className="admin-form__grid admin-form__grid--two">
+                    <input value={couponDraft.value} onChange={(e) => setCouponDraft(prev => ({ ...prev, value: e.target.value }))} placeholder={couponDraft.type === 'percent' ? 'Percent off e.g. 10' : 'Amount off (₹)'} type="number" />
+                    {couponDraft.type === 'percent' && (
+                      <input value={couponDraft.maxDiscount} onChange={(e) => setCouponDraft(prev => ({ ...prev, maxDiscount: e.target.value }))} placeholder="Max discount cap (₹, optional)" type="number" />
+                    )}
+                  </div>
+                )}
+                <input value={couponDraft.minOrder} onChange={(e) => setCouponDraft(prev => ({ ...prev, minOrder: e.target.value }))} placeholder="Minimum order value (₹)" type="number" />
                 <button className="admin__primary"><FiPlus /> Add coupon</button>
               </form>
 
@@ -1047,11 +1063,21 @@ const Admin = () => {
                       </span>
                       <button
                         style={{padding:'4px 10px',borderRadius:7,border:'1px solid rgba(45,80,22,0.2)',background: offer.active ? '#E8F5E9' : '#F5F5F5',color: offer.active ? '#2D5016' : '#9ca3af',fontSize:11,fontWeight:800,flexShrink:0,cursor:'pointer'}}
-                        onClick={() => persistOffers(offers.map(item => item.id === offer.id ? { ...item, active: !item.active } : item))}
+                        onClick={async () => {
+                          try {
+                            const updated = normalizeOffer(await adminApi.updateOffer(offer.id, { active: !offer.active }));
+                            setOffers(prev => prev.map(item => item.id === offer.id ? updated : item));
+                          } catch (err) { alert(err.message); }
+                        }}
                       >
                         {offer.active ? 'Live' : 'Paused'}
                       </button>
-                      <button className="admin-danger" style={{flexShrink:0,width:32,height:32,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={() => persistOffers(offers.filter(item => item.id !== offer.id))}>
+                      <button className="admin-danger" style={{flexShrink:0,width:32,height:32,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={async () => {
+                        try {
+                          await adminApi.deleteOffer(offer.id);
+                          setOffers(prev => prev.filter(item => item.id !== offer.id));
+                        } catch (err) { alert(err.message); }
+                      }}>
                         <FiTrash2 size={14} />
                       </button>
                     </div>
@@ -1065,9 +1091,22 @@ const Admin = () => {
                 {coupons.map(coupon => (
                   <div key={coupon.id} className="admin-row admin-row--plain">
                     <FiTag />
-                    <span>{coupon.code} — {coupon.discount}</span>
-                    <button onClick={() => persistCoupons(coupons.map(item => item.id === coupon.id ? { ...item, active: !item.active } : item))}>{coupon.active ? 'Active' : 'Off'}</button>
-                    <button className="admin-danger" onClick={() => persistCoupons(coupons.filter(item => item.id !== coupon.id))}><FiTrash2 /></button>
+                    <span>
+                      {coupon.code} — {coupon.type === 'percent' ? `${coupon.value}% off` : coupon.type === 'freeDelivery' ? 'Free delivery' : `₹${coupon.value} off`}
+                      {coupon.minOrder > 0 && <small> Min ₹{coupon.minOrder} · {coupon.customerType}</small>}
+                    </span>
+                    <button onClick={async () => {
+                      try {
+                        const updated = await adminApi.updateCoupon(coupon.id, { active: !coupon.active });
+                        setCoupons(prev => prev.map(item => item.id === coupon.id ? updated : item));
+                      } catch (err) { alert(err.message); }
+                    }}>{coupon.active ? 'Active' : 'Off'}</button>
+                    <button className="admin-danger" onClick={async () => {
+                      try {
+                        await adminApi.deleteCoupon(coupon.id);
+                        setCoupons(prev => prev.filter(item => item.id !== coupon.id));
+                      } catch (err) { alert(err.message); }
+                    }}><FiTrash2 /></button>
                   </div>
                 ))}
               </div>
@@ -1331,11 +1370,15 @@ const Admin = () => {
                   type="button"
                   className="admin__primary"
                   style={{marginTop:10}}
-                  onClick={() => {
+                  onClick={async () => {
                     if (!newZone.area.trim() || !newZone.pincode.trim()) return;
-                    const zone = { id: `z${Date.now()}`, ...newZone, area: newZone.area.trim(), pincode: newZone.pincode.trim() };
-                    persistDeliveryZones([...deliveryZones, zone]);
-                    setNewZone({ area: '', pincode: '', time: '30 mins', distance: '' });
+                    try {
+                      const saved = await adminApi.saveDeliveryZone({ ...newZone, area: newZone.area.trim(), pincode: newZone.pincode.trim() });
+                      setDeliveryZones(prev => [...prev, saved]);
+                      setNewZone({ area: '', pincode: '', time: '30 mins', distance: '' });
+                    } catch (err) {
+                      alert(err.message);
+                    }
                   }}
                 >
                   <FiPlus /> Add Zone
@@ -1360,7 +1403,13 @@ const Admin = () => {
                         <td style={{padding:'10px 12px'}}>
                           <select
                             value={zone.time}
-                            onChange={e => persistDeliveryZones(deliveryZones.map(z => z.id === zone.id ? {...z, time: e.target.value} : z))}
+                            onChange={async e => {
+                              const time = e.target.value;
+                              try {
+                                const updated = await adminApi.updateDeliveryZone(zone.id, { time });
+                                setDeliveryZones(prev => prev.map(z => z.id === zone.id ? updated : z));
+                              } catch (err) { alert(err.message); }
+                            }}
                             style={{padding:'4px 8px',borderRadius:7,border:'1px solid rgba(45,80,22,0.2)',background:'#F1F8E9',color:'#2D5016',fontWeight:700,fontSize:12,cursor:'pointer'}}
                           >
                             {['10 mins','15 mins','20 mins','25 mins','30 mins','35 mins','40 mins','45 mins','50 mins','55 mins','60 mins','75 mins','90 mins','2 hours','3 hours','Same day'].map(t => <option key={t}>{t}</option>)}
@@ -1371,7 +1420,12 @@ const Admin = () => {
                           <button
                             className="admin-danger"
                             style={{width:30,height:30,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center'}}
-                            onClick={() => persistDeliveryZones(deliveryZones.filter(z => z.id !== zone.id))}
+                            onClick={async () => {
+                              try {
+                                await adminApi.deleteDeliveryZone(zone.id);
+                                setDeliveryZones(prev => prev.filter(z => z.id !== zone.id));
+                              } catch (err) { alert(err.message); }
+                            }}
                           >
                             <FiTrash2 size={13} />
                           </button>
@@ -1393,12 +1447,13 @@ const Admin = () => {
                 <h2>Add admin user</h2>
                 <input value={adminDraft.name} onChange={(e) => setAdminDraft(prev => ({ ...prev, name: e.target.value }))} placeholder="Full name" required />
                 <input value={adminDraft.email} onChange={(e) => setAdminDraft(prev => ({ ...prev, email: e.target.value }))} placeholder="Email" type="email" required />
-                <input value={adminDraft.password} onChange={(e) => setAdminDraft(prev => ({ ...prev, password: e.target.value }))} placeholder="Password" type="password" required />
+                <input value={adminDraft.password} onChange={(e) => setAdminDraft(prev => ({ ...prev, password: e.target.value }))} placeholder="Password (min 8 characters)" type="password" minLength={8} required />
                 <select value={adminDraft.role} onChange={(e) => setAdminDraft(prev => ({ ...prev, role: e.target.value }))}>
                   <option>Manager</option>
                   <option>Editor</option>
                   <option>Super Admin</option>
                 </select>
+                {adminError && <p style={{color:'#FF6B35',fontSize:13,fontWeight:700}}>{adminError}</p>}
                 <button type="submit" className="admin__primary"><FiPlus /> Add admin</button>
               </form>
               <div className="admin-card">

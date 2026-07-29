@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
+import { useSiteData } from "../context/SiteDataContext";
 import { getUserStorageKey } from "../utils/userStorage";
 import { getDeliveryTimeForAddress } from "../utils/deliveryZones";
 import { SERVICEABLE_AREAS, isServiceableAddress } from "../utils/serviceableAreas";
@@ -33,6 +34,7 @@ const emptyAddress = {
 const Navbar = () => {
   const { cartCount } = useCart();
   const { user, logout, location: deliveryLocation, setLocation, customerType, setCustomerType } = useAuth();
+  const { deliveryZones } = useSiteData();
   const navigate = useNavigate();
   const routeLocation = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
@@ -158,7 +160,7 @@ const Navbar = () => {
     deliveryLocation.full || deliveryLocation.address || "Add address";
 
   // Delivery time based on customer's pincode/area — set by admin in Delivery Zones
-  const deliveryTime = getDeliveryTimeForAddress(deliveryLocation);
+  const deliveryTime = getDeliveryTimeForAddress(deliveryLocation, deliveryZones);
 
   const changeCustomerType = (type) => {
     setCustomerType(type);

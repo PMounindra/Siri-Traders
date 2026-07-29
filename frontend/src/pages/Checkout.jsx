@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useSiteData } from '../context/SiteDataContext';
 import { getUserStorageKey } from '../utils/userStorage';
 import { getDeliveryTimeForAddress } from '../utils/deliveryZones';
 import { SERVICEABLE_AREAS, isServiceableAddress } from '../utils/serviceableAreas';
@@ -69,6 +70,8 @@ const addressLine2 = (address) => {
 const Checkout = () => {
   const { cartItems, cartTotal, cartCount, cartSavings, clearCart, requireAuth } = useCart();
   const { user, isAuthenticated, getToken, customerType } = useAuth();
+  const { deliveryZones, retailCoupons, wholesaleCoupons } = useSiteData();
+  const coupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
   const navigate = useNavigate();
   const addressStorageKey = getUserStorageKey(user, 'addresses');
   const orderStorageKey = getUserStorageKey(user, 'orders');
@@ -142,7 +145,7 @@ const Checkout = () => {
   };
 
   const handleApplyCoupon = () => {
-    const result = applyCoupon(couponInput, cartTotal, customerType);
+    const result = applyCoupon(couponInput, cartTotal, coupons);
     if (!result.valid) {
       setCouponError(result.error);
       setAppliedCoupon(null);
@@ -205,7 +208,7 @@ const Checkout = () => {
   };
 
   const finalizeOrder = async (addressForOrder, paymentDetails = {}) => {
-    const deliveryTime = getDeliveryTimeForAddress(addressForOrder);
+    const deliveryTime = getDeliveryTimeForAddress(addressForOrder, deliveryZones);
 
     // Require Clerk authentication for real order placement
     let clerkToken = null;
@@ -340,7 +343,7 @@ const Checkout = () => {
           <p className="checkout-success__order-id">Order #{orderId}</p>
           {(placedAddress || selectedAddress) && (
             <p className="checkout-success__text" style={{color:'#2D5016',fontWeight:700}}>
-              Estimated delivery: {getDeliveryTimeForAddress(placedAddress || selectedAddress)}
+              Estimated delivery: {getDeliveryTimeForAddress(placedAddress || selectedAddress, deliveryZones)}
             </p>
           )}
           {(placedAddress || selectedAddress) && (
@@ -721,7 +724,7 @@ const Checkout = () => {
                   <span><FiCheckCircle /> 100% Secure</span>
                 </div>
                 <p className="checkout__delivery-footer">
-                  <FiTruck /> Delivering to you in {getDeliveryTimeForAddress(selectedAddress || addressForm)}
+                  <FiTruck /> Delivering to you in {getDeliveryTimeForAddress(selectedAddress || addressForm, deliveryZones)}
                 </p>
               </div>
             </aside>

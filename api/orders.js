@@ -25,6 +25,8 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  const { id } = req.query;
+
   // 1. Auth check
   let authRequest;
   try {
@@ -39,6 +41,37 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  // ── Item: /api/orders?id=:id — single order, ownership-checked ───────────
+  if (id) {
+    if (req.method !== 'GET') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    try {
+      const parsedId = parseInt(id, 10);
+      if (Number.isNaN(parsedId) || parsedId <= 0) {
+        return res.status(400).json({ error: 'Invalid order ID' });
+      }
+
+      const orderResult = await db.select().from(orders).where(eq(orders.id, parsedId));
+      if (!orderResult.length) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+
+      const order = orderResult[0];
+      if (order.userId !== userId) {
+        return res.status(403).json({ error: 'Forbidden: You do not own this order' });
+      }
+
+      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+      return res.status(200).json({ ...order, items });
+    } catch (error) {
+      console.error("Error in /api/orders?id:", error);
+      return res.status(500).json({ error: 'Something went wrong' });
+    }
+  }
+
+  // ── Collection: /api/orders ────────────────────────────────────────────
   // 2. Rate limiting check (using userId as the rate limit key)
   try {
     if (process.env.UPSTASH_REDIS_REST_URL) {
@@ -72,7 +105,7 @@ export default async function handler(req, res) {
         const email = clerkUser.emailAddresses[0]?.emailAddress || '';
         const name = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim();
         const phone = clerkUser.phoneNumbers[0]?.phoneNumber || '';
-        
+
         await db.insert(users)
           .values({
             id: userId,

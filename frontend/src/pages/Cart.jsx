@@ -1,92 +1,43 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiMinus, FiPlus, FiTrash2, FiTag, FiArrowLeft, FiShoppingBag, FiCheck } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useSiteData } from '../context/SiteDataContext';
 import { getBestsellers } from '../data/products';
+import { applyCoupon as evaluateCoupon } from '../data/coupons';
 import ProductCard from '../components/ProductCard';
 import { formatPrice } from '../utils/format';
-import { getUserStorageKey } from '../utils/userStorage';
 import { toWebpImage } from '../utils/images';
 import './Cart.css';
-
-const baseCoupons = [
-  { code: 'SIRI20', desc: '20% off up to Rs100', type: 'percent', value: 0.2, max: 100 },
-  { code: 'WELCOME50', desc: 'Rs50 off first order', type: 'flat', value: 50, firstOrder: true },
-  { code: 'FESTIVE30', desc: '30% off up to Rs120', type: 'percent', value: 0.3, max: 120 },
-  { code: 'EID25', desc: '25% off up to Rs90', type: 'percent', value: 0.25, max: 90 },
-  { code: 'FREEDEL', desc: 'Free delivery fee', type: 'delivery' }
-];
-
-const getAdminCoupons = () => {
-  try {
-    const saved = localStorage.getItem('siri-admin-coupons');
-    const adminCoupons = saved ? JSON.parse(saved) : [];
-    return adminCoupons
-      .filter(coupon => coupon.active && coupon.code)
-      .map(coupon => {
-        const percent = Number(coupon.discount?.match(/\d+/)?.[0] || 10) / 100;
-        return {
-          code: coupon.code,
-          desc: coupon.discount || 'Admin coupon',
-          type: 'percent',
-          value: Math.min(percent, 0.9),
-          max: 150
-        };
-      });
-  } catch {
-    return [];
-  }
-};
 
 const Cart = () => {
   const { cartItems, updateQuantity, removeFromCart, cartTotal, cartSavings, cartCount, requireAuth } = useCart();
   const { user, customerType } = useAuth();
+  const { retailCoupons, wholesaleCoupons } = useSiteData();
+  const coupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
   const navigate = useNavigate();
   const [coupon, setCoupon] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
-  const coupons = useMemo(() => [...getAdminCoupons(), ...baseCoupons], []);
-  const hasPlacedOrder = (() => {
-    try {
-      const key = getUserStorageKey(user, 'orders');
-      const saved = key ? localStorage.getItem(key) : null;
-      return saved ? JSON.parse(saved).length > 0 : false;
-    } catch {
-      return false;
-    }
-  })();
 
-  const deliveryFee = cartTotal >= 500 ? 0 : 25;
+  const baseDeliveryFee = cartTotal >= 500 ? 0 : 25;
   const handlingCharge = cartCount > 0 ? 5 : 0;
-  const couponDiscount = appliedCoupon
-    ? appliedCoupon.type === 'delivery'
-      ? deliveryFee
-      : appliedCoupon.type === 'flat'
-        ? Math.min(appliedCoupon.value, cartTotal)
-        : Math.min(cartTotal * appliedCoupon.value, appliedCoupon.max)
-    : 0;
+  const deliveryFee = appliedCoupon?.freeDelivery ? 0 : baseDeliveryFee;
+  const couponDiscount = appliedCoupon?.discount || 0;
   const grandTotal = cartTotal + deliveryFee + handlingCharge - couponDiscount;
 
   const suggestions = getBestsellers(customerType).filter(p => !cartItems.find(i => i.productId === p.id || i.id === p.id)).slice(0, 6);
 
   const applyCoupon = (code = coupon) => {
-    const selectedCoupon = coupons.find(item => item.code === code.trim().toUpperCase());
-
-    if (!selectedCoupon) {
-      setCouponError('Invalid coupon code');
+    const result = evaluateCoupon(code, cartTotal, coupons);
+    if (!result.valid) {
+      setCouponError(result.error);
       setAppliedCoupon(null);
       return;
     }
-
-    if (selectedCoupon.firstOrder && hasPlacedOrder) {
-      setCouponError('This coupon is only for first-time users');
-      setAppliedCoupon(null);
-      return;
-    }
-
-    setCoupon(selectedCoupon.code);
-    setAppliedCoupon(selectedCoupon);
+    setCoupon(result.coupon.code);
+    setAppliedCoupon(result);
     setCouponError('');
   };
 
@@ -175,11 +126,11 @@ const Cart = () => {
                 <button
                   key={item.code}
                   type="button"
-                  className={`cart__coupon-chip ${appliedCoupon?.code === item.code ? 'cart__coupon-chip--active' : ''}`}
+                  className={`cart__coupon-chip ${appliedCoupon?.coupon?.code === item.code ? 'cart__coupon-chip--active' : ''}`}
                   onClick={() => applyCoupon(item.code)}
                 >
                   <strong>{item.code}</strong>
-                  <span>{item.desc}</span>
+                  <span>{item.description}</span>
                 </button>
               ))}
             </div>
@@ -197,7 +148,7 @@ const Cart = () => {
             {couponError && <span className="cart__coupon-error">{couponError}</span>}
             {appliedCoupon && (
               <span className="cart__coupon-success">
-                <FiCheck /> Coupon {appliedCoupon.code} applied! You save {formatPrice(couponDiscount)}
+                <FiCheck /> Coupon {appliedCoupon.coupon.code} applied! You save {formatPrice(couponDiscount || (appliedCoupon.freeDelivery ? baseDeliveryFee : 0))}
               </span>
             )}
           </div>

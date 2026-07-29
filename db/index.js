@@ -10,6 +10,7 @@ import { users } from './schema/users.js';
 import { offers } from './schema/offers.js';
 import { coupons } from './schema/coupons.js';
 import { deliveryZones } from './schema/delivery_zones.js';
+import { adminUsers } from './schema/admin_users.js';
 
 // Load .env.local first (local dev), fall back to .env
 dotenv.config({ path: '.env.local' });
@@ -27,7 +28,8 @@ const schema = {
   users,
   offers,
   coupons,
-  deliveryZones
+  deliveryZones,
+  adminUsers
 };
 
 const sql = neon(process.env.DATABASE_URL);
@@ -42,3 +44,4 @@ export { users } from './schema/users.js';
 export { offers } from './schema/offers.js';
 export { coupons } from './schema/coupons.js';
 export { deliveryZones } from './schema/delivery_zones.js';
+export { adminUsers } from './schema/admin_users.js';

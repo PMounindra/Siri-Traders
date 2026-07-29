@@ -19,9 +19,7 @@ import ProductCard from '../components/ProductCard';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useProducts } from '../context/ProductContext';
-import { categories } from '../data/categories';
-import { getDailyOffers, getFestivalOffers } from '../data/offers';
-import { retailCoupons as retailCouponDefs, wholesaleCoupons as wholesaleCouponDefs } from '../data/coupons';
+import { useSiteData } from '../context/SiteDataContext';
 import { SERVICEABLE_AREAS } from '../utils/serviceableAreas';
 
 import { formatPrice } from '../utils/format';
@@ -55,10 +53,8 @@ const ScrollRow = ({ children, className }) => {
   );
 };
 
-/* ── Coupon data — defined in ../data/coupons.js so Checkout can redeem the same codes ── */
-const couponIcons = { percent: <FiPercent />, truck: <FiTruck />, tag: <FiTag />, package: <FiPackage /> };
-const retailCoupons = retailCouponDefs.map(c => ({ ...c, icon: couponIcons[c.iconKey] }));
-const wholesaleCoupons = wholesaleCouponDefs.map(c => ({ ...c, icon: couponIcons[c.iconKey] }));
+/* ── Coupon icons — coupons themselves come live from the `coupons` DB table via SiteDataContext ── */
+const couponIconForType = (type) => (type === 'percent' ? <FiPercent /> : type === 'freeDelivery' ? <FiTruck /> : type === 'package' ? <FiPackage /> : <FiTag />);
 
 /* ── Festive offers data ── */
 const festiveOffers = [
@@ -226,7 +222,8 @@ const festiveOffers = [
 
 const WelcomeBanner = ({ customerType }) => {
   const isWholesale = customerType === 'wholesale';
-  const coupons = isWholesale ? wholesaleCoupons : retailCoupons;
+  const { retailCoupons, wholesaleCoupons } = useSiteData();
+  const coupons = (isWholesale ? wholesaleCoupons : retailCoupons).map(c => ({ ...c, icon: couponIconForType(c.type) }));
   const welcomeText = 'WELCOME';
   // Subtle rotation + vertical lift for gentle bend
   const letterStyles = [
@@ -269,7 +266,7 @@ const WelcomeBanner = ({ customerType }) => {
             <div className="home-hero__coupon-icon">{coupon.icon}</div>
             <div className="home-hero__coupon-info">
               <strong>{coupon.title}</strong>
-              <span>{coupon.desc}</span>
+              <span>{coupon.description}</span>
             </div>
             <div className="home-hero__coupon-code">Code: <strong>{coupon.code}</strong></div>
           </div>
@@ -282,7 +279,8 @@ const WelcomeBanner = ({ customerType }) => {
 
 const OffersSection = ({ customerType }) => {
   const { addToCart, removeFromCart, updateQuantity, getItemQuantity } = useCart();
-  const adminFestival = getFestivalOffers().find(offer => offer.source === 'admin');
+  const { dailyOffers, festivalOffers } = useSiteData();
+  const adminFestival = festivalOffers.find(offer => offer.source === 'admin');
   const activeFestival = adminFestival ? {
     label: 'Festive Offers',
     title: adminFestival.title,
@@ -293,8 +291,8 @@ const OffersSection = ({ customerType }) => {
       link: adminFestival.link || '/categories'
     }))
   } : festiveOffers[0];
-  const dailySpotlights = getDailyOffers().slice(0, 6);
-  const festivalSpotlights = getFestivalOffers().slice(0, 14);
+  const dailySpotlights = dailyOffers.slice(0, 6);
+  const festivalSpotlights = festivalOffers.slice(0, 14);
   const getOfferCartId = (offer) => `offer-${offer.id || offer.title}`;
   const handleOfferAdd = (event, offer) => {
     event.preventDefault();
@@ -409,6 +407,7 @@ const OffersSection = ({ customerType }) => {
 const Home = () => {
   const { customerType } = useAuth();
   const { getProductsForType, loading } = useProducts();
+  const { categories } = useSiteData();
   const isWholesale = customerType === 'wholesale';
   const stapleIds = ['pulses', 'rice', 'atta', 'oils', 'masala', 'ravva-poha', 'millets', 'grocery-essentials', 'nuts-dry-fruits'];
   const staplePriority = ['pulses', 'rice', 'oils', 'atta', 'masala'];

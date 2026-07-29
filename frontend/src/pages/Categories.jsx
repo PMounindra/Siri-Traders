@@ -1,20 +1,20 @@
 import { useSearchParams } from 'react-router-dom';
 import { FiPackage, FiShoppingBag } from 'react-icons/fi';
-import { categories, getAllCategories } from '../data/categories';
 import { getProducts, getProductsByCategory } from '../data/products';
 import ProductCard from '../components/ProductCard';
 import CategoryCard from '../components/CategoryCard';
 import { useAuth } from '../context/AuthContext';
+import { useSiteData } from '../context/SiteDataContext';
 import { toWebpImage } from '../utils/images';
 import './Categories.css';
 
 const Categories = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { customerType } = useAuth();
+  const { categories: allCats } = useSiteData();
   const activeCat = searchParams.get('cat') || '';
   const searchQuery = searchParams.get('search') || '';
   const isWholesale = customerType === 'wholesale';
-  const allCats = getAllCategories();
 
   const filteredProducts = searchQuery
     ? getProducts(customerType).filter(p =>

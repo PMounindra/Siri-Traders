@@ -1,26 +1,16 @@
-// Delivery zone lookup utility
-// Reads zones set by admin from localStorage
-// TODO (backend): replace localStorage read with GET /api/delivery-zones
+// Delivery zone lookup utility.
+// Zones are set by admin and live in the `delivery_zones` DB table,
+// fetched once via SiteDataContext and passed in here.
 
 const DEFAULT_TIME = '30 mins';
-const ADMIN_KEY = 'siri-delivery-zones';
-
-export const getDeliveryZones = () => {
-  try {
-    const saved = localStorage.getItem(ADMIN_KEY);
-    return saved ? JSON.parse(saved) : [];
-  } catch { return []; }
-};
 
 /**
  * Given a pincode or area name from the customer's saved address,
  * returns the admin-configured delivery time for that area.
  * Falls back to DEFAULT_TIME if no match found.
  */
-export const getDeliveryTimeForAddress = (addressObj) => {
-  if (!addressObj) return DEFAULT_TIME;
-  const zones = getDeliveryZones();
-  if (!zones.length) return DEFAULT_TIME;
+export const getDeliveryTimeForAddress = (addressObj, zones = []) => {
+  if (!addressObj || !zones.length) return DEFAULT_TIME;
 
   const pincode = String(addressObj.pincode || addressObj.city || '').trim();
   const area = String(addressObj.address || '').toLowerCase();

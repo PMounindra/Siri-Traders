@@ -10,6 +10,7 @@ import { ClerkProvider } from "@clerk/clerk-react";
 import { CartProvider } from "./context/CartContext";
 import { AuthProvider } from "./context/AuthContext";
 import { ProductProvider } from "./context/ProductContext";
+import { SiteDataProvider } from "./context/SiteDataContext";
 import Navbar from "./components/Navbar";
 import BottomNav from "./components/BottomNav";
 import ScrollControls from "./components/ScrollControls";
@@ -89,11 +90,13 @@ function App() {
     return (
       <Router>
         <AuthProvider>
-          <ProductProvider>
-            <CartProvider>
-              <AppLayout />
-            </CartProvider>
-          </ProductProvider>
+          <SiteDataProvider>
+            <ProductProvider>
+              <CartProvider>
+                <AppLayout />
+              </CartProvider>
+            </ProductProvider>
+          </SiteDataProvider>
         </AuthProvider>
       </Router>
     );
@@ -103,11 +106,13 @@ function App() {
     <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
       <Router>
         <AuthProvider>
-          <ProductProvider>
-            <CartProvider>
-              <AppLayout />
-            </CartProvider>
-          </ProductProvider>
+          <SiteDataProvider>
+            <ProductProvider>
+              <CartProvider>
+                <AppLayout />
+              </CartProvider>
+            </ProductProvider>
+          </SiteDataProvider>
         </AuthProvider>
       </Router>
     </ClerkProvider>
