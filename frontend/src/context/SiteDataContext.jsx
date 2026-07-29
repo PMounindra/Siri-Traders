@@ -15,6 +15,29 @@ export const useSiteData = () => {
 
 const normalizeOffer = (o) => ({ ...o, group: o.groupType || o.group || 'daily' });
 
+// All known fallback coupons keyed by code for fast lookup
+const allFallbackCoupons = [
+  ...fallbackRetailCoupons.map(c => ({ ...c, customerType: 'retail' })),
+  ...fallbackWholesaleCoupons.map(c => ({ ...c, customerType: 'wholesale' })),
+];
+const fallbackByCode = new Map(allFallbackCoupons.map(c => [c.code, c]));
+
+/**
+ * Merge a DB coupon row with its static fallback so that rows seeded without
+ * title/description still display correctly on the home screen.
+ */
+const normalizeCoupon = (dbCoupon) => {
+  const fb = fallbackByCode.get(dbCoupon.code) || {};
+  return {
+    ...fb,          // start with fallback (has title, description, iconKey, type)
+    ...dbCoupon,    // override with real DB values (active, value, minOrder, etc.)
+    // if DB row has no title/description, keep fallback values
+    title: dbCoupon.title || fb.title || dbCoupon.code,
+    description: dbCoupon.description || fb.description || '',
+    type: dbCoupon.type || fb.type || 'flat',
+  };
+};
+
 export const SiteDataProvider = ({ children }) => {
   const [categories, setCategories] = useState(staticCategories);
   const [offers, setOffers] = useState([...fallbackDailyOffers, ...fallbackFestivalOffers]);
@@ -35,7 +58,7 @@ export const SiteDataProvider = ({ children }) => {
       .then(([catRows, offerRows, couponRows, zoneRows]) => {
         if (catRows?.length) setCategories(catRows);
         if (offerRows?.length) setOffers(offerRows.map(normalizeOffer));
-        if (couponRows?.length) setCoupons(couponRows);
+        if (couponRows?.length) setCoupons(couponRows.map(normalizeCoupon));
         setDeliveryZones(zoneRows || []);
       })
       .catch(err => {
