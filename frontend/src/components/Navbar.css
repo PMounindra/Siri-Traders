@@ -190,19 +190,26 @@
 }
 
 .navbar__search-icon {
+  display: block;
   width: 17px;
   height: 17px;
   color: #9ca3af;
   flex-shrink: 0;
+  align-self: center;
 }
 
 .navbar__search-input {
   flex: 1;
+  display: flex;
+  align-items: center;
   background: transparent;
   color: #1c1c1c;
   font-size: 13px;
+  line-height: 1;
   border: none;
   outline: none;
+  padding: 0;
+  height: 100%;
 }
 
 .navbar__search-input::placeholder {
