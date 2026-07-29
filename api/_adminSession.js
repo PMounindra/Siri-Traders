@@ -38,15 +38,20 @@ export function getSessionFromRequest(req) {
   return verifyAdminSession(token);
 }
 
-function isLocalRequest(req) {
-  const host = req.headers.host || '';
-  return host.startsWith('localhost') || host.startsWith('127.0.0.1');
+// Secure cookies require the browser's own connection to be HTTPS. When a
+// request reaches this function via a local dev proxy (Vite -> production),
+// the browser's connection to Vite is plain HTTP even though Vite's proxy
+// talks to us over HTTPS — x-forwarded-proto reflects that original hop.
+function clientUsedHttps(req) {
+  const proto = req.headers['x-forwarded-proto'];
+  if (proto) return proto.split(',')[0].trim() === 'https';
+  return Boolean(req.socket?.encrypted);
 }
 
 export function setSessionCookie(req, res, token) {
   const serialized = cookie.serialize(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: !isLocalRequest(req),
+    secure: clientUsedHttps(req),
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24 * 7
@@ -57,7 +62,7 @@ export function setSessionCookie(req, res, token) {
 export function clearSessionCookie(req, res) {
   const serialized = cookie.serialize(COOKIE_NAME, '', {
     httpOnly: true,
-    secure: !isLocalRequest(req),
+    secure: clientUsedHttps(req),
     sameSite: 'lax',
     path: '/',
     maxAge: 0

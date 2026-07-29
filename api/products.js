@@ -53,7 +53,7 @@ export default async function handler(req, res) {
 
         const allProducts = await query.limit(parsedLimit).offset(parsedOffset);
 
-        res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=3600, stale-while-revalidate=600');
+        res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
         return res.status(200).json(allProducts);
       }
 
