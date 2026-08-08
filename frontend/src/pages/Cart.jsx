@@ -26,10 +26,9 @@ const Cart = () => {
   const savedAddress = getSavedAddresses(user)[0];
   const activeZone = savedAddress ? deliveryZones.find(z => z.area.toLowerCase() === savedAddress.area.toLowerCase()) : null;
   const activeDeliveryFeeVal = activeZone ? activeZone.deliveryFee : 25;
-  const activeFreeThresholdVal = activeZone ? activeZone.freeDeliveryThreshold : 500;
   const activeHandlingChargeVal = activeZone ? activeZone.handlingCharge : 5;
 
-  const baseDeliveryFee = (cartTotal >= activeFreeThresholdVal && activeFreeThresholdVal > 0) ? 0 : activeDeliveryFeeVal;
+  const baseDeliveryFee = activeDeliveryFeeVal;
   const deliveryFee = appliedCoupon?.freeDelivery ? 0 : baseDeliveryFee;
   const handlingCharge = cartCount > 0 ? activeHandlingChargeVal : 0;
   const couponDiscount = appliedCoupon?.discount || 0;

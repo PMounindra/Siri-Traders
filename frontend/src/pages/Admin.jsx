@@ -1724,7 +1724,6 @@ const Admin = () => {
                   </select>
                   <input className="admin-input-box" placeholder="Distance e.g. ~16 km (optional)" value={newZone.distance} onChange={e => setNewZone(p => ({...p, distance: e.target.value}))} />
                   <input className="admin-input-box" type="number" placeholder="Delivery Fee (₹)" value={newZone.deliveryFee || ''} onChange={e => setNewZone(p => ({...p, deliveryFee: Number(e.target.value) || 0}))} />
-                  <input className="admin-input-box" type="number" placeholder="Free Delivery over (₹)" value={newZone.freeDeliveryThreshold || ''} onChange={e => setNewZone(p => ({...p, freeDeliveryThreshold: Number(e.target.value) || 0}))} />
                   <input className="admin-input-box" type="number" placeholder="Handling Charge (₹)" value={newZone.handlingCharge || ''} onChange={e => setNewZone(p => ({...p, handlingCharge: Number(e.target.value) || 0}))} />
                 </div>
                 <button
@@ -1751,7 +1750,7 @@ const Admin = () => {
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
                   <thead>
                     <tr style={{background:'#F1F8E9'}}>
-                      {['Area','Pincode','Delivery Time','Distance','Fee (₹)','Free Over (₹)','Handling (₹)','Action'].map(h => (
+                      {['Area','Pincode','Delivery Time','Distance','Fee (₹)','Handling (₹)','Action'].map(h => (
                         <th key={h} style={{padding:'10px 12px',textAlign:'left',fontWeight:800,color:'#2D5016',fontSize:11,textTransform:'uppercase',borderBottom:'1px solid rgba(45,80,22,0.12)'}}>{h}</th>
                       ))}
                     </tr>
@@ -1795,26 +1794,6 @@ const Admin = () => {
                               } catch (err) { alert(err.message); }
                             }}
                             style={{ width: '65px', padding: '4px 6px', borderRadius: '6px', border: '1px solid rgba(45,80,22,0.2)', fontSize: '12px' }}
-                          />
-                        </td>
-
-                        {/* Free Delivery Threshold Input */}
-                        <td style={{padding:'10px 12px'}}>
-                          <input
-                            type="number"
-                            value={zone.freeDeliveryThreshold}
-                            onChange={async e => {
-                              const val = Number(e.target.value) || 0;
-                              setDeliveryZones(prev => prev.map(z => z.id === zone.id ? { ...z, freeDeliveryThreshold: val } : z));
-                            }}
-                            onBlur={async e => {
-                              const val = Number(e.target.value) || 0;
-                              try {
-                                const updated = await adminApi.updateDeliveryZone(zone.id, { freeDeliveryThreshold: val });
-                                setDeliveryZones(prev => prev.map(z => z.id === zone.id ? updated : z));
-                              } catch (err) { alert(err.message); }
-                            }}
-                            style={{ width: '75px', padding: '4px 6px', borderRadius: '6px', border: '1px solid rgba(45,80,22,0.2)', fontSize: '12px' }}
                           />
                         </td>
 
