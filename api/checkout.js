@@ -1,9 +1,7 @@
-import { createClerkClient } from '@clerk/backend';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { setCorsHeaders } from './_cors.js';
-
-const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+import { getAuthenticatedUserId } from './_clerkAuth.js';
 
 // Setup Upstash Redis rate limiting: 5 requests per 30 seconds for checkout
 const redis = new Redis({
@@ -28,15 +26,7 @@ export default async function handler(req, res) {
   }
 
   // 1. Auth check
-  let authRequest;
-  try {
-    authRequest = await clerk.authenticateRequest(req);
-  } catch (err) {
-    console.error("Clerk auth connection error:", err);
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const { userId } = authRequest;
+  const userId = await getAuthenticatedUserId(req);
   if (!userId) {
     return res.status(401).json({ error: 'Unauthorized' });
   }

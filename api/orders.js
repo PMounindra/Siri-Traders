@@ -1,11 +1,9 @@
 import { db, orders, orderItems, users } from '../db/index.js';
 import { eq } from 'drizzle-orm';
-import { createClerkClient } from '@clerk/backend';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { setCorsHeaders } from './_cors.js';
-
-const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+import { clerk, getAuthenticatedUserId } from './_clerkAuth.js';
 
 // Setup Upstash Redis rate limiting: 10 requests per 30 seconds for orders endpoint
 const redis = new Redis({
@@ -28,15 +26,7 @@ export default async function handler(req, res) {
   const { id } = req.query;
 
   // 1. Auth check
-  let authRequest;
-  try {
-    authRequest = await clerk.authenticateRequest(req);
-  } catch (err) {
-    console.error("Clerk auth connection error:", err);
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const { userId } = authRequest;
+  const userId = await getAuthenticatedUserId(req);
   if (!userId) {
     return res.status(401).json({ error: 'Unauthorized' });
   }

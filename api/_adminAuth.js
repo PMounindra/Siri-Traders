@@ -9,10 +9,8 @@
  * Returns true if authenticated as admin, false otherwise.
  */
 
-import { createClerkClient } from '@clerk/backend';
 import { getSessionFromRequest } from './_adminSession.js';
-
-const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+import { clerk, getAuthenticatedUserId } from './_clerkAuth.js';
 
 export async function isAdminRequest(req) {
   // ── Method 1: real admin session cookie ────────────────────────────────
@@ -28,8 +26,7 @@ export async function isAdminRequest(req) {
 
   // ── Method 3: Clerk session with admin role ────────────────────────────
   try {
-    const authRequest = await clerk.authenticateRequest(req);
-    const { userId } = authRequest;
+    const userId = await getAuthenticatedUserId(req);
     if (!userId) return false;
     const user = await clerk.users.getUser(userId);
     return user.publicMetadata?.role === 'admin';
