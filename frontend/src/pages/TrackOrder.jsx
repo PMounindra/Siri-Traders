@@ -1,36 +1,17 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiCheckCircle, FiClock, FiPackage, FiTruck, FiHome } from 'react-icons/fi';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { FiArrowLeft, FiCheckCircle, FiClock, FiPackage, FiTruck, FiHome, FiMapPin } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import { getUserStorageKey } from '../utils/userStorage';
 import { formatPrice } from '../utils/format';
 import './TrackOrder.css';
 
-/*
- * Tracking Steps
- * The UI renders a stepper based on the order's `status` field.
- * The status value must be one of the keys in STATUS_TO_STEP.
- *
- * ── Backend Integration (future) ──
- * When the backend is ready, it should update the order's `status` field
- * via one of these approaches:
- *   1. REST API polling  – periodically GET /api/orders/:id → update state
- *   2. WebSocket / SSE   – listen for `order.status.updated` events → update state
- *
- * The `refreshOrder()` function below reads the latest order data and
- * updates the UI. Call it after any status change from the backend.
- *
- * Expected order shape from backend:
- *   { id, status, items, total, address, deliveryTime, createdAt, ... }
- *   status: 'placed' | 'confirmed' | 'packed' | 'transit' | 'delivered'
- */
-
 const STEPS = [
-  { id: 'placed',    icon: FiCheckCircle, label: 'Order Placed',         sub: 'We received your order' },
-  { id: 'confirmed', icon: FiPackage,     label: 'Order Confirmed',      sub: 'Store is preparing your items' },
-  { id: 'packed',    icon: FiPackage,     label: 'Order Packed',         sub: 'Your order is packed and ready' },
-  { id: 'transit',   icon: FiTruck,       label: 'Out for Delivery',     sub: 'Delivery partner is on the way' },
-  { id: 'delivered', icon: FiHome,        label: 'Delivered',            sub: 'Order delivered successfully!' },
+  { id: 'placed',    icon: FiCheckCircle, label: 'Order Placed',     sub: 'We received your order' },
+  { id: 'confirmed', icon: FiPackage,     label: 'Order Confirmed',  sub: 'Store is preparing your items' },
+  { id: 'packed',    icon: FiPackage,     label: 'Order Packed',     sub: 'Your order is packed and ready' },
+  { id: 'transit',   icon: FiTruck,       label: 'Out for Delivery', sub: 'Delivery partner is on the way' },
+  { id: 'delivered', icon: FiHome,        label: 'Delivered',        sub: 'Order delivered successfully!' },
 ];
 
 const STATUS_TO_STEP = {
@@ -43,78 +24,62 @@ const STATUS_TO_STEP = {
   delivered: 4,
 };
 
+const computeEta = (deliveryTime) => {
+  const minsMatch = String(deliveryTime).match(/(\d+)\s*min/i);
+  const hoursMatch = String(deliveryTime).match(/(\d+)\s*hour/i);
+  let totalMins = 0;
+  if (minsMatch) totalMins += parseInt(minsMatch[1]);
+  if (hoursMatch) totalMins += parseInt(hoursMatch[1]) * 60;
+  if (totalMins === 0) totalMins = 30;
+
+  const arrival = new Date(Date.now() + totalMins * 60 * 1000);
+  return {
+    time: arrival.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+    minutes: totalMins,
+  };
+};
+
 const TrackOrder = () => {
   const { orderId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [order, setOrder] = useState(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [eta, setEta] = useState(null);
 
-  /**
-   * refreshOrder – reads the latest order data and updates UI state.
-   *
-   * Currently reads from localStorage.
-   * ── Backend Integration (future) ──
-   * Replace the localStorage read with an API call:
-   *   const res = await fetch(`/api/orders/${orderId}`);
-   *   const found = await res.json();
-   */
   const refreshOrder = useCallback(() => {
+    // First priority: route state from Checkout (justPlaced=true)
+    const state = location.state;
+    if (state?.justPlaced) {
+      setOrder({
+        id: state.orderId,
+        status: 'placed',
+        deliveryTime: state.deliveryTime,
+        address: state.address,
+        total: state.total,
+        items: state.items,
+      });
+      setCurrentStep(0);
+      if (state.deliveryTime) setEta(computeEta(state.deliveryTime));
+      return;
+    }
+
+    // Fallback: localStorage
     try {
       const key = getUserStorageKey(user, 'orders');
       const saved = key ? localStorage.getItem(key) : null;
       const orders = saved ? JSON.parse(saved) : [];
-      const found = orders.find(o => o.id === orderId);
+      const found = orders.find(o => String(o.id) === String(orderId));
       if (found) {
         setOrder(found);
-        const step = STATUS_TO_STEP[found.status] ?? 0;
-        setCurrentStep(step);
-
-        // Parse ETA from deliveryTime field
-        const mins = parseInt(found.deliveryTime);
-        if (!isNaN(mins)) {
-          const arrival = new Date(Date.now() + mins * 60 * 1000);
-          setEta(arrival.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
-        }
+        setCurrentStep(STATUS_TO_STEP[found.status?.toLowerCase()] ?? 0);
+        if (found.deliveryTime) setEta(computeEta(found.deliveryTime));
       }
     } catch { /* ignore */ }
-  }, [orderId, user]);
+  }, [orderId, user, location.state]);
 
-  // Load order on mount
-  useEffect(() => {
-    refreshOrder();
-  }, [refreshOrder]);
-
-  /*
-   * ── Backend Integration (future) ──
-   * Uncomment ONE of the blocks below to enable real-time status updates:
-   *
-   * Option A: Polling (simple)
-   * useEffect(() => {
-   *   const interval = setInterval(refreshOrder, 10000); // poll every 10s
-   *   return () => clearInterval(interval);
-   * }, [refreshOrder]);
-   *
-   * Option B: WebSocket (recommended)
-   * useEffect(() => {
-   *   const ws = new WebSocket(`wss://your-api.com/ws/orders/${orderId}`);
-   *   ws.onmessage = (event) => {
-   *     const data = JSON.parse(event.data);
-   *     if (data.type === 'order.status.updated') {
-   *       refreshOrder(); // or directly setOrder(data.order)
-   *     }
-   *   };
-   *   return () => ws.close();
-   * }, [orderId, refreshOrder]);
-   *
-   * Option C: Server-Sent Events
-   * useEffect(() => {
-   *   const es = new EventSource(`/api/orders/${orderId}/stream`);
-   *   es.addEventListener('status', () => refreshOrder());
-   *   return () => es.close();
-   * }, [orderId, refreshOrder]);
-   */
+  useEffect(() => { refreshOrder(); }, [refreshOrder]);
 
   if (!order) {
     return (
@@ -140,22 +105,45 @@ const TrackOrder = () => {
 
           {/* Header */}
           <div className="track__header">
-            <button className="track__back" onClick={() => navigate('/orders')} aria-label="Back">
+            <button className="track__back" onClick={() => navigate('/home')} aria-label="Back">
               <FiArrowLeft />
             </button>
             <div>
-              <h1 className="track__title">Track Order</h1>
-              <p className="track__order-id">#{orderId}</p>
+              <h1 className="track__title">Order Tracking</h1>
+              <p className="track__order-id">#{order.id || orderId}</p>
             </div>
           </div>
 
+          {/* Success banner for freshly placed orders */}
+          {location.state?.justPlaced && (
+            <div className="track__success-banner">
+              <FiCheckCircle size={22} />
+              <div>
+                <p className="track__success-title">Order Placed Successfully! 🎉</p>
+                <p className="track__success-sub">Thank you for shopping with Siri Traders</p>
+              </div>
+            </div>
+          )}
+
           {/* ETA banner */}
-          {!isDelivered && (
+          {!isDelivered && eta && (
             <div className="track__eta-banner">
               <FiClock className="track__eta-icon" />
               <div>
-                <p className="track__eta-label">Estimated Arrival</p>
-                <p className="track__eta-time">{eta || order.deliveryTime}</p>
+                <p className="track__eta-label">Estimated Delivery</p>
+                <p className="track__eta-time">
+                  You'll get your order by <strong>{eta.time}</strong>
+                  <span className="track__eta-mins"> (~{eta.minutes} mins)</span>
+                </p>
+              </div>
+            </div>
+          )}
+          {!isDelivered && !eta && order.deliveryTime && (
+            <div className="track__eta-banner">
+              <FiClock className="track__eta-icon" />
+              <div>
+                <p className="track__eta-label">Estimated Delivery</p>
+                <p className="track__eta-time">{order.deliveryTime}</p>
               </div>
             </div>
           )}
@@ -164,7 +152,7 @@ const TrackOrder = () => {
               <FiCheckCircle className="track__eta-icon" />
               <div>
                 <p className="track__eta-label">Delivered!</p>
-                <p className="track__eta-time">Your order has arrived</p>
+                <p className="track__eta-time">Your order has arrived ✓</p>
               </div>
             </div>
           )}
@@ -197,29 +185,37 @@ const TrackOrder = () => {
           {/* Delivery address */}
           {order.address && (
             <div className="track__address">
-              <FiHome className="track__address-icon" />
+              <FiMapPin className="track__address-icon" />
               <div>
                 <p className="track__address-name">{order.address.name}</p>
-                <p className="track__address-text">{order.address.address}, {order.address.pincode}</p>
+                <p className="track__address-text">
+                  {order.address.flatNo || order.address.address}
+                  {order.address.landmark ? `, ${order.address.landmark}` : ''}
+                  {order.address.area ? `, ${order.address.area}` : ''}
+                  {order.address.pincode ? ` - ${order.address.pincode}` : ''}
+                </p>
+                {order.address.phone && <p className="track__address-text">{order.address.phone}</p>}
               </div>
             </div>
           )}
 
           {/* Order items */}
-          <div className="track__items">
-            <h3 className="track__items-title">Order Items</h3>
-            {order.items?.map((item, i) => (
-              <div key={i} className="track__item">
-                <span className="track__item-name">{item.name}</span>
-                <span className="track__item-qty">x{item.qty || item.quantity || 1}</span>
-                <span className="track__item-price">{formatPrice(item.price * (item.qty || item.quantity || 1))}</span>
+          {order.items?.length > 0 && (
+            <div className="track__items">
+              <h3 className="track__items-title">Order Items</h3>
+              {order.items.map((item, i) => (
+                <div key={i} className="track__item">
+                  <span className="track__item-name">{item.name}</span>
+                  <span className="track__item-qty">x{item.qty || item.quantity || 1}</span>
+                  <span className="track__item-price">{formatPrice(item.price * (item.qty || item.quantity || 1))}</span>
+                </div>
+              ))}
+              <div className="track__total">
+                <span>Total Paid</span>
+                <span>{formatPrice(order.total)}</span>
               </div>
-            ))}
-            <div className="track__total">
-              <span>Total</span>
-              <span>{formatPrice(order.total)}</span>
             </div>
-          </div>
+          )}
 
           {/* Actions */}
           <div className="track__actions">

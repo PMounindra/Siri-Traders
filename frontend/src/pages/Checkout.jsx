@@ -281,8 +281,19 @@ const Checkout = () => {
 
     localStorage.setItem('siri-traders-last-order-address', JSON.stringify(addressForOrder));
     setPlacedAddress(addressForOrder);
-    setOrderPlaced(true);
     clearCart();
+    // Navigate straight to order tracking page
+    navigate(`/track/${finalOrderId}`, {
+      replace: true,
+      state: {
+        orderId: finalOrderId,
+        deliveryTime: getDeliveryTimeForAddress(addressForOrder, deliveryZones),
+        address: addressForOrder,
+        total: grandTotal,
+        items: cartItems.map(item => ({ ...item, qty: item.quantity })),
+        justPlaced: true,
+      }
+    });
   };
 
   const handlePlaceOrder = () => {

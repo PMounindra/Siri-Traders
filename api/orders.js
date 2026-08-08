@@ -96,17 +96,20 @@ export default async function handler(req, res) {
         const name = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim();
         const phone = clerkUser.phoneNumbers[0]?.phoneNumber || '';
 
-        await db.insert(users)
-          .values({
-            id: userId,
-            email: email,
-            name: name,
-            phone: phone,
-          })
-          .onConflictDoUpdate({
-            target: users.id,
-            set: { email, name, phone, updatedAt: new Date() }
-          });
+        if (email) {
+          // Only upsert if we have an email (it's a unique NOT NULL column)
+          await db.insert(users)
+            .values({
+              id: userId,
+              email: email,
+              name: name || 'Customer',
+              phone: phone,
+            })
+            .onConflictDoUpdate({
+              target: users.id,
+              set: { name: name || 'Customer', phone, updatedAt: new Date() }
+            });
+        }
       } catch (err) {
         console.warn("Failed to sync user data, proceeding with order anyway:", err.message);
       }
@@ -140,7 +143,7 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
-    console.error("Error in /api/orders:", error);
-    return res.status(500).json({ error: 'Something went wrong' });
+    console.error("Error in /api/orders:", error?.message, error?.stack);
+    return res.status(500).json({ error: error?.message || 'Something went wrong' });
   }
 }
