@@ -442,6 +442,7 @@ html {
 }
 
 /* Hide Clerk branding footers, links, and development badges globally without breaking switch links */
+.cl-footer > *:not(.cl-footerAction),
 .cl-internal-b30g6y,
 a[href*="clerk.com"],
 a[href*="clerk.dev"],
