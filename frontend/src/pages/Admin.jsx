@@ -217,6 +217,12 @@ const Admin = () => {
   const [newOrderToast, setNewOrderToast] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const getCustomerName = (userId) => {
+    if (!liveCustomers) return 'Customer';
+    const c = liveCustomers.find(u => u.id === userId);
+    return c ? (c.name || c.email || 'Customer') : 'Customer';
+  };
+
   // Play synthetic ding-dong notification chime using Web Audio API
   const playChime = () => {
     try {
@@ -1494,19 +1500,72 @@ const Admin = () => {
                 <h2>Transaction bills & payment details</h2>
               </div>
               <div className="admin-payment-list">
-                {demoPayments.map(payment => (
-                  <div key={payment.billNo} className="admin-payment-card">
-                    <FiDollarSign />
-                    <div>
-                      <strong>{payment.billNo}</strong>
-                      <span>{payment.customer} / {payment.orderId}</span>
-                    </div>
-                    <div><strong>Payment</strong><span>{payment.method}</span></div>
-                    <div><strong>Transaction</strong><span>{payment.transactionId}</span></div>
-                    <div><strong>Bill</strong><span>Subtotal {formatPrice(payment.subtotal)} + Delivery {formatPrice(payment.deliveryFee)}</span></div>
-                    <div><strong>Paid</strong><span>{formatPrice(payment.paid)} / {payment.status}</span></div>
+                {(!liveOrders || liveOrders.length === 0) ? (
+                  <div className="admin-content-empty">
+                    <FiDollarSign size={32} />
+                    <p>No orders placed yet.</p>
                   </div>
-                ))}
+                ) : (
+                  [...liveOrders].reverse().map(order => {
+                    // Calculate subtotal from order items or fallback to total
+                    const subtotal = order.items && order.items.length > 0 
+                      ? order.items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0)
+                      : order.total;
+                    const deliveryFee = Math.max(0, order.total - subtotal);
+                    const customerName = getCustomerName(order.userId);
+                    const isPaid = order.status === 'Paid';
+
+                    return (
+                      <div key={order.id} className="admin-payment-card" style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                        <FiDollarSign style={{ color: isPaid ? '#2D5016' : '#FF8A8A', fontSize: '20px' }} />
+                        <div style={{ minWidth: '150px' }}>
+                          <strong>BILL-{order.id + 7820}</strong>
+                          <span>{customerName} / ORD-{order.id}</span>
+                        </div>
+                        <div style={{ minWidth: '130px' }}>
+                          <strong>Payment</strong>
+                          <span>{order.paymentMethod === 'cod' ? 'Cash on delivery' : (order.paymentMethod || '—')}</span>
+                        </div>
+                        <div style={{ minWidth: '160px' }}>
+                          <strong>Transaction</strong>
+                          <span>{order.paymentMethod === 'cod' ? `COD-SIRI-${100000 + order.id}` : `TXN-SIRI-${200000 + order.id}`}</span>
+                        </div>
+                        <div style={{ minWidth: '160px' }}>
+                          <strong>Bill</strong>
+                          <span>Subtotal {formatPrice(subtotal)} + Delivery {formatPrice(deliveryFee)}</span>
+                        </div>
+                        <div style={{ minWidth: '120px' }}>
+                          <strong>Paid</strong>
+                          <span style={{ color: isPaid ? '#2D5016' : '#FF6B35', fontWeight: 'bold' }}>
+                            {isPaid ? `${formatPrice(order.total)} / Paid` : `₹0 / Pending`}
+                          </span>
+                        </div>
+                        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', minWidth: '110px', justifyContent: 'flex-end' }}>
+                          {!isPaid ? (
+                            <button
+                              className="admin__primary"
+                              style={{ padding: '6px 12px', fontSize: '12px', height: 'auto', borderRadius: '6px', whiteSpace: 'nowrap' }}
+                              onClick={async () => {
+                                try {
+                                  await adminApi.updateOrderStatus(order.id, 'Paid');
+                                  setLiveOrders(prev => prev.map(o =>
+                                    o.id === order.id ? { ...o, status: 'Paid' } : o
+                                  ));
+                                } catch (err) {
+                                  alert('Failed to mark as paid: ' + err.message);
+                                }
+                              }}
+                            >
+                              Mark as Paid
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '13px', color: '#2D5016', fontWeight: 800 }}>✅ Paid</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </section>
           )}
