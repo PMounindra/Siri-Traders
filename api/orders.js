@@ -1,5 +1,5 @@
 import { db, orders, orderItems, users } from '../db/index.js';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { setCorsHeaders } from './_cors.js';
@@ -38,7 +38,11 @@ export default async function handler(req, res) {
     }
 
     try {
-      const parsedId = parseInt(id, 10);
+      let cleanId = id;
+      if (typeof id === 'string' && id.startsWith('ORD-')) {
+        cleanId = id.slice(4);
+      }
+      const parsedId = parseInt(cleanId, 10);
       if (Number.isNaN(parsedId) || parsedId <= 0) {
         return res.status(400).json({ error: 'Invalid order ID' });
       }
@@ -78,7 +82,21 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const userOrders = await db.select().from(orders).where(eq(orders.userId, userId));
-      return res.status(200).json(userOrders);
+      if (userOrders.length === 0) {
+        return res.status(200).json([]);
+      }
+      const orderIds = userOrders.map(o => o.id);
+      const allItems = await db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds));
+
+      const ordersWithItems = userOrders.map(order => ({
+        ...order,
+        items: allItems.filter(item => item.orderId === order.id)
+      }));
+
+      // Sort orders descending so the latest ones show up first
+      ordersWithItems.sort((a, b) => b.id - a.id);
+
+      return res.status(200).json(ordersWithItems);
     }
 
     if (req.method === 'POST') {
