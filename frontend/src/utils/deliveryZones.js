@@ -13,7 +13,7 @@ export const getDeliveryTimeForAddress = (addressObj, zones = []) => {
   if (!addressObj || !zones.length) return DEFAULT_TIME;
 
   const pincode = String(addressObj.pincode || addressObj.city || '').trim();
-  const area = String(addressObj.address || '').toLowerCase();
+  const area = String(addressObj.area || addressObj.address || '').toLowerCase();
 
   // 1. Exact pincode match
   const byPin = zones.find(z => z.pincode === pincode);

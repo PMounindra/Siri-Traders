@@ -105,7 +105,7 @@ const TrackOrder = () => {
 
           {/* Header */}
           <div className="track__header">
-            <button className="track__back" onClick={() => navigate('/home')} aria-label="Back">
+            <button className="track__back" onClick={() => navigate('/orders')} aria-label="Back">
               <FiArrowLeft />
             </button>
             <div>
