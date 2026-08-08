@@ -16,5 +16,6 @@ export const products = pgTable('products', {
   inStock: boolean('in_stock').default(true),
   deliveryTime: text('delivery_time').default('15 mins'),
   isBestseller: boolean('is_bestseller').default(false),
+  isTodaysDeal: boolean('is_todays_deal').default(false),
   variants: jsonb('variants')
 });

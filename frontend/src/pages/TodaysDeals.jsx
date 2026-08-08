@@ -17,7 +17,7 @@ const TodaysDeals = () => {
   const isWholesale = customerType === 'wholesale';
 
   const allProducts = getProductsForType(customerType);
-  const dealProducts = allProducts.filter(p => p.discount >= 10);
+  const dealProducts = allProducts.filter(p => p.isTodaysDeal);
 
   // Priority order: pulses, rice, atta, oils, masala first, then everything else
   const categoryPriority = ['pulses', 'rice', 'atta', 'oils', 'masala'];

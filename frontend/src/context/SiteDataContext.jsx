@@ -46,6 +46,7 @@ export const SiteDataProvider = ({ children }) => {
     ...fallbackWholesaleCoupons.map(c => ({ ...c, customerType: 'wholesale' })),
   ]);
   const [deliveryZones, setDeliveryZones] = useState([]);
+  const [deliverySettings, setDeliverySettings] = useState({ deliveryFee: 25, freeDeliveryThreshold: 500, handlingCharge: 5 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -54,12 +55,20 @@ export const SiteDataProvider = ({ children }) => {
       fetch('/api/offers').then(r => (r.ok ? r.json() : Promise.reject(new Error('offers fetch failed')))),
       fetch('/api/coupons').then(r => (r.ok ? r.json() : Promise.reject(new Error('coupons fetch failed')))),
       fetch('/api/delivery_zones').then(r => (r.ok ? r.json() : Promise.reject(new Error('delivery zones fetch failed')))),
+      fetch('/api/settings').then(r => (r.ok ? r.json() : Promise.reject(new Error('settings fetch failed')))),
     ])
-      .then(([catRows, offerRows, couponRows, zoneRows]) => {
+      .then(([catRows, offerRows, couponRows, zoneRows, settingsRow]) => {
         if (catRows?.length) setCategories(catRows);
         if (offerRows?.length) setOffers(offerRows.map(normalizeOffer));
         if (couponRows?.length) setCoupons(couponRows.map(normalizeCoupon));
         setDeliveryZones(zoneRows || []);
+        if (settingsRow) {
+          setDeliverySettings({
+            deliveryFee: settingsRow.deliveryFee,
+            freeDeliveryThreshold: settingsRow.freeDeliveryThreshold,
+            handlingCharge: settingsRow.handlingCharge,
+          });
+        }
       })
       .catch(err => {
         console.warn('Could not load live site data from database. Falling back to static defaults.', err);
@@ -79,6 +88,7 @@ export const SiteDataProvider = ({ children }) => {
     retailCoupons,
     wholesaleCoupons,
     deliveryZones,
+    deliverySettings,
     loading,
   };
 

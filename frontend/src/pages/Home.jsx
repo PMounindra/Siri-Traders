@@ -419,7 +419,7 @@ const Home = () => {
     return rank === -1 ? 50 : rank;
   };
   const deals = catalog
-    .filter(product => product.discount >= 10)
+    .filter(product => product.isTodaysDeal)
     .sort((a, b) => categoryRank(a.category) - categoryRank(b.category));
   const bestsellers = catalog
     .filter(product => product.isBestseller)

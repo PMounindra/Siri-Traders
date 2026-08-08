@@ -17,15 +17,30 @@ export const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY
 export async function getAuthenticatedUserId(req) {
   const header = req.headers.authorization || req.headers.Authorization;
   const token = header?.startsWith('Bearer ') ? header.slice(7).trim() : null;
-  if (!token) return null;
+  if (!token) {
+    console.error('getAuthenticatedUserId: no Bearer token on request');
+    return null;
+  }
+  if (!process.env.CLERK_SECRET_KEY) {
+    console.error('getAuthenticatedUserId: CLERK_SECRET_KEY is not set');
+    return null;
+  }
 
   try {
     const { data, errors } = await verifyToken(token, {
       secretKey: process.env.CLERK_SECRET_KEY,
     });
-    if (errors || !data) return null;
+    if (errors) {
+      console.error('getAuthenticatedUserId: verifyToken errors', JSON.stringify(errors));
+      return null;
+    }
+    if (!data) {
+      console.error('getAuthenticatedUserId: verifyToken returned no data');
+      return null;
+    }
     return data.sub || null;
-  } catch {
+  } catch (err) {
+    console.error('getAuthenticatedUserId: verifyToken threw', err?.message, err?.stack);
     return null;
   }
 }

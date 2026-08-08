@@ -69,7 +69,7 @@ const addressLine2 = (address) => {
 const Checkout = () => {
   const { cartItems, cartTotal, cartCount, cartSavings, clearCart, requireAuth } = useCart();
   const { user, isAuthenticated, getToken, customerType } = useAuth();
-  const { deliveryZones, retailCoupons, wholesaleCoupons } = useSiteData();
+  const { deliveryZones, retailCoupons, wholesaleCoupons, deliverySettings } = useSiteData();
   const coupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
   const navigate = useNavigate();
   const addressStorageKey = getUserStorageKey(user, 'addresses');
@@ -95,9 +95,9 @@ const Checkout = () => {
   const addressReady = !!selectedAddress && !showAddressForm;
 
   const couponDiscount = appliedCoupon?.discount || 0;
-  const baseDeliveryFee = cartTotal >= 500 ? 0 : 25;
+  const baseDeliveryFee = cartTotal >= (deliverySettings?.freeDeliveryThreshold ?? 500) ? 0 : (deliverySettings?.deliveryFee ?? 25);
   const deliveryFee = appliedCoupon?.freeDelivery ? 0 : baseDeliveryFee;
-  const handlingCharge = 5;
+  const handlingCharge = deliverySettings?.handlingCharge ?? 5;
   const grandTotal = Math.max(0, cartTotal + deliveryFee + handlingCharge - couponDiscount);
   const totalSaved = cartSavings + couponDiscount + (appliedCoupon?.freeDelivery ? baseDeliveryFee : 0);
 

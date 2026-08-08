@@ -4,7 +4,7 @@ import { FiMinus, FiPlus, FiTrash2, FiTag, FiArrowLeft, FiShoppingBag, FiCheck }
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useSiteData } from '../context/SiteDataContext';
-import { getBestsellers } from '../data/products';
+import { useProducts } from '../context/ProductContext';
 import { applyCoupon as evaluateCoupon } from '../data/coupons';
 import ProductCard from '../components/ProductCard';
 import { formatPrice } from '../utils/format';
@@ -14,20 +14,21 @@ import './Cart.css';
 const Cart = () => {
   const { cartItems, updateQuantity, removeFromCart, cartTotal, cartSavings, cartCount, requireAuth } = useCart();
   const { user, customerType } = useAuth();
-  const { retailCoupons, wholesaleCoupons } = useSiteData();
+  const { retailCoupons, wholesaleCoupons, deliverySettings } = useSiteData();
+  const { getProductsForType } = useProducts();
   const coupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
   const navigate = useNavigate();
   const [coupon, setCoupon] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
 
-  const baseDeliveryFee = cartTotal >= 500 ? 0 : 25;
-  const handlingCharge = cartCount > 0 ? 5 : 0;
+  const baseDeliveryFee = cartTotal >= (deliverySettings?.freeDeliveryThreshold ?? 500) ? 0 : (deliverySettings?.deliveryFee ?? 25);
+  const handlingCharge = cartCount > 0 ? (deliverySettings?.handlingCharge ?? 5) : 0;
   const deliveryFee = appliedCoupon?.freeDelivery ? 0 : baseDeliveryFee;
   const couponDiscount = appliedCoupon?.discount || 0;
   const grandTotal = cartTotal + deliveryFee + handlingCharge - couponDiscount;
 
-  const suggestions = getBestsellers(customerType).filter(p => !cartItems.find(i => i.productId === p.id || i.id === p.id)).slice(0, 6);
+  const suggestions = getProductsForType(customerType).filter(p => p.isBestseller && !cartItems.find(i => i.productId === p.id || i.id === p.id)).slice(0, 6);
 
   const applyCoupon = (code = coupon) => {
     const result = evaluateCoupon(code, cartTotal, coupons);

@@ -18,6 +18,7 @@ const productSchema = z.object({
   inStock: z.boolean().optional(),
   deliveryTime: z.string().optional(),
   isBestseller: z.boolean().optional(),
+  isTodaysDeal: z.boolean().optional(),
   variants: z.array(z.any()).optional()
 });
 

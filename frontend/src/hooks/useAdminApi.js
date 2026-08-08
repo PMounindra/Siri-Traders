@@ -233,6 +233,24 @@ export async function apiDeleteCategory(id) {
   return asJson(res, 'Failed to delete category');
 }
 
+// ── Settings ─────────────────────────────────────────────────────────────
+
+export async function apiFetchSettings() {
+  const res = await fetch('/api/settings');
+  if (!res.ok) throw new Error('Failed to load settings');
+  return res.json();
+}
+
+export async function apiUpdateSettings(data) {
+  const res = await fetch('/api/settings', {
+    method: 'PUT',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify(data),
+  });
+  return asJson(res, 'Failed to update settings');
+}
+
 // ── Hook ─────────────────────────────────────────────────────────────────
 // Admin.jsx calls adminApi.xxx(), so expose named methods as a plain object.
 export function useAdminApi() {
@@ -269,5 +287,8 @@ export function useAdminApi() {
     fetchCategories: apiFetchCategories,
     createCategory: apiCreateCategory,
     deleteCategory: apiDeleteCategory,
+
+    fetchSettings: apiFetchSettings,
+    updateSettings: apiUpdateSettings,
   };
 }

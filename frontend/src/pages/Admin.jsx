@@ -17,7 +17,9 @@ import {
   FiTruck,
   FiUsers,
   FiX,
-  FiMapPin
+  FiMapPin,
+  FiSettings,
+  FiStar
 } from 'react-icons/fi';
 import { getAccounts } from '../context/AuthContext';
 import { useAdminApi } from '../hooks/useAdminApi';
@@ -60,7 +62,8 @@ const blankProduct = {
   inStock: true,
   stockNote: 'In stock',
   deliveryTime: '10 mins',
-  isBestseller: false
+  isBestseller: false,
+  isTodaysDeal: false
 };
 
 const blankWholesaleProduct = {
@@ -79,6 +82,7 @@ const blankWholesaleProduct = {
   stockNote: 'In stock',
   deliveryTime: 'Same day',
   isBestseller: false,
+  isTodaysDeal: false,
   wholesalePrice: '',
   bulkPackLabel: '',
   bulkPackPrice: '',
@@ -216,10 +220,13 @@ const Admin = () => {
   const [adminDraft, setAdminDraft] = useState(blankAdmin);
   const [adminError, setAdminError] = useState('');
   const [contentSearch, setContentSearch] = useState('');
+  const [bestsellerSearch, setBestsellerSearch] = useState('');
+  const [dealSearch, setDealSearch] = useState('');
   const [dbCategories, setDbCategories] = useState([]);
   const [newCat, setNewCat] = useState({ name: '', image: '', color: '#F7F4EE' });
   const [deliveryZones, setDeliveryZones] = useState([]);
   const [newZone, setNewZone] = useState({ area: '', pincode: '', time: '30 mins', distance: '' });
+  const [siteSettings, setSiteSettings] = useState({ deliveryFee: 25, freeDeliveryThreshold: 500, handlingCharge: 5 });
   // Variant builder: predefined checkboxes + custom entries
   const defaultVariantOptions = ['100 g','200 g','250 g','500 g','1 kg','2 kg','5 kg','10 kg','100 ml','200 ml','500 ml','1 L','5 L','15 L'];
   const [checkedVariants, setCheckedVariants] = useState([]);
@@ -270,6 +277,7 @@ const Admin = () => {
     adminApi.fetchDeliveryZones().then(setDeliveryZones).catch(() => {});
     adminApi.fetchCategories().then(setDbCategories).catch(() => {});
     adminApi.fetchAdminUsers().then(setAdminAccounts).catch(() => {});
+    adminApi.fetchSettings().then(setSiteSettings).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -372,6 +380,7 @@ const Admin = () => {
       image: productDraft.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80',
       inStock: productDraft.stockNote !== 'Out of stock',
       isBestseller: Boolean(productDraft.isBestseller),
+      isTodaysDeal: Boolean(productDraft.isTodaysDeal),
       variants: builtVariants.length > 0 ? builtVariants : undefined
     };
 
@@ -501,6 +510,30 @@ const Admin = () => {
       adminApi.deleteProduct(productId).catch(err =>
         console.warn('Delete sync failed:', err)
       );
+    }
+  };
+
+  const toggleProductFlag = async (productId, field, currentValue, isWholesale) => {
+    const nextValue = !currentValue;
+    const updater = (p) => p.id === productId ? { ...p, [field]: nextValue } : p;
+    if (isWholesale) {
+      persistWholesaleProducts(wholesaleProducts.map(updater));
+    } else {
+      persistRetailProducts(retailProducts.map(updater));
+    }
+    if (typeof productId === 'number') {
+      try {
+        await adminApi.updateProduct(productId, { [field]: nextValue });
+      } catch (err) {
+        console.warn(`${field} toggle failed:`, err);
+        const reverter = (p) => p.id === productId ? { ...p, [field]: currentValue } : p;
+        if (isWholesale) {
+          persistWholesaleProducts(wholesaleProducts.map(reverter));
+        } else {
+          persistRetailProducts(retailProducts.map(reverter));
+        }
+        alert(`Failed to update ${field}: ${err.message}`);
+      }
     }
   };
 
@@ -641,12 +674,15 @@ const Admin = () => {
               ['retail-products',    'Retail Items',      FiPackage],
               ['wholesale-products', 'Wholesale Items',   FiPackage],
               ['offers',             'Offers & coupons',  FiGift],
+              ['bestsellers',        'Bestsellers',        FiStar],
+              ['todays-deals',       "Today's Deals",      FiTag],
               ['customers',          'Customers',         FiUsers],
               ['orders',             'Orders',            FiShoppingBag],
               ['payments',           'Bills & payments',  FiDollarSign],
               ['retail-content',     'Retail Content',    FiEdit2],
               ['wholesale-content',  'Wholesale Content', FiEdit2],
               ['delivery-zones',     'Delivery Zones',    FiTruck],
+              ['settings',           'Settings',          FiSettings],
               ['admins',             'Admins',            FiLock]
             ].map(([id, label, Icon]) => (              <button
                 key={id}
@@ -739,6 +775,14 @@ const Admin = () => {
                   <input value={productDraft.price} onChange={(e) => setProductDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="Price" type="number" required />
                   <input value={productDraft.mrp} onChange={(e) => setProductDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="MRP" type="number" />
                   <input value={productDraft.discount} onChange={(e) => setProductDraft(prev => ({ ...prev, discount: e.target.value }))} placeholder="Discount %" type="number" />
+                  <label className="admin-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#2D5016', fontWeight: 600, cursor: 'pointer', gridColumn: 'span 1' }}>
+                    <input type="checkbox" checked={Boolean(productDraft.isBestseller)} onChange={(e) => setProductDraft(prev => ({ ...prev, isBestseller: e.target.checked }))} style={{ width: 'auto', margin: 0 }} />
+                    <span>Best Seller</span>
+                  </label>
+                  <label className="admin-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#2D5016', fontWeight: 600, cursor: 'pointer', gridColumn: 'span 1' }}>
+                    <input type="checkbox" checked={Boolean(productDraft.isTodaysDeal)} onChange={(e) => setProductDraft(prev => ({ ...prev, isTodaysDeal: e.target.checked }))} style={{ width: 'auto', margin: 0 }} />
+                    <span>Today's Deal</span>
+                  </label>
                   {/* Wholesale-only extra fields */}
                   {activeTab === 'wholesale-products' && (
                     <>
@@ -976,6 +1020,24 @@ const Admin = () => {
                         <option>Only 10 left</option>
                         <option>Out of stock</option>
                       </select>
+                      <label className="admin-toggle-column" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                        <span style={{ fontSize: 10, textTransform: 'uppercase', color: '#687466', fontWeight: 600 }}>Best Seller</span>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(product.isBestseller)}
+                          onChange={() => toggleProductFlag(product.id, 'isBestseller', product.isBestseller, adminMode === 'wholesale')}
+                          style={{ width: 18, height: 18, cursor: 'pointer', margin: 0 }}
+                        />
+                      </label>
+                      <label className="admin-toggle-column" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                        <span style={{ fontSize: 10, textTransform: 'uppercase', color: '#687466', fontWeight: 600 }}>Today's Deal</span>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(product.isTodaysDeal)}
+                          onChange={() => toggleProductFlag(product.id, 'isTodaysDeal', product.isTodaysDeal, adminMode === 'wholesale')}
+                          style={{ width: 18, height: 18, cursor: 'pointer', margin: 0 }}
+                        />
+                      </label>
                       <button onClick={() => editProduct(product)}><FiEdit2 /></button>
                       <button className="admin-danger" onClick={() => removeProduct(product.id)}><FiTrash2 /></button>
                     </div>
@@ -1109,6 +1171,112 @@ const Admin = () => {
                     }}><FiTrash2 /></button>
                   </div>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {activeTab === 'bestsellers' && (
+            <section className="admin-card admin-card--wide">
+              <div className="admin-card__toolbar">
+                <h2>Bestsellers ({allProducts.filter(p => p.isBestseller).length})</h2>
+                <label className="admin-search-label">
+                  <FiSearch />
+                  <input value={bestsellerSearch} onChange={(e) => setBestsellerSearch(e.target.value)} placeholder="Search products..." />
+                </label>
+              </div>
+              <p className="admin-muted" style={{ marginBottom: 12 }}>
+                Tick a product to feature it in the Bestsellers row on the home page and the Bestsellers page. Untick to remove it.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {allProducts
+                  .filter(p =>
+                    p.name.toLowerCase().includes(bestsellerSearch.toLowerCase()) ||
+                    (p.brand || '').toLowerCase().includes(bestsellerSearch.toLowerCase())
+                  )
+                  .map(product => (
+                    <div key={product.id} className="admin-row admin-row--plain" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
+                      <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <strong>{product.name}</strong>
+                        <span style={{ fontSize: 12, color: '#687466' }}>
+                          {product.brand} / {product.weight}{product.unit} / {formatPrice(product.price)}
+                          {product.wholesalePrice ? <strong style={{ marginLeft: 8, color: '#FF6B35' }}>(Wholesale)</strong> : null}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button
+                          type="button"
+                          className="admin__ghost"
+                          onClick={() => editProduct(product)}
+                          style={{ padding: '6px 10px', height: 'auto', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', border: '1px solid rgba(45,80,22,0.2)' }}
+                        >
+                          <FiEdit2 size={13} /> Edit
+                        </button>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: product.isBestseller ? '#2D5016' : '#687466', cursor: 'pointer', flexShrink: 0, margin: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(product.isBestseller)}
+                            onChange={() => toggleProductFlag(product.id, 'isBestseller', product.isBestseller, Boolean(product.wholesalePrice))}
+                            style={{ margin: 0, width: 'auto' }}
+                          />
+                          {product.isBestseller ? 'Bestseller' : 'Add'}
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </section>
+          )}
+
+          {activeTab === 'todays-deals' && (
+            <section className="admin-card admin-card--wide">
+              <div className="admin-card__toolbar">
+                <h2>Today's Deals ({allProducts.filter(p => p.isTodaysDeal).length})</h2>
+                <label className="admin-search-label">
+                  <FiSearch />
+                  <input value={dealSearch} onChange={(e) => setDealSearch(e.target.value)} placeholder="Search products..." />
+                </label>
+              </div>
+              <p className="admin-muted" style={{ marginBottom: 12 }}>
+                Tick a product to feature it in Today's Deals on the home page and the Today's Deals page. Untick to remove it.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {allProducts
+                  .filter(p =>
+                    p.name.toLowerCase().includes(dealSearch.toLowerCase()) ||
+                    (p.brand || '').toLowerCase().includes(dealSearch.toLowerCase())
+                  )
+                  .map(product => (
+                    <div key={product.id} className="admin-row admin-row--plain" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
+                      <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <strong>{product.name}</strong>
+                        <span style={{ fontSize: 12, color: '#687466' }}>
+                          {product.brand} / {product.weight}{product.unit} / {formatPrice(product.price)}
+                          {product.wholesalePrice ? <strong style={{ marginLeft: 8, color: '#FF6B35' }}>(Wholesale)</strong> : null}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button
+                          type="button"
+                          className="admin__ghost"
+                          onClick={() => editProduct(product)}
+                          style={{ padding: '6px 10px', height: 'auto', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', border: '1px solid rgba(45,80,22,0.2)' }}
+                        >
+                          <FiEdit2 size={13} /> Edit
+                        </button>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: product.isTodaysDeal ? '#2D5016' : '#687466', cursor: 'pointer', flexShrink: 0, margin: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(product.isTodaysDeal)}
+                            onChange={() => toggleProductFlag(product.id, 'isTodaysDeal', product.isTodaysDeal, Boolean(product.wholesalePrice))}
+                            style={{ margin: 0, width: 'auto' }}
+                          />
+                          {product.isTodaysDeal ? "Today's Deal" : 'Add'}
+                        </label>
+                      </div>
+                    </div>
+                  ))}
               </div>
             </section>
           )}
@@ -1438,6 +1606,86 @@ const Admin = () => {
               <p style={{fontSize:11,color:'#687466',marginTop:12}}>
                 💡 These times are shown on the product cards and delivery page based on the customer's pincode. Changes apply instantly.
               </p>
+            </section>
+          )}
+
+          {activeTab === 'settings' && (
+            <section className="admin-grid admin-grid--settings" style={{ gridTemplateColumns: '1fr' }}>
+              <form className="admin-form" onSubmit={async (e) => {
+                e.preventDefault();
+                setApiLoading(true);
+                setSaveToast(null);
+                try {
+                  const updated = await adminApi.updateSettings({
+                    deliveryFee: Number(siteSettings.deliveryFee),
+                    freeDeliveryThreshold: Number(siteSettings.freeDeliveryThreshold),
+                    handlingCharge: Number(siteSettings.handlingCharge)
+                  });
+                  setSiteSettings(updated);
+                  setSaveToast({ type: 'success', msg: '✅ Checkout settings updated successfully!' });
+                  setTimeout(() => setSaveToast(null), 5000);
+                } catch (err) {
+                  console.error('Failed to save settings:', err);
+                  setSaveToast({ type: 'error', msg: `⚠️ Failed to save settings: ${err.message}` });
+                  setTimeout(() => setSaveToast(null), 8000);
+                } finally {
+                  setApiLoading(false);
+                }
+              }} style={{ maxWidth: '600px' }}>
+                <h2>Checkout & Delivery Settings</h2>
+                <p className="admin-muted" style={{ marginBottom: 16 }}>
+                  Configure the site-wide delivery fee, free delivery threshold, and handling charge applied at checkout.
+                </p>
+
+                <div className="admin-form__grid" style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+                    <span style={{ fontWeight: 600, fontSize: 13, color: '#2D5016' }}>Delivery Fee (₹)</span>
+                    <input
+                      type="number"
+                      value={siteSettings.deliveryFee}
+                      onChange={(e) => setSiteSettings(prev => ({ ...prev, deliveryFee: e.target.value }))}
+                      placeholder="e.g. 25"
+                      required
+                      style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(45,80,22,0.2)' }}
+                    />
+                  </label>
+
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+                    <span style={{ fontWeight: 600, fontSize: 13, color: '#2D5016' }}>Free Delivery Threshold (₹)</span>
+                    <input
+                      type="number"
+                      value={siteSettings.freeDeliveryThreshold}
+                      onChange={(e) => setSiteSettings(prev => ({ ...prev, freeDeliveryThreshold: e.target.value }))}
+                      placeholder="e.g. 500"
+                      required
+                      style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(45,80,22,0.2)' }}
+                    />
+                  </label>
+
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+                    <span style={{ fontWeight: 600, fontSize: 13, color: '#2D5016' }}>Handling Charge (₹)</span>
+                    <input
+                      type="number"
+                      value={siteSettings.handlingCharge}
+                      onChange={(e) => setSiteSettings(prev => ({ ...prev, handlingCharge: e.target.value }))}
+                      placeholder="e.g. 5"
+                      required
+                      style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(45,80,22,0.2)' }}
+                    />
+                  </label>
+                </div>
+
+                <div className="admin-form__actions" style={{ marginTop: 20, alignItems: 'center' }}>
+                  <button type="submit" className="admin__primary" disabled={apiLoading}>
+                    {apiLoading ? <div className="admin-spinner" /> : <FiSave />} Save Settings
+                  </button>
+                  {saveToast && (
+                    <div style={{ marginLeft: 'auto', padding: '8px 12px', borderRadius: '6px', fontSize: '14px', background: saveToast.type === 'error' ? '#fee' : '#e6f4ea', color: saveToast.type === 'error' ? '#c00' : '#1e8e3e' }}>
+                      {saveToast.msg}
+                    </div>
+                  )}
+                </div>
+              </form>
             </section>
           )}
 
