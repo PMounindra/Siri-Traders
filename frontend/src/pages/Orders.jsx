@@ -62,16 +62,35 @@ const Orders = () => {
     }
   }, [isAuthenticated, user]);
 
-  const orders = dbOrders.length > 0 ? dbOrders.map(order => ({
-    id: `ORD-${order.id}`,
-    date: order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recently',
-    status: order.status?.toLowerCase() || 'pending',
-    deliveryTime: 'Same day',
-    payment: order.paymentMethod || 'COD',
-    address: { address: order.deliveryAddress },
-    items: order.items || [],
-    total: order.total
-  })) : localOrders;
+  const orders = dbOrders.length > 0 ? dbOrders.map(order => {
+    const rawId = order.id;
+    const itemsSummary = (order.items || []).map(item => item.name).join(', ');
+    return {
+      id: rawId,
+      displayId: `Order #${rawId}`,
+      itemsSummary: itemsSummary ? ` - ${itemsSummary}` : '',
+      date: order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recently',
+      status: order.status?.toLowerCase() || 'pending',
+      deliveryTime: 'Same day',
+      payment: order.paymentMethod || 'COD',
+      address: { address: order.deliveryAddress },
+      items: order.items || [],
+      total: order.total
+    };
+  }) : localOrders.map(order => {
+    let rawId = order.id;
+    if (typeof rawId === 'string' && rawId.startsWith('ORD-')) {
+      rawId = rawId.slice(4);
+    }
+    const itemsSummary = (order.items || []).map(item => item.name).join(', ');
+    return {
+      ...order,
+      id: rawId,
+      displayId: `Order #${rawId}`,
+      itemsSummary: itemsSummary ? ` - ${itemsSummary}` : '',
+      items: order.items || []
+    };
+  });
 
   const getStatusStyle = (status) => {
     switch (status) {
@@ -128,7 +147,14 @@ const Orders = () => {
                     <div className="orders__card-header" onClick={() => setExpandedId(isExpanded ? null : order.id)}>
                       <div className="orders__card-top">
                         <div>
-                          <span className="orders__card-id">{order.id}</span>
+                           <span className="orders__card-id">
+                            {order.displayId}
+                            {order.itemsSummary && (
+                              <span className="orders__card-items-summary" style={{ fontWeight: 'normal', opacity: 0.75, fontSize: '13px', marginLeft: '6px', color: '#6b7280' }}>
+                                {order.itemsSummary}
+                              </span>
+                            )}
+                          </span>
                           <span className="orders__card-date">{order.date}</span>
                         </div>
                         <span className="orders__status" style={{ background: status.bg, color: status.color }}>
