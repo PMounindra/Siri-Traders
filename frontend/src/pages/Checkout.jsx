@@ -213,14 +213,27 @@ const Checkout = () => {
       return;
     }
 
-    const orderItemsList = cartItems.map(item => ({
-      productId: item.id,
-      name: item.name,
-      quantity: item.quantity,
-      price: item.price,
-      weight: item.weight || '',
-      unit: item.unit || ''
-    }));
+    const orderItemsList = cartItems.map(item => {
+      let cleanProductId = parseInt(item.productId, 10);
+      if (isNaN(cleanProductId) && typeof item.id === 'string' && item.id.includes('-')) {
+        const parts = item.id.split('-');
+        if (parts.length >= 2) {
+          cleanProductId = parseInt(parts[1], 10);
+        }
+      }
+      if (isNaN(cleanProductId)) {
+        cleanProductId = parseInt(item.id, 10);
+      }
+
+      return {
+        productId: cleanProductId,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        weight: item.weight || '',
+        unit: item.unit || ''
+      };
+    });
 
     const addressLine = [addressLine1(addressForOrder), addressForOrder.landmark, addressForOrder.area]
       .filter(Boolean).join(', ');

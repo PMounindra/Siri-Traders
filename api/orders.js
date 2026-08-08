@@ -127,9 +127,26 @@ export default async function handler(req, res) {
 
       // Insert all items sequentially
       for (const item of items) {
+        let cleanProductId = parseInt(item.productId, 10);
+        if (isNaN(cleanProductId) && typeof item.productId === 'string' && item.productId.includes('-')) {
+          const parts = item.productId.split('-');
+          if (parts.length >= 2) {
+            cleanProductId = parseInt(parts[1], 10);
+          }
+        }
+        if (isNaN(cleanProductId)) {
+          cleanProductId = parseInt(item.id, 10);
+        }
+        if (isNaN(cleanProductId) && typeof item.id === 'string' && item.id.includes('-')) {
+          const parts = item.id.split('-');
+          if (parts.length >= 2) {
+            cleanProductId = parseInt(parts[1], 10);
+          }
+        }
+
         await db.insert(orderItems).values({
           orderId: insertedOrder.id,
-          productId: item.productId || item.id,
+          productId: cleanProductId,
           name: item.name,
           quantity: item.qty || item.quantity || 1,
           price: item.price,
