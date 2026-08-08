@@ -2,9 +2,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  FiArrowLeft, FiAward, FiBriefcase, FiCheck, FiCheckCircle, FiChevronRight,
-  FiCreditCard, FiGlobe, FiHome, FiMoreHorizontal, FiPlus,
-  FiRefreshCw, FiShield, FiShoppingBag, FiSmartphone, FiTag, FiTruck, FiX
+  FiArrowLeft, FiAward, FiBriefcase, FiCheck, FiCheckCircle,
+  FiCreditCard, FiHome, FiMoreHorizontal, FiPlus,
+  FiRefreshCw, FiShield, FiShoppingBag, FiTag, FiTruck, FiX
 } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -15,7 +15,6 @@ import { SERVICEABLE_AREAS, isServiceableAddress } from '../utils/serviceableAre
 import { applyCoupon } from '../data/coupons';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
-import NetBankingFlow from '../components/NetBankingFlow';
 import './Checkout.css';
 
 const addressTypes = [
@@ -75,13 +74,6 @@ const Checkout = () => {
   const navigate = useNavigate();
   const addressStorageKey = getUserStorageKey(user, 'addresses');
   const orderStorageKey = getUserStorageKey(user, 'orders');
-  const [selectedPayment, setSelectedPayment] = useState('cod');
-  const [upiId, setUpiId] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
-  const [selectedBank, setSelectedBank] = useState('');
-  const [showNetBankingFlow, setShowNetBankingFlow] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [placedAddress, setPlacedAddress] = useState(null);
   const [orderId, setOrderId] = useState(() => `ORD-${Date.now().toString().slice(-6)}`);
@@ -207,7 +199,7 @@ const Checkout = () => {
     setAddressError('');
   };
 
-  const finalizeOrder = async (addressForOrder, paymentDetails = {}) => {
+  const finalizeOrder = async (addressForOrder) => {
     const deliveryTime = getDeliveryTimeForAddress(addressForOrder, deliveryZones);
 
     // Require Clerk authentication for real order placement
@@ -245,7 +237,7 @@ const Checkout = () => {
           items: orderItemsList,
           total: grandTotal,
           deliveryAddress: `${addressLine}, ${addressForOrder.pincode}`,
-          paymentMethod: selectedPayment
+          paymentMethod: 'cod'
         })
       });
 
@@ -265,15 +257,14 @@ const Checkout = () => {
     const order = {
       id: finalOrderId,
       date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-      status: selectedPayment === 'cod' ? 'preparing' : 'paid',
+      status: 'preparing',
       deliveryTime,
-      payment: selectedPayment,
+      payment: 'cod',
       address: addressForOrder,
       items: cartItems.map(item => ({ ...item, qty: item.quantity })),
       total: grandTotal,
       couponCode: appliedCoupon?.code || null,
       discount: couponDiscount,
-      ...paymentDetails,
     };
 
     try {
@@ -303,35 +294,7 @@ const Checkout = () => {
 
     if (!addressForOrder) return;
 
-    // For net banking, open the multi-step bank flow instead of placing immediately
-    if (selectedPayment === 'netbanking') {
-      if (!selectedBank) {
-        return; // bank must be selected
-      }
-      setShowNetBankingFlow(true);
-      return;
-    }
-
     finalizeOrder(addressForOrder);
-  };
-
-  const handleNetBankingSuccess = (paymentResult) => {
-    setShowNetBankingFlow(false);
-    const addressForOrder = selectedAddress || addresses[0];
-    finalizeOrder(addressForOrder, {
-      transactionId: paymentResult.transactionId,
-      bankCode: paymentResult.bankCode,
-      paymentSessionId: paymentResult.sessionId,
-    });
-  };
-
-  const handleNetBankingFailure = () => {
-    setShowNetBankingFlow(false);
-    // User stays on checkout to retry or choose another method
-  };
-
-  const handleNetBankingCancel = () => {
-    setShowNetBankingFlow(false);
   };
 
   if (orderPlaced) {
@@ -538,95 +501,16 @@ const Checkout = () => {
               {/* Payment */}
               <div className="checkout__section">
                 <h3 className="checkout__section-title"><FiCreditCard /> Payment Method</h3>
-                <p className="checkout__section-sub">All transactions are secure and encrypted</p>
+                <p className="checkout__section-sub">Cash on Delivery is the only payment option</p>
                 <div className="checkout__payments">
-                  <button
-                    className={`checkout__payment ${selectedPayment === 'cod' ? 'checkout__payment--active' : ''}`}
-                    onClick={() => setSelectedPayment('cod')}
-                  >
+                  <div className="checkout__payment checkout__payment--active checkout__payment--solo">
                     <span className="checkout__payment-icon">💵</span>
                     <div className="checkout__payment-info">
                       <span className="checkout__payment-name">Cash on Delivery</span>
                       <span className="checkout__payment-desc">Pay when your order is delivered</span>
                     </div>
-                    {selectedPayment === 'cod' ? <FiCheck className="checkout__payment-check" /> : <FiChevronRight className="checkout__payment-chevron" />}
-                  </button>
-
-                  <button
-                    className={`checkout__payment ${selectedPayment === 'upi' ? 'checkout__payment--active' : ''}`}
-                    onClick={() => setSelectedPayment('upi')}
-                  >
-                    <span className="checkout__payment-icon"><FiSmartphone /></span>
-                    <div className="checkout__payment-info">
-                      <span className="checkout__payment-name">UPI Payment</span>
-                      <span className="checkout__payment-desc">Pay using GPay, PhonePe, Paytm & more</span>
-                    </div>
-                    {selectedPayment === 'upi' ? <FiCheck className="checkout__payment-check" /> : <FiChevronRight className="checkout__payment-chevron" />}
-                  </button>
-                  {selectedPayment === 'upi' && (
-                    <div className="checkout__payment-form">
-                      <input type="text" placeholder="Enter UPI ID (e.g., name@upi)"
-                        value={upiId} onChange={(e) => setUpiId(e.target.value)}
-                        className="checkout__input" />
-                    </div>
-                  )}
-
-                  <button
-                    className={`checkout__payment ${selectedPayment === 'card' ? 'checkout__payment--active' : ''}`}
-                    onClick={() => setSelectedPayment('card')}
-                  >
-                    <span className="checkout__payment-icon"><FiCreditCard /></span>
-                    <div className="checkout__payment-info">
-                      <span className="checkout__payment-name">Credit / Debit Card</span>
-                      <span className="checkout__payment-desc">Visa, Mastercard, RuPay & more</span>
-                    </div>
-                    {selectedPayment === 'card' ? <FiCheck className="checkout__payment-check" /> : <FiChevronRight className="checkout__payment-chevron" />}
-                  </button>
-                  {selectedPayment === 'card' && (
-                    <div className="checkout__payment-form">
-                      <input type="text" placeholder="Card Number" value={cardNumber}
-                        onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16))}
-                        className="checkout__input" />
-                      <div className="checkout__input-row">
-                        <input type="text" placeholder="MM/YY" value={cardExpiry}
-                          onChange={(e) => setCardExpiry(e.target.value)} className="checkout__input" />
-                        <input type="text" placeholder="CVV" value={cardCvv}
-                          onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, '').slice(0, 3))}
-                          className="checkout__input" />
-                      </div>
-                    </div>
-                  )}
-
-                  <button
-                    className={`checkout__payment ${selectedPayment === 'netbanking' ? 'checkout__payment--active' : ''}`}
-                    onClick={() => setSelectedPayment('netbanking')}
-                  >
-                    <span className="checkout__payment-icon"><FiGlobe /></span>
-                    <div className="checkout__payment-info">
-                      <span className="checkout__payment-name">Net Banking</span>
-                      <span className="checkout__payment-desc">SBI, HDFC, ICICI, Axis & more</span>
-                    </div>
-                    {selectedPayment === 'netbanking' ? <FiCheck className="checkout__payment-check" /> : <FiChevronRight className="checkout__payment-chevron" />}
-                  </button>
-                  {selectedPayment === 'netbanking' && (
-                    <div className="checkout__payment-form">
-                      <select
-                        value={selectedBank}
-                        onChange={(e) => setSelectedBank(e.target.value)}
-                        className="checkout__input checkout__select"
-                      >
-                        <option value="">-- Select Your Bank --</option>
-                        <option value="sbi">State Bank of India (SBI)</option>
-                        <option value="hdfc">HDFC Bank</option>
-                        <option value="icici">ICICI Bank</option>
-                        <option value="axis">Axis Bank</option>
-                        <option value="kotak">Kotak Mahindra Bank</option>
-                        <option value="bob">Bank of Baroda</option>
-                        <option value="pnb">Punjab National Bank</option>
-                        <option value="canara">Canara Bank</option>
-                      </select>
-                    </div>
-                  )}
+                    <FiCheck className="checkout__payment-check" />
+                  </div>
                 </div>
               </div>
 
@@ -713,9 +597,9 @@ const Checkout = () => {
                 </div>
 
                 <button className="checkout__place-btn" onClick={handlePlaceOrder} id="place-order-btn">
-                  <span>{selectedPayment === 'cod' ? 'Place Order (COD)' : 'Pay Now'} →</span>
+                  <span>Place Order (COD) →</span>
                   <span className="checkout__place-btn-sub">
-                    {selectedPayment === 'cod' ? `Pay ${formatPrice(grandTotal)} on delivery` : `Pay ${formatPrice(grandTotal)} now`}
+                    Pay {formatPrice(grandTotal)} on delivery
                   </span>
                 </button>
 
@@ -729,26 +613,6 @@ const Checkout = () => {
               </div>
             </aside>
           </div>
-
-          {/* Net Banking Flow Modal */}
-          {showNetBankingFlow && (
-            <NetBankingFlow
-              bankCode={selectedBank}
-              amount={grandTotal}
-              orderId={orderId}
-              cartItems={cartItems}
-              deliveryFee={deliveryFee}
-              handlingCharge={handlingCharge}
-              customerInfo={{
-                name: selectedAddress?.name || user?.name || '',
-                email: selectedAddress?.email || user?.email || '',
-                phone: selectedAddress?.phone || user?.phone || '',
-              }}
-              onSuccess={handleNetBankingSuccess}
-              onFailure={handleNetBankingFailure}
-              onCancel={handleNetBankingCancel}
-            />
-          )}
         </div>
       </div>
     </div>
