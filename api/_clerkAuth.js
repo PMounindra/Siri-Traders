@@ -1,17 +1,28 @@
 /**
  * _clerkAuth.js — verify a Clerk session token on Vercel's Node.js runtime.
  *
- * Uses the Clerk backend SDK's authenticateRequest() properly by constructing
- * a Web-standard Request from the Node.js incoming request. This is the
- * official, supported way to verify Clerk tokens in serverless functions.
+ * Uses Clerk's verifyToken() with the correct jwtKey option so it can
+ * verify the JWT signature without needing to call out to Clerk's JWKS endpoint
+ * (which requires the publishable key). We pass both secretKey and the
+ * issuer so the SDK knows where to fetch the JWKS keys from.
  */
 
-import { createClerkClient } from '@clerk/backend';
+import { createClerkClient, verifyToken } from '@clerk/backend';
 
-export const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY;
+// Clerk publishable key - may be set under either name
+const CLERK_PUBLISHABLE_KEY =
+  process.env.CLERK_PUBLISHABLE_KEY ||
+  process.env.VITE_CLERK_PUBLISHABLE_KEY ||
+  'pk_test_bmV4dC1sb25naG9ybi00Ny5jbGVyay5hY2NvdW50cy5kZXYk';
+
+export const clerk = createClerkClient({
+  secretKey: CLERK_SECRET_KEY,
+  publishableKey: CLERK_PUBLISHABLE_KEY,
+});
 
 export async function getAuthenticatedUserId(req) {
-  if (!process.env.CLERK_SECRET_KEY) {
+  if (!CLERK_SECRET_KEY) {
     console.error('getAuthenticatedUserId: CLERK_SECRET_KEY is not set');
     return null;
   }
@@ -26,33 +37,21 @@ export async function getAuthenticatedUserId(req) {
   }
 
   try {
-    // authenticateRequest needs a Web-standard Request object.
-    // We construct a minimal one from the Node.js req.
-    const url = `https://${req.headers.host || 'siritrader.com'}${req.url || '/'}`;
-    const headers = new Headers();
-    for (const [key, value] of Object.entries(req.headers)) {
-      if (typeof value === 'string') {
-        headers.set(key, value);
-      } else if (Array.isArray(value)) {
-        headers.set(key, value.join(', '));
-      }
-    }
-
-    const webRequest = new Request(url, { method: req.method || 'GET', headers });
-
-    const state = await clerk.authenticateRequest(webRequest, {
-      secretKey: process.env.CLERK_SECRET_KEY,
+    // Use verifyToken with the publishable key as the issuer so Clerk SDK
+    // can fetch JWKS and verify the signature
+    const payload = await verifyToken(token, {
+      secretKey: CLERK_SECRET_KEY,
+      publishableKey: CLERK_PUBLISHABLE_KEY,
     });
 
-    if (!state.isSignedIn) {
-      console.error('getAuthenticatedUserId: not signed in, reason:', state.reason || 'unknown');
+    if (!payload || !payload.sub) {
+      console.error('getAuthenticatedUserId: verifyToken returned no payload');
       return null;
     }
 
-    const payload = state.toAuth();
-    return payload?.userId || null;
+    return payload.sub;
   } catch (err) {
-    console.error('getAuthenticatedUserId: threw', err?.message);
+    console.error('getAuthenticatedUserId: verifyToken threw', err?.message);
     return null;
   }
 }
