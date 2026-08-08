@@ -215,6 +215,7 @@ const Admin = () => {
   const [liveCustomers, setLiveCustomers] = useState(null);
   const adminApi = useAdminApi();
   const [newOrderToast, setNewOrderToast] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Play synthetic ding-dong notification chime using Web Audio API
   const playChime = () => {
@@ -723,32 +724,41 @@ const Admin = () => {
           <button className="admin-new-order-toast__close" onClick={() => setNewOrderToast(null)}>×</button>
         </div>
       )}
-      <div className="admin">
-        <div className="admin__shell">
-          <header className="admin__hero">
+      {/* Mobile top header bar */}
+      <div className="admin-mobile-header">
+        <div className="admin-mobile-header__brand">
+          <img src="/logo-mark.webp" alt="Siri Traders" className="admin-mobile-logo" />
+          <span>Siri Traders Admin</span>
+        </div>
+        <button className="admin-mobile-hamburger" onClick={() => setMobileMenuOpen(prev => !prev)} aria-label="Toggle menu">
+          <span className={`hamburger-bar ${mobileMenuOpen ? 'open' : ''}`}></span>
+          <span className={`hamburger-bar ${mobileMenuOpen ? 'open' : ''}`}></span>
+          <span className={`hamburger-bar ${mobileMenuOpen ? 'open' : ''}`}></span>
+        </button>
+      </div>
+
+      <div className="admin-layout">
+        {/* Left Sidebar */}
+        <aside className={`admin-sidebar ${mobileMenuOpen ? 'admin-sidebar--open' : ''}`}>
+          <div className="admin-sidebar__brand">
+            <img src="/logo-mark.webp" alt="Siri Traders" className="admin-sidebar__logo" />
             <div>
-              <img src="/logo-mark.webp" alt="Siri Traders" className="admin__logo" />
-              <span className="admin__eyebrow">Siri Traders Control Center</span>
-              <h1>Admin Dashboard</h1>
-              <p>Manage products, inventory messages, offers, coupons, customer insights, product content, and admin users.</p>
-              <span className="admin__session">Signed in as {adminSession.name} / {adminSession.role}</span>
+              <strong>SIRI TRADERS</strong>
+              <span>Control Center</span>
             </div>
-            <div className="admin__hero-actions">
-              <button className="admin__ghost" onClick={handleAdminLogout}><FiLogOut /> Logout</button>
+          </div>
+
+          <div className="admin-sidebar__user">
+            <div className="admin-sidebar__avatar">
+              {adminSession.name ? adminSession.name[0].toUpperCase() : 'A'}
             </div>
-          </header>
+            <div className="admin-sidebar__user-info">
+              <strong>{adminSession.name || 'Admin'}</strong>
+              <span>{String(adminSession.role || 'Administrator').toUpperCase()}</span>
+            </div>
+          </div>
 
-          <section className="admin__stats">
-            {stats.map(stat => (
-              <div key={stat.label} className="admin__stat-card">
-                <stat.icon />
-                <span>{stat.label}</span>
-                <strong>{stat.value}</strong>
-              </div>
-            ))}
-          </section>
-
-          <nav className="admin__tabs" aria-label="Admin sections">
+          <nav className="admin-sidebar__nav">
             {[
               ['dashboard',          'Overview',          FiBarChart2],
               ['retail-products',    'Retail Items',      FiPackage],
@@ -764,19 +774,63 @@ const Admin = () => {
               ['delivery-zones',     'Delivery Zones',    FiTruck],
               ['settings',           'Settings',          FiSettings],
               ['admins',             'Admins',            FiLock]
-            ].map(([id, label, Icon]) => (              <button
+            ].map(([id, label, Icon]) => (
+              <button
                 key={id}
-                className={activeTab === id ? 'admin__tab admin__tab--active' : 'admin__tab'}
-                onClick={() => setActiveTab(id)}
+                className={activeTab === id ? 'admin-sidebar__nav-item admin-sidebar__nav-item--active' : 'admin-sidebar__nav-item'}
+                onClick={() => {
+                  setActiveTab(id);
+                  setMobileMenuOpen(false);
+                }}
               >
-                <Icon /> {label}
+                <Icon /> <span>{label}</span>
               </button>
             ))}
           </nav>
 
+          <div className="admin-sidebar__footer">
+            <button className="admin-sidebar__logout" onClick={handleAdminLogout}>
+              <FiLogOut /> <span>Sign Out</span>
+            </button>
+          </div>
+        </aside>
+
+        {/* Backdrop for mobile menu drawer */}
+        {mobileMenuOpen && (
+          <div className="admin-sidebar-backdrop" onClick={() => setMobileMenuOpen(false)} />
+        )}
+
+        {/* Right Main Content area */}
+        <main className="admin-main">
+          <header className="admin-main-header">
+            <div>
+              <span className="admin-main-eyebrow">Control Panel / {activeTab.replace('-', ' ')}</span>
+              <h1>{activeTab === 'dashboard' ? 'Overview Management' : activeTab.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</h1>
+            </div>
+            
+            <div className="admin-main-header__actions">
+              <a href="/home" target="_blank" rel="noopener noreferrer" className="admin-main-header__btn">
+                Launch Site →
+              </a>
+            </div>
+          </header>
+
+          {/* Quick stats section (only visible on Overview / dashboard tab!) */}
+          {activeTab === 'dashboard' && (
+            <section className="admin__stats">
+              {stats.map(stat => (
+                <div key={stat.label} className="admin__stat-card">
+                  <stat.icon />
+                  <span>{stat.label}</span>
+                  <strong>{stat.value}</strong>
+                </div>
+              ))}
+            </section>
+          )}
+
           {/* Store links banner */}
           {(activeTab === 'retail-products' || activeTab === 'retail-content') && (
-            <div className="admin__mode-bar">
+            <div className="admin__mode-bar" style={{ marginBottom: '20px' }}>
               <span className="admin__mode-label">🛍️ Retail</span>
               <span className="admin__mode-desc">Products visible to retail customers at the home page in Retail mode</span>
               <a href="/home" target="_blank" rel="noopener noreferrer" className="admin__store-link">
@@ -785,7 +839,7 @@ const Admin = () => {
             </div>
           )}
           {(activeTab === 'wholesale-products' || activeTab === 'wholesale-content') && (
-            <div className="admin__mode-bar admin__mode-bar--wholesale">
+            <div className="admin__mode-bar admin__mode-bar--wholesale" style={{ marginBottom: '20px' }}>
               <span className="admin__mode-label">📦 Wholesale</span>
               <span className="admin__mode-desc">Products visible to wholesale customers at the home page in Wholesale mode</span>
               <a href="/home" target="_blank" rel="noopener noreferrer" className="admin__store-link">
@@ -1796,7 +1850,7 @@ const Admin = () => {
             </section>
           )}
 
-        </div>
+        </main>
       </div>
     </div>
   );
