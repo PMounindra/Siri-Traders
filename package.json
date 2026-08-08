@@ -23,6 +23,7 @@
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.30.10",
     "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^9.0.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {

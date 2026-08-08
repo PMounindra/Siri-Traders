@@ -1280,3 +1280,82 @@
 .admin-login__submit{background:#FFC107!important;color:#1C1C1C!important;box-shadow:0 10px 24px rgba(255,193,7,.28)!important}
 .admin-login__submit:hover{background:#F0B400!important}
 .admin-login__brand>span{background:#2D5016!important;color:#FFC107!important}
+
+/* Real-time Order Notifications Toast */
+.admin-new-order-toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  background: linear-gradient(135deg, #2D5016 0%, #3A6B1A 100%) !important;
+  color: #FFFFFF !important;
+  padding: 16px 20px !important;
+  border-radius: 16px !important;
+  box-shadow: 0 10px 30px rgba(45, 80, 22, 0.4) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  z-index: 99999 !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  min-width: 340px !important;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.admin-new-order-toast__content {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.admin-new-order-toast__icon {
+  font-size: 24px !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  padding: 8px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.admin-new-order-toast__content strong {
+  display: block !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  margin-bottom: 2px !important;
+  letter-spacing: 0.5px !important;
+  color: #FFFFFF !important;
+}
+
+.admin-new-order-toast__content p {
+  margin: 0 !important;
+  font-size: 13px !important;
+  opacity: 0.9 !important;
+  color: #FFFFFF !important;
+}
+
+.admin-new-order-toast__close {
+  background: transparent !important;
+  border: none !important;
+  color: #FFFFFF !important;
+  font-size: 20px !important;
+  cursor: pointer !important;
+  padding: 4px !important;
+  margin-left: auto !important;
+  opacity: 0.7 !important;
+  transition: opacity 0.2s !important;
+}
+
+.admin-new-order-toast__close:hover {
+  opacity: 1 !important;
+}
+

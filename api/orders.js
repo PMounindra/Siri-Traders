@@ -4,6 +4,7 @@ import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { setCorsHeaders } from './_cors.js';
 import { clerk, getAuthenticatedUserId } from './_clerkAuth.js';
+import { sendOrderNotificationEmail } from './_email.js';
 
 // Setup Upstash Redis rate limiting: 10 requests per 30 seconds for orders endpoint
 const redis = new Redis({
@@ -172,6 +173,11 @@ export default async function handler(req, res) {
           unit: item.unit || ''
         });
       }
+
+      // Fire email notification asynchronously (don't block HTTP response)
+      sendOrderNotificationEmail(insertedOrder, items).catch(err => {
+        console.error("[EMAIL ERROR] Async email send failed:", err.message);
+      });
 
       return res.status(201).json(insertedOrder);
     }

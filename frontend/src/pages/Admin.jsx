@@ -214,6 +214,39 @@ const Admin = () => {
   const [liveOrders, setLiveOrders] = useState(null); // null = not yet loaded
   const [liveCustomers, setLiveCustomers] = useState(null);
   const adminApi = useAdminApi();
+  const [newOrderToast, setNewOrderToast] = useState(null);
+
+  // Play synthetic ding-dong notification chime using Web Audio API
+  const playChime = () => {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+      gain1.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+      osc1.start(audioCtx.currentTime);
+      osc1.stop(audioCtx.currentTime + 0.3);
+      setTimeout(() => {
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1109.73, audioCtx.currentTime); // C#6
+        gain2.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+        osc2.start(audioCtx.currentTime);
+        osc2.stop(audioCtx.currentTime + 0.4);
+      }, 120);
+    } catch (err) {
+      console.warn("Failed to play notification audio:", err);
+    }
+  };
+
   const [offerDraft, setOfferDraft] = useState(blankOffer);
   const [couponDraft, setCouponDraft] = useState(blankCoupon);
   const [adminAccounts, setAdminAccounts] = useState([]);
@@ -280,6 +313,41 @@ const Admin = () => {
     adminApi.fetchSettings().then(setSiteSettings).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Poll for new orders every 10 seconds to notify active admin dashboard users
+  useEffect(() => {
+    if (!adminSession) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const freshOrders = await adminApi.fetchAllOrders();
+        if (Array.isArray(freshOrders)) {
+          setLiveOrders(prev => {
+            if (prev !== null && freshOrders.length > prev.length) {
+              const prevIds = new Set(prev.map(o => o.id));
+              const newOrders = freshOrders.filter(o => !prevIds.has(o.id));
+              if (newOrders.length > 0) {
+                const latest = newOrders[0];
+                playChime();
+                setNewOrderToast({
+                  id: latest.id,
+                  total: latest.total,
+                  msg: `New Order placed: Order #${latest.id} for ₹${latest.total}!`
+                });
+                // Auto dismiss toast after 8 seconds
+                setTimeout(() => setNewOrderToast(null), 8000);
+              }
+            }
+            return freshOrders;
+          });
+        }
+      } catch (err) {
+        console.error("Order polling failed:", err);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [adminSession, adminApi]);
 
   // ── Switch mode and reset draft to appropriate blank ──
   const switchMode = (mode) => {
@@ -643,6 +711,18 @@ const Admin = () => {
 
   return (
     <div className="page-wrapper admin-page-wrapper">
+      {newOrderToast && (
+        <div className="admin-new-order-toast">
+          <div className="admin-new-order-toast__content">
+            <span className="admin-new-order-toast__icon">🛍️</span>
+            <div>
+              <strong>New Order Received!</strong>
+              <p>{newOrderToast.msg}</p>
+            </div>
+          </div>
+          <button className="admin-new-order-toast__close" onClick={() => setNewOrderToast(null)}>×</button>
+        </div>
+      )}
       <div className="admin">
         <div className="admin__shell">
           <header className="admin__hero">
