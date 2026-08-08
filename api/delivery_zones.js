@@ -36,7 +36,10 @@ export default async function handler(req, res) {
           pincode: String(body.pincode),
           time: body.time || '30 mins',
           distance: body.distance || '',
-          active: body.active !== false
+          active: body.active !== false,
+          deliveryFee: Number(body.deliveryFee) || 0,
+          freeDeliveryThreshold: Number(body.freeDeliveryThreshold) || 0,
+          handlingCharge: Number(body.handlingCharge) || 0
         };
 
         const saved = await db.insert(deliveryZones).values(values).onConflictDoUpdate({
@@ -65,6 +68,9 @@ export default async function handler(req, res) {
       if (body.time !== undefined) patch.time = body.time;
       if (body.distance !== undefined) patch.distance = body.distance;
       if (body.active !== undefined) patch.active = Boolean(body.active);
+      if (body.deliveryFee !== undefined) patch.deliveryFee = Number(body.deliveryFee) || 0;
+      if (body.freeDeliveryThreshold !== undefined) patch.freeDeliveryThreshold = Number(body.freeDeliveryThreshold) || 0;
+      if (body.handlingCharge !== undefined) patch.handlingCharge = Number(body.handlingCharge) || 0;
 
       const updated = await db.update(deliveryZones).set(patch).where(eq(deliveryZones.id, id)).returning();
       return res.status(200).json(updated[0]);

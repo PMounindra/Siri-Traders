@@ -265,8 +265,7 @@ const Admin = () => {
   const [dbCategories, setDbCategories] = useState([]);
   const [newCat, setNewCat] = useState({ name: '', image: '', color: '#F7F4EE' });
   const [deliveryZones, setDeliveryZones] = useState([]);
-  const [newZone, setNewZone] = useState({ area: '', pincode: '', time: '30 mins', distance: '' });
-  const [siteSettings, setSiteSettings] = useState({ deliveryFee: 25, freeDeliveryThreshold: 500, handlingCharge: 5 });
+  const [newZone, setNewZone] = useState({ area: '', pincode: '', time: '30 mins', distance: '', deliveryFee: 0, freeDeliveryThreshold: 0, handlingCharge: 0 });
   // Variant builder: predefined checkboxes + custom entries
   const defaultVariantOptions = ['100 g','200 g','250 g','500 g','1 kg','2 kg','5 kg','10 kg','100 ml','200 ml','500 ml','1 L','5 L','15 L'];
   const [checkedVariants, setCheckedVariants] = useState([]);
@@ -317,7 +316,6 @@ const Admin = () => {
     adminApi.fetchDeliveryZones().then(setDeliveryZones).catch(() => {});
     adminApi.fetchCategories().then(setDbCategories).catch(() => {});
     adminApi.fetchAdminUsers().then(setAdminAccounts).catch(() => {});
-    adminApi.fetchSettings().then(setSiteSettings).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -778,7 +776,6 @@ const Admin = () => {
               ['retail-content',     'Retail Content',    FiEdit2],
               ['wholesale-content',  'Wholesale Content', FiEdit2],
               ['delivery-zones',     'Delivery Zones',    FiTruck],
-              ['settings',           'Settings',          FiSettings],
               ['admins',             'Admins',            FiLock]
             ].map(([id, label, Icon]) => (
               <button
@@ -1719,13 +1716,16 @@ const Admin = () => {
               {/* Add new zone form */}
               <div style={{background:'#FAFFF6',border:'1px solid rgba(45,80,22,0.12)',borderRadius:12,padding:14,marginBottom:18}}>
                 <p style={{fontSize:13,fontWeight:800,color:'#2D5016',marginBottom:10}}>Add / Update Zone</p>
-                <div className="admin-form__grid">
+                <div className="admin-form__grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
                   <input className="admin-input-box" placeholder="Area name e.g. Kukatpally" value={newZone.area} onChange={e => setNewZone(p => ({...p, area: e.target.value}))} />
                   <input className="admin-input-box" placeholder="Pincode e.g. 500072" value={newZone.pincode} onChange={e => setNewZone(p => ({...p, pincode: e.target.value}))} />
                   <select className="admin-input-box" value={newZone.time} onChange={e => setNewZone(p => ({...p, time: e.target.value}))}>
                     {['10 mins','15 mins','20 mins','25 mins','30 mins','35 mins','40 mins','45 mins','50 mins','55 mins','60 mins','75 mins','90 mins','2 hours','3 hours','Same day'].map(t => <option key={t}>{t}</option>)}
                   </select>
                   <input className="admin-input-box" placeholder="Distance e.g. ~16 km (optional)" value={newZone.distance} onChange={e => setNewZone(p => ({...p, distance: e.target.value}))} />
+                  <input className="admin-input-box" type="number" placeholder="Delivery Fee (₹)" value={newZone.deliveryFee || ''} onChange={e => setNewZone(p => ({...p, deliveryFee: Number(e.target.value) || 0}))} />
+                  <input className="admin-input-box" type="number" placeholder="Free Delivery over (₹)" value={newZone.freeDeliveryThreshold || ''} onChange={e => setNewZone(p => ({...p, freeDeliveryThreshold: Number(e.target.value) || 0}))} />
+                  <input className="admin-input-box" type="number" placeholder="Handling Charge (₹)" value={newZone.handlingCharge || ''} onChange={e => setNewZone(p => ({...p, handlingCharge: Number(e.target.value) || 0}))} />
                 </div>
                 <button
                   type="button"
@@ -1736,7 +1736,7 @@ const Admin = () => {
                     try {
                       const saved = await adminApi.saveDeliveryZone({ ...newZone, area: newZone.area.trim(), pincode: newZone.pincode.trim() });
                       setDeliveryZones(prev => [...prev, saved]);
-                      setNewZone({ area: '', pincode: '', time: '30 mins', distance: '' });
+                      setNewZone({ area: '', pincode: '', time: '30 mins', distance: '', deliveryFee: 0, freeDeliveryThreshold: 0, handlingCharge: 0 });
                     } catch (err) {
                       alert(err.message);
                     }
@@ -1751,7 +1751,7 @@ const Admin = () => {
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
                   <thead>
                     <tr style={{background:'#F1F8E9'}}>
-                      {['Area','Pincode','Delivery Time','Distance','Action'].map(h => (
+                      {['Area','Pincode','Delivery Time','Distance','Fee (₹)','Free Over (₹)','Handling (₹)','Action'].map(h => (
                         <th key={h} style={{padding:'10px 12px',textAlign:'left',fontWeight:800,color:'#2D5016',fontSize:11,textTransform:'uppercase',borderBottom:'1px solid rgba(45,80,22,0.12)'}}>{h}</th>
                       ))}
                     </tr>
@@ -1777,6 +1777,67 @@ const Admin = () => {
                           </select>
                         </td>
                         <td style={{padding:'10px 12px',color:'#687466',fontSize:12}}>{zone.distance}</td>
+                        
+                        {/* Delivery Fee Input */}
+                        <td style={{padding:'10px 12px'}}>
+                          <input
+                            type="number"
+                            value={zone.deliveryFee}
+                            onChange={async e => {
+                              const val = Number(e.target.value) || 0;
+                              setDeliveryZones(prev => prev.map(z => z.id === zone.id ? { ...z, deliveryFee: val } : z));
+                            }}
+                            onBlur={async e => {
+                              const val = Number(e.target.value) || 0;
+                              try {
+                                const updated = await adminApi.updateDeliveryZone(zone.id, { deliveryFee: val });
+                                setDeliveryZones(prev => prev.map(z => z.id === zone.id ? updated : z));
+                              } catch (err) { alert(err.message); }
+                            }}
+                            style={{ width: '65px', padding: '4px 6px', borderRadius: '6px', border: '1px solid rgba(45,80,22,0.2)', fontSize: '12px' }}
+                          />
+                        </td>
+
+                        {/* Free Delivery Threshold Input */}
+                        <td style={{padding:'10px 12px'}}>
+                          <input
+                            type="number"
+                            value={zone.freeDeliveryThreshold}
+                            onChange={async e => {
+                              const val = Number(e.target.value) || 0;
+                              setDeliveryZones(prev => prev.map(z => z.id === zone.id ? { ...z, freeDeliveryThreshold: val } : z));
+                            }}
+                            onBlur={async e => {
+                              const val = Number(e.target.value) || 0;
+                              try {
+                                const updated = await adminApi.updateDeliveryZone(zone.id, { freeDeliveryThreshold: val });
+                                setDeliveryZones(prev => prev.map(z => z.id === zone.id ? updated : z));
+                              } catch (err) { alert(err.message); }
+                            }}
+                            style={{ width: '75px', padding: '4px 6px', borderRadius: '6px', border: '1px solid rgba(45,80,22,0.2)', fontSize: '12px' }}
+                          />
+                        </td>
+
+                        {/* Handling Charge Input */}
+                        <td style={{padding:'10px 12px'}}>
+                          <input
+                            type="number"
+                            value={zone.handlingCharge}
+                            onChange={async e => {
+                              const val = Number(e.target.value) || 0;
+                              setDeliveryZones(prev => prev.map(z => z.id === zone.id ? { ...z, handlingCharge: val } : z));
+                            }}
+                            onBlur={async e => {
+                              const val = Number(e.target.value) || 0;
+                              try {
+                                const updated = await adminApi.updateDeliveryZone(zone.id, { handlingCharge: val });
+                                setDeliveryZones(prev => prev.map(z => z.id === zone.id ? updated : z));
+                              } catch (err) { alert(err.message); }
+                            }}
+                            style={{ width: '65px', padding: '4px 6px', borderRadius: '6px', border: '1px solid rgba(45,80,22,0.2)', fontSize: '12px' }}
+                          />
+                        </td>
+
                         <td style={{padding:'10px 12px'}}>
                           <button
                             className="admin-danger"
@@ -1797,88 +1858,8 @@ const Admin = () => {
                 </table>
               </div>
               <p style={{fontSize:11,color:'#687466',marginTop:12}}>
-                💡 These times are shown on the product cards and delivery page based on the customer's pincode. Changes apply instantly.
+                💡 These settings are specific to each delivery zone and are applied dynamically at checkout based on the customer's selected area. Changes apply instantly.
               </p>
-            </section>
-          )}
-
-          {activeTab === 'settings' && (
-            <section className="admin-grid admin-grid--settings" style={{ gridTemplateColumns: '1fr' }}>
-              <form className="admin-form" onSubmit={async (e) => {
-                e.preventDefault();
-                setApiLoading(true);
-                setSaveToast(null);
-                try {
-                  const updated = await adminApi.updateSettings({
-                    deliveryFee: Number(siteSettings.deliveryFee),
-                    freeDeliveryThreshold: Number(siteSettings.freeDeliveryThreshold),
-                    handlingCharge: Number(siteSettings.handlingCharge)
-                  });
-                  setSiteSettings(updated);
-                  setSaveToast({ type: 'success', msg: '✅ Checkout settings updated successfully!' });
-                  setTimeout(() => setSaveToast(null), 5000);
-                } catch (err) {
-                  console.error('Failed to save settings:', err);
-                  setSaveToast({ type: 'error', msg: `⚠️ Failed to save settings: ${err.message}` });
-                  setTimeout(() => setSaveToast(null), 8000);
-                } finally {
-                  setApiLoading(false);
-                }
-              }} style={{ maxWidth: '600px' }}>
-                <h2>Checkout & Delivery Settings</h2>
-                <p className="admin-muted" style={{ marginBottom: 16 }}>
-                  Configure the site-wide delivery fee, free delivery threshold, and handling charge applied at checkout.
-                </p>
-
-                <div className="admin-form__grid" style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
-                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
-                    <span style={{ fontWeight: 600, fontSize: 13, color: '#2D5016' }}>Delivery Fee (₹)</span>
-                    <input
-                      type="number"
-                      value={siteSettings.deliveryFee}
-                      onChange={(e) => setSiteSettings(prev => ({ ...prev, deliveryFee: e.target.value }))}
-                      placeholder="e.g. 25"
-                      required
-                      style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(45,80,22,0.2)' }}
-                    />
-                  </label>
-
-                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
-                    <span style={{ fontWeight: 600, fontSize: 13, color: '#2D5016' }}>Free Delivery Threshold (₹)</span>
-                    <input
-                      type="number"
-                      value={siteSettings.freeDeliveryThreshold}
-                      onChange={(e) => setSiteSettings(prev => ({ ...prev, freeDeliveryThreshold: e.target.value }))}
-                      placeholder="e.g. 500"
-                      required
-                      style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(45,80,22,0.2)' }}
-                    />
-                  </label>
-
-                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
-                    <span style={{ fontWeight: 600, fontSize: 13, color: '#2D5016' }}>Handling Charge (₹)</span>
-                    <input
-                      type="number"
-                      value={siteSettings.handlingCharge}
-                      onChange={(e) => setSiteSettings(prev => ({ ...prev, handlingCharge: e.target.value }))}
-                      placeholder="e.g. 5"
-                      required
-                      style={{ padding: 10, borderRadius: 8, border: '1px solid rgba(45,80,22,0.2)' }}
-                    />
-                  </label>
-                </div>
-
-                <div className="admin-form__actions" style={{ marginTop: 20, alignItems: 'center' }}>
-                  <button type="submit" className="admin__primary" disabled={apiLoading}>
-                    {apiLoading ? <div className="admin-spinner" /> : <FiSave />} Save Settings
-                  </button>
-                  {saveToast && (
-                    <div style={{ marginLeft: 'auto', padding: '8px 12px', borderRadius: '6px', fontSize: '14px', background: saveToast.type === 'error' ? '#fee' : '#e6f4ea', color: saveToast.type === 'error' ? '#c00' : '#1e8e3e' }}>
-                      {saveToast.msg}
-                    </div>
-                  )}
-                </div>
-              </form>
             </section>
           )}
 

@@ -7,3 +7,13 @@ export const getUserStorageKey = (user, type) => {
   const id = getUserStorageId(user);
   return id ? `siri-traders-${type}-${id}` : null;
 };
+
+export const getSavedAddresses = (user) => {
+  try {
+    const key = getUserStorageKey(user, 'addresses');
+    const saved = key ? localStorage.getItem(key) : null;
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+};

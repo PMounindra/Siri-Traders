@@ -94,10 +94,18 @@ const Checkout = () => {
   const selectedAddress = addresses.find(address => address.id === selectedAddressId);
   const addressReady = !!selectedAddress && !showAddressForm;
 
+  // Determine active zone for checkout fee calculations
+  const activeZone = (selectedAddress || addressForm) 
+    ? deliveryZones.find(z => z.area.toLowerCase() === (selectedAddress || addressForm).area.toLowerCase()) 
+    : null;
+  const activeDeliveryFeeVal = activeZone ? activeZone.deliveryFee : 25;
+  const activeFreeThresholdVal = activeZone ? activeZone.freeDeliveryThreshold : 500;
+  const activeHandlingChargeVal = activeZone ? activeZone.handlingCharge : 5;
+
   const couponDiscount = appliedCoupon?.discount || 0;
-  const baseDeliveryFee = cartTotal >= (deliverySettings?.freeDeliveryThreshold ?? 500) ? 0 : (deliverySettings?.deliveryFee ?? 25);
+  const baseDeliveryFee = (cartTotal >= activeFreeThresholdVal && activeFreeThresholdVal > 0) ? 0 : activeDeliveryFeeVal;
   const deliveryFee = appliedCoupon?.freeDelivery ? 0 : baseDeliveryFee;
-  const handlingCharge = deliverySettings?.handlingCharge ?? 5;
+  const handlingCharge = activeHandlingChargeVal;
   const grandTotal = Math.max(0, cartTotal + deliveryFee + handlingCharge - couponDiscount);
   const totalSaved = cartSavings + couponDiscount + (appliedCoupon?.freeDelivery ? baseDeliveryFee : 0);
 

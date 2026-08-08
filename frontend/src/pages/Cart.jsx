@@ -9,12 +9,13 @@ import { applyCoupon as evaluateCoupon } from '../data/coupons';
 import ProductCard from '../components/ProductCard';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
+import { getSavedAddresses } from '../utils/userStorage';
 import './Cart.css';
 
 const Cart = () => {
   const { cartItems, updateQuantity, removeFromCart, cartTotal, cartSavings, cartCount, requireAuth } = useCart();
   const { user, customerType } = useAuth();
-  const { retailCoupons, wholesaleCoupons, deliverySettings } = useSiteData();
+  const { retailCoupons, wholesaleCoupons, deliveryZones } = useSiteData();
   const { getProductsForType } = useProducts();
   const coupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
   const navigate = useNavigate();
@@ -22,9 +23,15 @@ const Cart = () => {
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
 
-  const baseDeliveryFee = cartTotal >= (deliverySettings?.freeDeliveryThreshold ?? 500) ? 0 : (deliverySettings?.deliveryFee ?? 25);
-  const handlingCharge = cartCount > 0 ? (deliverySettings?.handlingCharge ?? 5) : 0;
+  const savedAddress = getSavedAddresses(user)[0];
+  const activeZone = savedAddress ? deliveryZones.find(z => z.area.toLowerCase() === savedAddress.area.toLowerCase()) : null;
+  const activeDeliveryFeeVal = activeZone ? activeZone.deliveryFee : 25;
+  const activeFreeThresholdVal = activeZone ? activeZone.freeDeliveryThreshold : 500;
+  const activeHandlingChargeVal = activeZone ? activeZone.handlingCharge : 5;
+
+  const baseDeliveryFee = (cartTotal >= activeFreeThresholdVal && activeFreeThresholdVal > 0) ? 0 : activeDeliveryFeeVal;
   const deliveryFee = appliedCoupon?.freeDelivery ? 0 : baseDeliveryFee;
+  const handlingCharge = cartCount > 0 ? activeHandlingChargeVal : 0;
   const couponDiscount = appliedCoupon?.discount || 0;
   const grandTotal = cartTotal + deliveryFee + handlingCharge - couponDiscount;
 
