@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   FiBarChart2,
   FiEdit2,
-  FiCreditCard,
+  FiDollarSign,
   FiGift,
   FiLock,
   FiLogOut,
@@ -643,7 +643,7 @@ const Admin = () => {
               ['offers',             'Offers & coupons',  FiGift],
               ['customers',          'Customers',         FiUsers],
               ['orders',             'Orders',            FiShoppingBag],
-              ['payments',           'Bills & payments',  FiCreditCard],
+              ['payments',           'Bills & payments',  FiDollarSign],
               ['retail-content',     'Retail Content',    FiEdit2],
               ['wholesale-content',  'Wholesale Content', FiEdit2],
               ['delivery-zones',     'Delivery Zones',    FiTruck],
@@ -1194,7 +1194,7 @@ const Admin = () => {
               <div className="admin-payment-list">
                 {demoPayments.map(payment => (
                   <div key={payment.billNo} className="admin-payment-card">
-                    <FiCreditCard />
+                    <FiDollarSign />
                     <div>
                       <strong>{payment.billNo}</strong>
                       <span>{payment.customer} / {payment.orderId}</span>
