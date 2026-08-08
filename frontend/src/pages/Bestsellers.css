@@ -13,7 +13,7 @@
 .bspage__sidebar {
   width: 92px;
   background: #ffffff;
-  border: 1px solid rgba(30, 58, 95, 0.08);
+  border: 1px solid rgba(45, 80, 22, 0.08);
   border-radius: 18px;
   overflow-y: auto;
   position: sticky;
@@ -21,7 +21,7 @@
   height: calc(100vh - 132px);
   flex-shrink: 0;
   padding: 10px 0 78px;
-  box-shadow: 0 18px 40px rgba(30, 58, 95, 0.06);
+  box-shadow: 0 18px 40px rgba(45, 80, 22, 0.06);
 }
 
 .bspage__sidebar-item {
@@ -48,12 +48,12 @@
 }
 
 .bspage__sidebar-item--active {
-  background: linear-gradient(180deg, rgba(30, 58, 95, 0.06), rgba(255, 248, 223, 0.9));
+  background: linear-gradient(180deg, rgba(45, 80, 22, 0.06), rgba(255, 248, 223, 0.9));
   border-left-color: #B08D57;
 }
 
 .bspage__sidebar-item--active .bspage__sidebar-name {
-  color: #1E3A5F;
+  color: #2D5016;
   font-weight: 700;
 }
 
@@ -66,7 +66,7 @@
   align-items: center;
   justify-content: center;
   background: #F7F4EE;
-  border: 1px solid rgba(30, 58, 95, 0.1);
+  border: 1px solid rgba(45, 80, 22, 0.1);
 }
 
 .bspage__sidebar-icon img {
@@ -101,15 +101,15 @@
   margin-bottom: 14px;
   border-radius: 10px;
   background: linear-gradient(135deg, #F7F4EE, #EFE3D1);
-  border: 1px solid rgba(30, 58, 95, 0.13);
-  color: #1E3A5F;
+  border: 1px solid rgba(45, 80, 22, 0.13);
+  color: #2D5016;
   font-size: 13px;
   font-weight: 600;
 }
 
 .bspage__mode-banner--wholesale {
-  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
-  border-color: rgba(37, 99, 235, 0.2);
+  background: linear-gradient(135deg, #F1F8E9, #E8F5E9);
+  border-color: rgba(45, 80, 22, 0.2);
 }
 
 .bspage__mode-dot {
@@ -132,7 +132,7 @@
 .bspage__heading {
   font-size: clamp(22px, 3vw, 32px);
   font-weight: 800;
-  color: #1E3A5F;
+  color: #2D5016;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -152,14 +152,14 @@
   background: #ffffff;
   padding: 6px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(30, 58, 95, 0.08);
+  border: 1px solid rgba(45, 80, 22, 0.08);
 }
 
 .bspage__back-link {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #1E3A5F;
+  color: #2D5016;
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
@@ -181,14 +181,14 @@
   padding: 72px 18px;
   color: #687466;
   background: #ffffff;
-  border: 1px solid rgba(30, 58, 95, 0.08);
+  border: 1px solid rgba(45, 80, 22, 0.08);
   border-radius: 24px;
 }
 
 .bspage__empty-icon {
   width: 48px;
   height: 48px;
-  color: #2B4F78;
+  color: #3A6B1A;
   margin: 0 auto 12px;
   display: block;
 }

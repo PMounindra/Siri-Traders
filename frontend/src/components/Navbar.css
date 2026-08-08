@@ -9,7 +9,7 @@
   right: 0;
   z-index: var(--z-sticky);
   background: rgba(247, 244, 238, 0.98);
-  border-bottom: 1px solid rgba(30, 58, 95, 0.12);
+  border-bottom: 1px solid rgba(45, 80, 22, 0.12);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
@@ -44,8 +44,8 @@
   height: 58px;
   border-radius: 14px;
   background: #ffffff;
-  border: 1px solid rgba(30, 58, 95, 0.12);
-  box-shadow: 0 4px 12px rgba(30, 58, 95, 0.1);
+  border: 1px solid rgba(45, 80, 22, 0.12);
+  box-shadow: 0 4px 12px rgba(45, 80, 22, 0.1);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -66,7 +66,7 @@
 }
 
 .navbar__brand-name {
-  color: #1E3A5F;
+  color: #2D5016;
   font-size: 20px;
   font-weight: 800;
   letter-spacing: 0.3px;
@@ -101,7 +101,7 @@
   height: 40px;
   padding: 0 14px;
   border-radius: 9px;
-  color: #1E3A5F;
+  color: #2D5016;
   font-size: 13px;
   font-weight: 800;
   transition: background 0.18s, color 0.18s, box-shadow 0.18s;
@@ -111,9 +111,9 @@
 }
 
 .navbar__mode-btn--active {
-  background: #1E3A5F;
+  background: #2D5016;
   color: #ffffff;
-  box-shadow: 0 6px 14px rgba(30, 58, 95, 0.22);
+  box-shadow: 0 6px 14px rgba(45, 80, 22, 0.22);
 }
 
 /* ── Address pill (desktop) ── */
@@ -126,7 +126,7 @@
   border-radius: 14px;
   background: #ffffff;
   border: 1px solid rgba(176, 141, 87, 0.28);
-  color: #1E3A5F;
+  color: #2D5016;
   min-width: 260px;
   max-width: 340px;
   flex-shrink: 0;
@@ -230,7 +230,7 @@
   height: 46px;
   border-radius: 13px;
   background: #EFE3D1;
-  color: #1E3A5F;
+  color: #2D5016;
   border: 1px solid rgba(176, 141, 87, 0.4);
   display: inline-flex;
   align-items: center;
@@ -242,7 +242,7 @@
 
 .navbar__cart:hover {
   background: #D8C095;
-  color: #1E3A5F;
+  color: #2D5016;
 }
 
 .navbar__action-icon {
@@ -275,7 +275,7 @@
   height: 46px;
   padding: 0 16px;
   border-radius: 13px;
-  background: #1E3A5F;
+  background: #2D5016;
   color: #ffffff;
   font-size: 13px;
   font-weight: 700;
@@ -285,7 +285,7 @@
 }
 
 .navbar__signin:hover {
-  background: #2B4F78;
+  background: #3A6B1A;
 }
 
 .navbar__user-btn {
@@ -296,7 +296,7 @@
   height: 46px;
   border-radius: 13px;
   background: #ffffff;
-  color: #1E3A5F;
+  color: #2D5016;
   border: 1px solid rgba(176, 141, 87, 0.28);
   flex-shrink: 0;
   cursor: pointer;
@@ -312,7 +312,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #1E3A5F;
+  background: #2D5016;
   color: #ffffff;
   display: inline-flex;
   align-items: center;
@@ -340,7 +340,7 @@
   height: 46px;
   border-radius: 13px;
   background: #ffffff;
-  color: #1E3A5F;
+  color: #2D5016;
   border: 1px solid rgba(176, 141, 87, 0.28);
   align-items: center;
   justify-content: center;
@@ -377,7 +377,7 @@
   right: 12px;
   width: min(360px, calc(100vw - 24px));
   background: #ffffff;
-  border: 1px solid rgba(30, 58, 95, 0.1);
+  border: 1px solid rgba(45, 80, 22, 0.1);
   border-radius: 18px;
   box-shadow: 0 20px 48px rgba(17, 24, 39, 0.14);
   overflow: hidden;
@@ -407,7 +407,7 @@
   align-items: center;
   gap: 12px;
   padding: 8px 6px 12px;
-  border-bottom: 1px solid rgba(30, 58, 95, 0.08);
+  border-bottom: 1px solid rgba(45, 80, 22, 0.08);
   margin-bottom: 2px;
 }
 
@@ -449,7 +449,7 @@
 
 .dropdown-link:hover {
   background: #F7F4EE;
-  color: #1E3A5F;
+  color: #2D5016;
 }
 
 .dropdown-link--danger {
@@ -476,7 +476,7 @@
   padding: 10px 12px;
   border-radius: 12px;
   background: #F7F4EE;
-  border: 1px solid rgba(30, 58, 95, 0.08);
+  border: 1px solid rgba(45, 80, 22, 0.08);
   text-align: left;
   cursor: pointer;
   transition: background 0.15s;
@@ -511,7 +511,7 @@
   flex-direction: column;
   gap: 8px;
   padding-top: 10px;
-  border-top: 1px solid rgba(30, 58, 95, 0.08);
+  border-top: 1px solid rgba(45, 80, 22, 0.08);
 }
 
 .navbar__address-form input {
@@ -551,7 +551,7 @@
   height: 42px;
   padding: 0 14px;
   border-radius: 10px;
-  background: #1E3A5F;
+  background: #2D5016;
   color: #ffffff;
   font-size: 13px;
   font-weight: 800;
@@ -561,7 +561,7 @@
 }
 
 .navbar__address-save:hover {
-  background: #2B4F78;
+  background: #3A6B1A;
 }
 
 /* ============================

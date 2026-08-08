@@ -30,7 +30,7 @@
   padding: 10px 16px;
   margin: 8px 0 0;
   border-radius: 10px;
-  background: linear-gradient(135deg, #1E3A5F 0%, #2563EB 100%);
+  background: linear-gradient(135deg, #2D5016 0%, #2D5016 100%);
   color: #FFFFFF;
   font-size: 13px;
   font-weight: 700;
@@ -250,9 +250,9 @@
 
 /* Wholesale hero variant */
 .home-hero--wholesale {
-  background: linear-gradient(135deg, #1E3A5F 0%, #2563EB 40%, #3B82F6 70%, #2563EB 100%);
+  background: linear-gradient(135deg, #2D5016 0%, #2D5016 40%, #5A9A28 70%, #2D5016 100%);
   box-shadow:
-    0 14px 30px rgba(37, 99, 235, 0.25),
+    0 14px 30px rgba(45, 80, 22, 0.25),
     inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
@@ -276,10 +276,10 @@
 .home-hero__panel {
   min-width: 0;
   padding: 18px;
-  border: 1px solid rgba(30, 58, 95, 0.1);
+  border: 1px solid rgba(45, 80, 22, 0.1);
   border-radius: 14px;
   background: #FFFFFF;
-  box-shadow: 0 8px 24px rgba(30, 58, 95, 0.08);
+  box-shadow: 0 8px 24px rgba(45, 80, 22, 0.08);
 }
 
 .home-hero__panel--festival {
@@ -305,7 +305,7 @@
 }
 
 .home-hero__panel-head h2 {
-  color: #1E3A5F;
+  color: #2D5016;
   font-size: 22px;
   line-height: 1.15;
   font-weight: 800;
@@ -315,7 +315,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #1E3A5F;
+  color: #2D5016;
   font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
@@ -323,7 +323,7 @@
 }
 
 .home-hero__panel-head > a:hover {
-  color: #1E3A5F;
+  color: #2D5016;
 }
 
 .home-hero__festival-desc {
@@ -358,7 +358,7 @@
 
 .home-hero__offer-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(30, 58, 95, 0.12);
+  box-shadow: 0 8px 20px rgba(45, 80, 22, 0.12);
 }
 
 .home-hero__offer-card img {
@@ -376,7 +376,7 @@
   padding: 2px 6px;
   border-radius: 4px;
   background: #F7F4EE;
-  color: #1E3A5F;
+  color: #2D5016;
   font-size: 9px;
   font-weight: 800;
   text-transform: uppercase;
@@ -389,7 +389,7 @@
 }
 
 .home-hero__offer-card h3 {
-  color: #1E3A5F;
+  color: #2D5016;
   font-size: 12px;
   font-weight: 700;
   line-height: 1.25;
@@ -398,7 +398,7 @@
 }
 
 .home-hero__offer-card strong {
-  color: #1E3A5F;
+  color: #2D5016;
   font-size: 14px;
   font-weight: 800;
 }
@@ -418,7 +418,7 @@
   border: 1px solid rgba(176, 141, 87, 0.16);
   border-radius: 14px;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 252, 244, 0.98)) !important;
-  box-shadow: 0 10px 28px rgba(30, 58, 95, 0.08);
+  box-shadow: 0 10px 28px rgba(45, 80, 22, 0.08);
 }
 
 .home__section--categories .section-header {
@@ -454,9 +454,9 @@
   height: 34px;
   border-radius: var(--radius-full);
   background: #FFFFFF;
-  color: #1E3A5F;
-  border: 1px solid rgba(30, 58, 95, 0.12);
-  box-shadow: 0 8px 20px rgba(30, 58, 95, 0.16);
+  color: #2D5016;
+  border: 1px solid rgba(45, 80, 22, 0.12);
+  box-shadow: 0 8px 20px rgba(45, 80, 22, 0.16);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -596,7 +596,7 @@
   align-items: center;
   justify-content: center;
   font-size: 18px;
-  color: #1E3A5F;
+  color: #2D5016;
   transition: all var(--transition-fast);
 }
 
@@ -811,14 +811,14 @@
 /* Final visual polish */
 .home__wholesale-banner {
   background: linear-gradient(135deg, #F7F4EE 0%, #d9ecd0 100%);
-  color: #1E3A5F;
-  box-shadow: inset 0 0 0 1px rgba(30, 58, 95, 0.08);
+  color: #2D5016;
+  box-shadow: inset 0 0 0 1px rgba(45, 80, 22, 0.08);
 }
 
 .home-hero,
 .home-hero--wholesale {
-  background: linear-gradient(135deg, #1E3A5F 0%, #B08D57 48%, #dbeccd 100%);
-  box-shadow: 0 14px 30px rgba(30, 58, 95, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  background: linear-gradient(135deg, #2D5016 0%, #B08D57 48%, #dbeccd 100%);
+  box-shadow: 0 14px 30px rgba(45, 80, 22, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .home-hero::before,
@@ -853,13 +853,13 @@
   border-radius: 8px;
   border: 1px solid #8aae5d;
   background: #ffffff;
-  color: #1E3A5F;
+  color: #2D5016;
   font-size: 12px;
   font-weight: 800;
 }
 
 .home-hero__offer-bottom button:hover {
-  background: #1E3A5F;
+  background: #2D5016;
   color: #ffffff;
 }
 
@@ -986,9 +986,9 @@
 .home-hero,
 .home-hero--wholesale {
   background:
-    linear-gradient(135deg, rgba(30, 58, 95, 0.94) 0%, rgba(42, 75, 114, 0.9) 52%, rgba(176, 141, 87, 0.98) 100%),
+    linear-gradient(135deg, rgba(45, 80, 22, 0.94) 0%, rgba(42, 75, 114, 0.9) 52%, rgba(176, 141, 87, 0.98) 100%),
     url('/logo-mark.webp') right 24px center / 210px auto no-repeat;
-  border: 1px solid rgba(30, 58, 95, 0.12);
+  border: 1px solid rgba(45, 80, 22, 0.12);
 }
 
 .home-hero h1 {
@@ -1008,9 +1008,9 @@
 
 .home-hero__panel,
 .home__section--categories {
-  border-color: rgba(30, 58, 95, 0.12);
+  border-color: rgba(45, 80, 22, 0.12);
   background: #ffffff;
-  box-shadow: 0 10px 26px rgba(30, 58, 95, 0.08);
+  box-shadow: 0 10px 26px rgba(45, 80, 22, 0.08);
 }
 
 .home-hero__panel--festival {
@@ -1020,7 +1020,7 @@
 .home-hero__panel-head span,
 .home-hero__offer-badge,
 .home-hero__offer-badge--festive {
-  color: #1E3A5F;
+  color: #2D5016;
 }
 
 .home-hero__offer-badge,
@@ -1031,7 +1031,7 @@
 .home-hero__offer-card {
   display: flex;
   flex-direction: column;
-  border-color: rgba(30, 58, 95, 0.12);
+  border-color: rgba(45, 80, 22, 0.12);
   background: #ffffff;
 }
 
@@ -1047,7 +1047,7 @@
 .home-hero__offer-bottom button {
   background: #F7F4EE;
   border-color: #b9d7ad;
-  color: #1E3A5F;
+  color: #2D5016;
 }
 
 .home__deals-scroll {
@@ -1077,7 +1077,7 @@
     padding: 20px 12px 16px;
     border-radius: 14px;
     background:
-      linear-gradient(135deg, rgba(30, 58, 95, 0.95), rgba(42, 75, 114, 0.9)),
+      linear-gradient(135deg, rgba(45, 80, 22, 0.95), rgba(42, 75, 114, 0.9)),
       url('/logo-mark.webp') right 10px top 10px / 92px auto no-repeat;
   }
 
@@ -1117,9 +1117,9 @@
 .home-hero--wholesale {
   background:
     radial-gradient(circle at 18% 18%, rgba(176, 141, 87, 0.55), transparent 28%),
-    linear-gradient(135deg, #1E3A5F 0%, #2A4B72 48%, #B08D57 100%);
+    linear-gradient(135deg, #2D5016 0%, #2A4B72 48%, #B08D57 100%);
   border: 1px solid rgba(176, 141, 87, 0.28);
-  box-shadow: 0 16px 34px rgba(30, 58, 95, 0.18);
+  box-shadow: 0 16px 34px rgba(45, 80, 22, 0.18);
 }
 
 .home-hero h1 {
@@ -1149,9 +1149,9 @@
 
 .home-hero__panel,
 .home__section--categories {
-  border-color: rgba(30, 58, 95, 0.13);
+  border-color: rgba(45, 80, 22, 0.13);
   background: #FFFFFF !important;
-  box-shadow: 0 10px 28px rgba(30, 58, 95, 0.08);
+  box-shadow: 0 10px 28px rgba(45, 80, 22, 0.08);
 }
 
 .home-hero__panel--festival {
@@ -1168,13 +1168,13 @@
 .home-hero__offer-card h3,
 .home-hero__offer-card strong,
 .home__footer-name {
-  color: #1E3A5F;
+  color: #2D5016;
 }
 
 .home-hero__panel-head > a,
 .home__scroll-btn,
 .home__footer-social-link {
-  color: #1E3A5F;
+  color: #2D5016;
 }
 
 .home-hero__offer-badge,
@@ -1187,12 +1187,12 @@
 .home-hero__offer-stepper {
   border: 1px solid rgba(176, 141, 87, 0.52);
   background: #FFFFFF;
-  color: #1E3A5F;
+  color: #2D5016;
 }
 
 .home-hero__offer-bottom button:hover,
 .home-hero__offer-stepper button:hover {
-  background: #1E3A5F;
+  background: #2D5016;
   color: #FFFFFF;
 }
 
@@ -1250,7 +1250,7 @@
 }
 
 .home__footer {
-  background: #1E3A5F;
+  background: #2D5016;
   color: #FFFFFF;
   border-top-color: rgba(176, 141, 87, 0.28);
 }
@@ -1270,7 +1270,7 @@
   .home-hero--wholesale {
     background:
       radial-gradient(circle at 12% 12%, rgba(176, 141, 87, 0.42), transparent 30%),
-      linear-gradient(135deg, #1E3A5F 0%, #2B4F78 58%, #B08D57 100%);
+      linear-gradient(135deg, #2D5016 0%, #3A6B1A 58%, #B08D57 100%);
   }
 
   .home__section--categories {
@@ -1297,14 +1297,14 @@
 .home-hero__panel-head > a,
 .home__scroll-btn,
 .home__footer-social-link {
-  color: #1E3A5F;
+  color: #2D5016;
 }
 
 
 .home-hero__offer-bottom button:hover,
 .home-hero__offer-stepper button:hover,
 .home__scroll-btn:hover {
-  background: #1E3A5F;
+  background: #2D5016;
   color: #FFFFFF;
 }
 

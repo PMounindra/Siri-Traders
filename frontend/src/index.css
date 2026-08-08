@@ -7,9 +7,9 @@
 /* --- Design Tokens --- */
 :root {
   /* Brand Colors */
-  --color-primary: #1E3A5F;
-  --color-primary-medium: #2B4F78;
-  --color-primary-light: #456E98;
+  --color-primary: #2D5016;
+  --color-primary-medium: #3A6B1A;
+  --color-primary-light: #5A9A28;
   --color-accent: #B08D57;
   --color-accent-light: #D8C095;
   --color-accent-pale: #F7F4EE;
@@ -367,14 +367,14 @@ textarea {
 }
 
 .section-title svg {
-  color: #1E3A5F;
+  color: #2D5016;
   stroke-width: 2.5;
 }
 
 .section-link {
   font-size: 14px;
   font-weight: 600;
-  color: #1E3A5F;
+  color: #2D5016;
   display: flex;
   align-items: center;
   gap: 4px;

@@ -18,15 +18,15 @@
   margin-bottom: 16px;
   border-radius: 10px;
   background: linear-gradient(135deg, #F7F4EE, #EFE3D1);
-  border: 1px solid rgba(30, 58, 95, 0.13);
-  color: #1E3A5F;
+  border: 1px solid rgba(45, 80, 22, 0.13);
+  color: #2D5016;
   font-size: 13px;
   font-weight: 600;
 }
 
 .fopage__mode-banner--wholesale {
-  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
-  border-color: rgba(37, 99, 235, 0.2);
+  background: linear-gradient(135deg, #F1F8E9, #E8F5E9);
+  border-color: rgba(45, 80, 22, 0.2);
 }
 
 .fopage__mode-dot {
@@ -49,7 +49,7 @@
 .fopage__heading {
   font-size: clamp(22px, 3vw, 32px);
   font-weight: 800;
-  color: #1E3A5F;
+  color: #2D5016;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -69,14 +69,14 @@
   background: #ffffff;
   padding: 6px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(30, 58, 95, 0.08);
+  border: 1px solid rgba(45, 80, 22, 0.08);
 }
 
 .fopage__back-link {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #1E3A5F;
+  color: #2D5016;
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
@@ -101,14 +101,14 @@
   overflow: hidden;
   border: 1px solid rgba(176, 141, 87, 0.2);
   background: #ffffff;
-  box-shadow: 0 6px 18px rgba(30, 58, 95, 0.07);
+  box-shadow: 0 6px 18px rgba(45, 80, 22, 0.07);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   color: inherit;
 }
 
 .fopage__card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 28px rgba(30, 58, 95, 0.12);
+  box-shadow: 0 12px 28px rgba(45, 80, 22, 0.12);
 }
 
 .fopage__card-img-wrap {
@@ -135,7 +135,7 @@
   left: 10px;
   padding: 4px 10px;
   border-radius: 6px;
-  background: #1E3A5F;
+  background: #2D5016;
   color: #ffffff;
   font-size: 10px;
   font-weight: 800;
@@ -154,7 +154,7 @@
 .fopage__card-title {
   font-size: 15px;
   font-weight: 800;
-  color: #1E3A5F;
+  color: #2D5016;
   line-height: 1.3;
   margin: 0;
 }
@@ -185,7 +185,7 @@
 .fopage__card-price strong {
   font-size: 17px;
   font-weight: 800;
-  color: #1E3A5F;
+  color: #2D5016;
 }
 
 .fopage__card-mrp {
@@ -210,7 +210,7 @@
   border-radius: 8px;
   border: 1px solid #B08D57;
   background: #ffffff;
-  color: #1E3A5F;
+  color: #2D5016;
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
@@ -219,7 +219,7 @@
 }
 
 .fopage__card-add:hover {
-  background: #1E3A5F;
+  background: #2D5016;
   color: #ffffff;
 }
 
@@ -234,7 +234,7 @@
   overflow: hidden;
   font-size: 13px;
   font-weight: 800;
-  color: #1E3A5F;
+  color: #2D5016;
   flex-shrink: 0;
 }
 
@@ -254,7 +254,7 @@
 }
 
 .fopage__card-stepper button:hover {
-  background: #1E3A5F;
+  background: #2D5016;
   color: #ffffff;
 }
 

@@ -24,9 +24,9 @@
 
 .profile__avatar {
   width: 80px; height: 80px; border-radius: var(--radius-full);
-  background: linear-gradient(135deg, #1E3A5F, #2B4F78);
+  background: linear-gradient(135deg, #2D5016, #3A6B1A);
   display: flex; align-items: center; justify-content: center;
-  margin: 0 auto var(--space-md); box-shadow: 0 4px 20px rgba(30, 58, 95, 0.3);
+  margin: 0 auto var(--space-md); box-shadow: 0 4px 20px rgba(45, 80, 22, 0.3);
 }
 
 .profile__avatar span {
@@ -143,7 +143,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #1E3A5F;
+  color: #2D5016;
   background: #F7F4EE;
 }
 
@@ -266,7 +266,7 @@
   align-items: center;
   justify-content: center;
   background: #F7F4EE;
-  color: #1E3A5F;
+  color: #2D5016;
 }
 
 .profile-list__item button:last-child {
@@ -294,7 +294,7 @@
 
 .profile-action-btn {
   color: #FFFFFF;
-  background: #1E3A5F;
+  background: #2D5016;
 }
 
 .profile-danger-btn {
@@ -321,7 +321,7 @@
 .profile-toggle input {
   width: 42px;
   height: 24px;
-  accent-color: #1E3A5F;
+  accent-color: #2D5016;
 }
 
 .profile-contact-card {

@@ -39,7 +39,7 @@
 }
 
 .pd__crumb--current {
-  color: #1E3A5F;
+  color: #2D5016;
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -70,10 +70,10 @@
   grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
   gap: 0;
   background: #ffffff;
-  border: 1px solid rgba(30, 58, 95, 0.1);
+  border: 1px solid rgba(45, 80, 22, 0.1);
   border-radius: 28px;
   overflow: hidden;
-  box-shadow: 0 22px 60px rgba(30, 58, 95, 0.08);
+  box-shadow: 0 22px 60px rgba(45, 80, 22, 0.08);
 }
 
 .pd__media {
@@ -89,7 +89,7 @@
       rgba(255, 193, 7, 0.18),
       transparent 28%
     ),
-    radial-gradient(circle at 80% 80%, rgba(30, 58, 95, 0.12), transparent 30%),
+    radial-gradient(circle at 80% 80%, rgba(45, 80, 22, 0.12), transparent 30%),
     linear-gradient(
       180deg,
       rgba(247, 250, 247, 0.96),
@@ -110,7 +110,7 @@
   min-height: 260px;
   border-radius: 26px;
   background: linear-gradient(135deg, #F7F4EE, #fff8df);
-  color: #1E3A5F;
+  color: #2D5016;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -139,7 +139,7 @@
 }
 
 .pd__tag--green {
-  background: #1E3A5F;
+  background: #2D5016;
   color: #ffffff;
 }
 
@@ -170,7 +170,7 @@
 }
 
 .pd__name {
-  color: #1E3A5F;
+  color: #2D5016;
   font-size: clamp(28px, 3.1vw, 44px);
   line-height: 1.06;
   font-weight: 800;
@@ -225,7 +225,7 @@
   border: 1px solid #DCE6D6;
   border-radius: 8px;
   background: #F8FAF5;
-  color: #1E3A5F;
+  color: #2D5016;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -256,7 +256,7 @@
 }
 
 .pd__price {
-  color: #1E3A5F;
+  color: #2D5016;
   font-size: clamp(30px, 3.4vw, 48px);
   font-weight: 800;
 }
@@ -295,8 +295,8 @@
 }
 
 .pd__stock {
-  background: rgba(30, 58, 95, 0.08);
-  color: #1E3A5F;
+  background: rgba(45, 80, 22, 0.08);
+  color: #2D5016;
 }
 
 .pd__stock--out {
@@ -320,7 +320,7 @@
 .pd__stepper {
   display: inline-flex;
   align-items: center;
-  border: 1px solid rgba(30, 58, 95, 0.16);
+  border: 1px solid rgba(45, 80, 22, 0.16);
   border-radius: 16px;
   overflow: hidden;
   background: #ffffff;
@@ -332,7 +332,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #1E3A5F;
+  color: #2D5016;
   background: #F7F4EE;
 }
 
@@ -359,7 +359,7 @@
   height: 52px;
   border-radius: 16px;
   padding: 0 20px;
-  background: #1E3A5F;
+  background: #2D5016;
   color: #ffffff;
   font-size: 15px;
   font-weight: 800;
@@ -367,16 +367,16 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  box-shadow: 0 14px 26px rgba(30, 58, 95, 0.16);
+  box-shadow: 0 14px 26px rgba(45, 80, 22, 0.16);
 }
 
 .pd__cta:hover {
-  background: #2B4F78;
+  background: #3A6B1A;
 }
 
 .pd__cta--secondary {
   background: #fff8df;
-  color: #1E3A5F;
+  color: #2D5016;
   box-shadow: none;
   border: 1px solid rgba(255, 193, 7, 0.2);
 }
@@ -411,7 +411,7 @@
     rgba(247, 250, 247, 0.95),
     rgba(255, 255, 255, 0.92)
   );
-  border: 1px solid rgba(30, 58, 95, 0.08);
+  border: 1px solid rgba(45, 80, 22, 0.08);
 }
 
 .pd__highlight-icon {
@@ -424,7 +424,7 @@
   justify-content: center;
   flex-shrink: 0;
   font-weight: 800;
-  color: #1E3A5F;
+  color: #2D5016;
 }
 
 .pd__highlight strong {
@@ -445,8 +445,8 @@
   padding: 24px;
   border-radius: 24px;
   background: #ffffff;
-  border: 1px solid rgba(30, 58, 95, 0.08);
-  box-shadow: 0 18px 40px rgba(30, 58, 95, 0.06);
+  border: 1px solid rgba(45, 80, 22, 0.08);
+  box-shadow: 0 18px 40px rgba(45, 80, 22, 0.06);
 }
 
 .pd-reviews__header {
@@ -458,7 +458,7 @@
 }
 
 .pd-reviews__title {
-  color: #1E3A5F;
+  color: #2D5016;
   font-size: 22px;
   font-weight: 800;
 }
@@ -470,7 +470,7 @@
 }
 
 .pd-reviews__count {
-  color: #1E3A5F;
+  color: #2D5016;
   font-size: 13px;
   font-weight: 700;
   padding: 8px 12px;
@@ -492,7 +492,7 @@
     rgba(247, 250, 247, 0.94),
     rgba(255, 255, 255, 0.98)
   );
-  border: 1px solid rgba(30, 58, 95, 0.08);
+  border: 1px solid rgba(45, 80, 22, 0.08);
 }
 
 .pd-reviews__meta {
@@ -533,7 +533,7 @@
 }
 
 .pd-related__title {
-  color: #1E3A5F;
+  color: #2D5016;
   font-size: 24px;
   font-weight: 800;
 }
@@ -576,11 +576,11 @@
 .pd__not-found h2 {
   margin: 14px 0 20px;
   font-size: 22px;
-  color: #1E3A5F;
+  color: #2D5016;
 }
 
 .pd__back-home {
-  background: #1E3A5F;
+  background: #2D5016;
   color: #ffffff;
   padding: 12px 22px;
   border-radius: 14px;

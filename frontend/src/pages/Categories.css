@@ -10,7 +10,7 @@
     radial-gradient(circle at 12% 0%, rgba(255, 193, 7, 0.14), transparent 26%),
     radial-gradient(
       circle at 100% 12%,
-      rgba(30, 58, 95, 0.08),
+      rgba(45, 80, 22, 0.08),
       transparent 28%
     ),
     linear-gradient(180deg, rgba(247, 250, 247, 0.78), #ffffff 24%);
@@ -20,7 +20,7 @@
 .categories__sidebar {
   width: 92px;
   background: #ffffff;
-  border: 1px solid rgba(30, 58, 95, 0.08);
+  border: 1px solid rgba(45, 80, 22, 0.08);
   border-radius: 24px;
   overflow-y: auto;
   position: sticky;
@@ -28,7 +28,7 @@
   height: calc(100vh - 132px);
   flex-shrink: 0;
   padding: 10px 0 78px;
-  box-shadow: 0 18px 40px rgba(30, 58, 95, 0.06);
+  box-shadow: 0 18px 40px rgba(45, 80, 22, 0.06);
 }
 
 .categories__sidebar-item {
@@ -61,7 +61,7 @@
 .categories__sidebar-item--active {
   background: linear-gradient(
     180deg,
-    rgba(30, 58, 95, 0.08),
+    rgba(45, 80, 22, 0.08),
     rgba(255, 248, 223, 0.9)
   );
   border-left-color: var(--color-accent);
@@ -108,7 +108,7 @@
   background: #ffffff;
   padding: 7px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(30, 58, 95, 0.08);
+  border: 1px solid rgba(45, 80, 22, 0.08);
 }
 
 .categories__mode-banner {
@@ -120,15 +120,15 @@
   border-radius: 10px;
   background: linear-gradient(135deg, #F7F4EE, #F7F4EE);
   border: 1px solid rgba(176, 141, 87, 0.2);
-  color: #1E3A5F;
+  color: #2D5016;
   font-size: 13px;
   font-weight: 600;
 }
 
 .categories__mode-banner--wholesale {
-  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
-  border-color: rgba(37, 99, 235, 0.2);
-  color: #1E3A5F;
+  background: linear-gradient(135deg, #F1F8E9, #E8F5E9);
+  border-color: rgba(45, 80, 22, 0.2);
+  color: #2D5016;
 }
 
 .categories__mode-banner svg {
@@ -162,9 +162,9 @@
   padding: 72px 18px;
   color: var(--color-text-secondary);
   background: #ffffff;
-  border: 1px solid rgba(30, 58, 95, 0.08);
+  border: 1px solid rgba(45, 80, 22, 0.08);
   border-radius: 24px;
-  box-shadow: 0 16px 32px rgba(30, 58, 95, 0.05);
+  box-shadow: 0 16px 32px rgba(45, 80, 22, 0.05);
 }
 
 .categories__empty-emoji {
@@ -271,7 +271,7 @@
   align-items: center;
   justify-content: center;
   background: #F7F4EE;
-  border: 1px solid rgba(30, 58, 95, 0.1);
+  border: 1px solid rgba(45, 80, 22, 0.1);
 }
 
 .categories__sidebar-icon img {
@@ -281,7 +281,7 @@
 }
 
 .categories__sidebar-icon--all {
-  color: #1E3A5F;
+  color: #2D5016;
 }
 
 .categories__sidebar-icon--all svg {
@@ -297,15 +297,15 @@
 .categories__empty-icon {
   width: 48px;
   height: 48px;
-  color: #2B4F78;
+  color: #3A6B1A;
   margin: 0 auto 12px;
 }
 
 .categories__mode-banner,
 .categories__mode-banner--wholesale {
   background: linear-gradient(135deg, #F7F4EE, #EFE3D1);
-  border-color: rgba(30, 58, 95, 0.13);
-  color: #1E3A5F;
+  border-color: rgba(45, 80, 22, 0.13);
+  color: #2D5016;
 }
 
 @media (max-width: 767px) {
