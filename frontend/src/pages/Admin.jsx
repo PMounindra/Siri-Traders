@@ -1781,7 +1781,8 @@ const Admin = () => {
                         <td style={{padding:'10px 12px'}}>
                           <input
                             type="number"
-                            value={zone.deliveryFee}
+                            value={zone.deliveryFee === 0 ? '' : zone.deliveryFee}
+                            placeholder="0"
                             onChange={async e => {
                               const val = Number(e.target.value) || 0;
                               setDeliveryZones(prev => prev.map(z => z.id === zone.id ? { ...z, deliveryFee: val } : z));
@@ -1801,7 +1802,8 @@ const Admin = () => {
                         <td style={{padding:'10px 12px'}}>
                           <input
                             type="number"
-                            value={zone.handlingCharge}
+                            value={zone.handlingCharge === 0 ? '' : zone.handlingCharge}
+                            placeholder="0"
                             onChange={async e => {
                               const val = Number(e.target.value) || 0;
                               setDeliveryZones(prev => prev.map(z => z.id === zone.id ? { ...z, handlingCharge: val } : z));
