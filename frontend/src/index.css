@@ -441,12 +441,13 @@ html {
   --color-gold-light: #FFFDE7;
 }
 
-/* Hide Clerk branding footers, links, and development badges globally */
-.cl-footer, 
+/* Hide Clerk branding footers, links, and development badges globally without breaking switch links */
 .cl-internal-b30g6y,
 a[href*="clerk.com"],
 a[href*="clerk.dev"],
-.cl-footerAction,
-.cl-internal-19b16l7 {
+.cl-internal-19b16l7,
+.cl-logoImage,
+.cl-logoBox {
   display: none !important;
-}
+}
+
