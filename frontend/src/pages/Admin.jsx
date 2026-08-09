@@ -19,7 +19,8 @@ import {
   FiX,
   FiMapPin,
   FiSettings,
-  FiStar
+  FiStar,
+  FiCheck
 } from 'react-icons/fi';
 import { getAccounts } from '../context/AuthContext';
 import { useAdminApi } from '../hooks/useAdminApi';
@@ -266,6 +267,7 @@ const Admin = () => {
   const [newCat, setNewCat] = useState({ name: '', image: '', color: '#F7F4EE' });
   const [deliveryZones, setDeliveryZones] = useState([]);
   const [newZone, setNewZone] = useState({ area: '', pincode: '', time: '30 mins', distance: '', deliveryFee: 0, freeDeliveryThreshold: 0, handlingCharge: 0 });
+  const [savedZoneIds, setSavedZoneIds] = useState({});
   // Variant builder: predefined checkboxes + custom entries
   const defaultVariantOptions = ['100 g','200 g','250 g','500 g','1 kg','2 kg','5 kg','10 kg','100 ml','200 ml','500 ml','1 L','5 L','15 L'];
   const [checkedVariants, setCheckedVariants] = useState([]);
@@ -1763,12 +1765,9 @@ const Admin = () => {
                         <td style={{padding:'10px 12px'}}>
                           <select
                             value={zone.time}
-                            onChange={async e => {
+                            onChange={e => {
                               const time = e.target.value;
-                              try {
-                                const updated = await adminApi.updateDeliveryZone(zone.id, { time });
-                                setDeliveryZones(prev => prev.map(z => z.id === zone.id ? updated : z));
-                              } catch (err) { alert(err.message); }
+                              setDeliveryZones(prev => prev.map(z => z.id === zone.id ? { ...z, time } : z));
                             }}
                             style={{padding:'4px 8px',borderRadius:7,border:'1px solid rgba(45,80,22,0.2)',background:'#F1F8E9',color:'#2D5016',fontWeight:700,fontSize:12,cursor:'pointer'}}
                           >
@@ -1783,16 +1782,9 @@ const Admin = () => {
                             type="number"
                             value={zone.deliveryFee === 0 ? '' : zone.deliveryFee}
                             placeholder="0"
-                            onChange={async e => {
+                            onChange={e => {
                               const val = Number(e.target.value) || 0;
                               setDeliveryZones(prev => prev.map(z => z.id === zone.id ? { ...z, deliveryFee: val } : z));
-                            }}
-                            onBlur={async e => {
-                              const val = Number(e.target.value) || 0;
-                              try {
-                                const updated = await adminApi.updateDeliveryZone(zone.id, { deliveryFee: val });
-                                setDeliveryZones(prev => prev.map(z => z.id === zone.id ? updated : z));
-                              } catch (err) { alert(err.message); }
                             }}
                             style={{ width: '65px', padding: '4px 6px', borderRadius: '6px', border: '1px solid rgba(45,80,22,0.2)', fontSize: '12px' }}
                           />
@@ -1804,26 +1796,53 @@ const Admin = () => {
                             type="number"
                             value={zone.handlingCharge === 0 ? '' : zone.handlingCharge}
                             placeholder="0"
-                            onChange={async e => {
+                            onChange={e => {
                               const val = Number(e.target.value) || 0;
                               setDeliveryZones(prev => prev.map(z => z.id === zone.id ? { ...z, handlingCharge: val } : z));
-                            }}
-                            onBlur={async e => {
-                              const val = Number(e.target.value) || 0;
-                              try {
-                                const updated = await adminApi.updateDeliveryZone(zone.id, { handlingCharge: val });
-                                setDeliveryZones(prev => prev.map(z => z.id === zone.id ? updated : z));
-                              } catch (err) { alert(err.message); }
                             }}
                             style={{ width: '65px', padding: '4px 6px', borderRadius: '6px', border: '1px solid rgba(45,80,22,0.2)', fontSize: '12px' }}
                           />
                         </td>
 
-                        <td style={{padding:'10px 12px'}}>
+                        <td style={{padding:'10px 12px', display:'flex', gap:'6px'}}>
+                          <button
+                            className="admin__primary"
+                            style={{
+                              width:30,
+                              height:30,
+                              borderRadius:7,
+                              display:'flex',
+                              alignItems:'center',
+                              justifyContent:'center',
+                              background: savedZoneIds[zone.id] ? '#1e8e3e' : '#2D5016',
+                              border: 'none',
+                              color: '#fff',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                            title="Save changes to website"
+                            onClick={async () => {
+                              try {
+                                const updated = await adminApi.updateDeliveryZone(zone.id, {
+                                  time: zone.time,
+                                  deliveryFee: zone.deliveryFee,
+                                  handlingCharge: zone.handlingCharge
+                                });
+                                setDeliveryZones(prev => prev.map(z => z.id === zone.id ? updated : z));
+                                setSavedZoneIds(prev => ({ ...prev, [zone.id]: true }));
+                                setTimeout(() => {
+                                  setSavedZoneIds(prev => ({ ...prev, [zone.id]: false }));
+                                }, 2000);
+                              } catch (err) { alert(err.message); }
+                            }}
+                          >
+                            {savedZoneIds[zone.id] ? <FiCheck size={14} /> : <FiSave size={13} />}
+                          </button>
                           <button
                             className="admin-danger"
                             style={{width:30,height:30,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center'}}
                             onClick={async () => {
+                              if (!window.confirm(`Are you sure you want to delete the zone "${zone.area}"?`)) return;
                               try {
                                 await adminApi.deleteDeliveryZone(zone.id);
                                 setDeliveryZones(prev => prev.filter(z => z.id !== zone.id));
