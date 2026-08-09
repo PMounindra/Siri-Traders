@@ -752,14 +752,16 @@
 
 .admin-content-header {
   display: grid;
-  grid-template-columns: 58px minmax(180px, 1fr) 100px 100px 150px minmax(220px, 1.2fr);
-  gap: 10px;
+  grid-template-columns: 56px 1.2fr 80px 80px 60px 120px 80px 3.5fr;
+  gap: 8px;
   align-items: center;
-  padding: 0 10px 2px;
+  padding: 8px 10px;
+  min-width: 1100px;
 }
 
 .admin-content-header--ws {
-  grid-template-columns: 58px minmax(150px, 1fr) 90px 70px 130px 100px minmax(130px,1fr) minmax(130px,1fr) minmax(180px, 1fr);
+  grid-template-columns: 56px 1.2fr 75px 75px 55px 110px 75px 75px 100px 75px 100px 75px 3fr;
+  min-width: 1550px;
 }
 
 .admin-content-header span {
@@ -771,17 +773,19 @@
 
 .admin-content-editor {
   display: grid;
-  grid-template-columns: 58px minmax(180px, 1fr) 100px 100px 150px minmax(220px, 1.2fr);
-  gap: 10px;
+  grid-template-columns: 56px 1.2fr 80px 80px 60px 120px 80px 3.5fr;
+  gap: 8px;
   align-items: center;
   border: 1px solid var(--color-border-light);
   border-radius: 12px;
   padding: 10px;
   background: #FFFFFF;
+  min-width: 1100px;
 }
 
 .admin-content-editor--ws {
-  grid-template-columns: 58px minmax(150px, 1fr) 90px 70px 130px 100px minmax(130px,1fr) minmax(130px,1fr) minmax(180px, 1fr);
+  grid-template-columns: 56px 1.2fr 75px 75px 55px 110px 75px 75px 100px 75px 100px 75px 3fr;
+  min-width: 1550px;
 }
 
 .admin-content-editor img {
@@ -1017,16 +1021,18 @@
 .admin-content-header,
 .admin-content-editor {
   display: grid;
-  grid-template-columns: 56px 1.4fr 90px 100px 70px 140px 90px 1.6fr;
+  grid-template-columns: 56px 1.2fr 80px 80px 60px 120px 80px 3.5fr;
   gap: 8px;
   align-items: center;
   padding: 8px 10px;
+  min-width: 1100px;
 }
 
 /* Wholesale — img, name, mrp, disc, %off, avail, qty, wsp, bulk-lbl, bulk-price, case-lbl, case-price, desc */
 .admin-content-header--ws,
 .admin-content-editor--ws {
-  grid-template-columns: 56px 1.1fr 80px 90px 60px 120px 80px 80px 110px 90px 110px 90px 1.2fr;
+  grid-template-columns: 56px 1.2fr 75px 75px 55px 110px 75px 75px 100px 75px 100px 75px 3fr;
+  min-width: 1550px;
 }
 
 .admin-content-header span {
@@ -1086,8 +1092,9 @@
   }
   .admin-content-editor,
   .admin-content-editor--ws {
-    grid-template-columns: 48px 1fr 1fr;
+    grid-template-columns: 48px 1fr 1fr !important;
     gap: 6px;
+    min-width: auto !important;
   }
 }
 
