@@ -11,7 +11,6 @@ import { useAuth } from '../context/AuthContext';
 import { useSiteData } from '../context/SiteDataContext';
 import { getUserStorageKey } from '../utils/userStorage';
 import { getDeliveryTimeForAddress } from '../utils/deliveryZones';
-import { SERVICEABLE_AREAS, isServiceableAddress } from '../utils/serviceableAreas';
 import { applyCoupon } from '../data/coupons';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
@@ -138,7 +137,7 @@ const Checkout = () => {
   };
 
   const updateAddressArea = (areaName) => {
-    const area = SERVICEABLE_AREAS.find(a => a.name === areaName);
+    const area = deliveryZones.find(a => a.area === areaName);
     setAddressForm(prev => ({ ...prev, area: areaName, pincode: area ? area.pincode : '' }));
     setAddressError('');
   };
@@ -177,7 +176,8 @@ const Checkout = () => {
       return null;
     }
 
-    if (!isServiceableAddress(trimmed.area, trimmed.pincode)) {
+    const isServiceable = deliveryZones.some(z => z.area.toLowerCase() === trimmed.area.toLowerCase() && z.pincode === trimmed.pincode);
+    if (!isServiceable) {
       setAddressError("We can't deliver to this area.");
       return null;
     }
@@ -492,8 +492,8 @@ const Checkout = () => {
                           className="checkout__input checkout__select"
                         >
                           <option value="">Select your delivery area</option>
-                          {SERVICEABLE_AREAS.map((area) => (
-                            <option key={area.name} value={area.name}>{area.name}</option>
+                          {deliveryZones.map((zone) => (
+                            <option key={zone.id} value={zone.area}>{zone.area}</option>
                           ))}
                         </select>
                       </label>
@@ -504,7 +504,7 @@ const Checkout = () => {
                       </label>
                     </div>
                     <p className="checkout__area-note">
-                      We currently deliver only to {SERVICEABLE_AREAS.map(a => a.name).join(', ')}.
+                      We currently deliver only to {deliveryZones.map(z => z.area).join(', ')}.
                     </p>
                     <label className="checkout__field">
                       <span>Delivery Instructions (optional)</span>

@@ -16,8 +16,8 @@ import {
   FiX
 } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
+import { useSiteData } from '../context/SiteDataContext';
 import { getUserStorageKey } from '../utils/userStorage';
-import { SERVICEABLE_AREAS, isServiceableAddress } from '../utils/serviceableAreas';
 import './Profile.css';
 
 const getStoredList = (key, fallback = []) => {
@@ -40,6 +40,7 @@ const getStoredObject = (key, fallback) => {
 
 const Profile = () => {
   const { user, isAuthenticated, logout, location, setLocation } = useAuth();
+  const { deliveryZones } = useSiteData();
   const navigate = useNavigate();
   const [activePanel, setActivePanel] = useState(null);
   const addressKey = getUserStorageKey(user, 'addresses');
@@ -72,7 +73,7 @@ const Profile = () => {
   };
 
   const updateAddressArea = (areaName) => {
-    const area = SERVICEABLE_AREAS.find(a => a.name === areaName);
+    const area = deliveryZones.find(z => z.area === areaName);
     setAddressForm(prev => ({ ...prev, area: areaName, pincode: area ? area.pincode : '' }));
     setAddressError('');
   };
@@ -83,7 +84,8 @@ const Profile = () => {
       setAddressError('Please fill all address details, including your delivery area.');
       return;
     }
-    if (!isServiceableAddress(trimmed.area, trimmed.pincode)) {
+    const isServiceable = deliveryZones.some(z => z.area.toLowerCase() === trimmed.area.toLowerCase() && z.pincode === trimmed.pincode);
+    if (!isServiceable) {
       setAddressError("We can't deliver to this area.");
       return;
     }
@@ -206,7 +208,7 @@ const Profile = () => {
                   </div>
                 </div>
                 <p className="profile-area-note">
-                  We currently deliver only to {SERVICEABLE_AREAS.map(a => a.name).join(', ')}.
+                  We currently deliver only to {deliveryZones.map(z => z.area).join(', ')}.
                 </p>
                 <div className="profile-form-grid">
                   <input value={addressForm.name} onChange={(e) => setAddressForm(prev => ({ ...prev, name: e.target.value }))} placeholder="Name" />
@@ -214,8 +216,8 @@ const Profile = () => {
                   <input value={addressForm.address} onChange={(e) => setAddressForm(prev => ({ ...prev, address: e.target.value }))} placeholder="Flat, street, landmark" />
                   <select className="profile-area-select" value={addressForm.area} onChange={(e) => updateAddressArea(e.target.value)}>
                     <option value="">Select your delivery area</option>
-                    {SERVICEABLE_AREAS.map((area) => (
-                      <option key={area.name} value={area.name}>{area.name} — {area.pincode}</option>
+                    {deliveryZones.map((zone) => (
+                      <option key={zone.id} value={zone.area}>{zone.area} — {zone.pincode}</option>
                     ))}
                   </select>
                   <button className="profile-action-btn" onClick={addAddress}><FiPlus /> Add Address</button>

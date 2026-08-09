@@ -19,7 +19,6 @@ import { useAuth } from "../context/AuthContext";
 import { useSiteData } from "../context/SiteDataContext";
 import { getUserStorageKey } from "../utils/userStorage";
 import { getDeliveryTimeForAddress } from "../utils/deliveryZones";
-import { SERVICEABLE_AREAS, isServiceableAddress } from "../utils/serviceableAreas";
 import "./Navbar.css";
 
 const emptyAddress = {
@@ -136,7 +135,8 @@ const Navbar = () => {
       return;
     }
     if (!/^\d{6}$/.test(trimmed.pincode)) return;
-    if (!isServiceableAddress(trimmed.area, trimmed.pincode)) {
+    const isServiceable = deliveryZones.some(z => z.area.toLowerCase() === trimmed.area.toLowerCase() && z.pincode === trimmed.pincode);
+    if (!isServiceable) {
       setDeliveryError("We can't deliver to this area.");
       return;
     }
@@ -260,7 +260,9 @@ const Navbar = () => {
                               const addr = data.address;
                               const display = data.display_name?.split(',').slice(0,3).join(',') || 'Current location';
                               const pincode = addr?.postcode || '';
-                              if (!isServiceableAddress(display, pincode)) {
+                              const lower = display.toLowerCase();
+                              const isServiceable = deliveryZones.some(z => lower.includes(z.area.toLowerCase()) || (pincode && z.pincode === pincode));
+                              if (!isServiceable) {
                                 setDeliveryError("We can't deliver to this area.");
                                 return;
                               }
@@ -287,13 +289,13 @@ const Navbar = () => {
                       className="navbar__area-select"
                       value={addressForm.area}
                       onChange={(e) => {
-                        const area = SERVICEABLE_AREAS.find((a) => a.name === e.target.value);
-                        if (area) pickArea(area);
+                        const zone = deliveryZones.find((z) => z.area === e.target.value);
+                        if (zone) pickArea({ name: zone.area, pincode: zone.pincode });
                       }}
                     >
                       <option value="">Select your delivery area</option>
-                      {SERVICEABLE_AREAS.map((area) => (
-                        <option key={area.name} value={area.name}>{area.name} — {area.pincode}</option>
+                      {deliveryZones.map((zone) => (
+                        <option key={zone.id} value={zone.area}>{zone.area} — {zone.pincode}</option>
                       ))}
                     </select>
                   </div>

@@ -20,7 +20,6 @@ import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useProducts } from '../context/ProductContext';
 import { useSiteData } from '../context/SiteDataContext';
-import { SERVICEABLE_AREAS } from '../utils/serviceableAreas';
 
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
@@ -407,7 +406,7 @@ const OffersSection = ({ customerType }) => {
 const Home = () => {
   const { customerType } = useAuth();
   const { getProductsForType, loading } = useProducts();
-  const { categories } = useSiteData();
+  const { categories, deliveryZones } = useSiteData();
   const isWholesale = customerType === 'wholesale';
   const stapleIds = ['pulses', 'rice', 'atta', 'oils', 'masala', 'ravva-poha', 'millets', 'grocery-essentials', 'nuts-dry-fruits'];
   const staplePriority = ['pulses', 'rice', 'oils', 'atta', 'masala'];
@@ -482,9 +481,9 @@ const Home = () => {
               </div>
             </div>
             <div className="home__delivery-areas-chips">
-              {SERVICEABLE_AREAS.map((area) => (
-                <span className="home__delivery-chip" key={area.name}>
-                  <FiMapPin /> {area.name}
+              {(deliveryZones || []).map((zone) => (
+                <span className="home__delivery-chip" key={zone.id}>
+                  <FiMapPin /> {zone.area}
                 </span>
               ))}
             </div>
