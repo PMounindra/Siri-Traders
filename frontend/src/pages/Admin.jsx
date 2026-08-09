@@ -1806,19 +1806,19 @@ const Admin = () => {
 
                         <td style={{padding:'10px 12px', display:'flex', gap:'6px'}}>
                           <button
-                            className="admin__primary"
                             style={{
-                              width:30,
-                              height:30,
-                              borderRadius:7,
-                              display:'flex',
-                              alignItems:'center',
-                              justifyContent:'center',
+                              width: '30px',
+                              height: '30px',
+                              borderRadius: '7px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
                               background: savedZoneIds[zone.id] ? '#1e8e3e' : '#2D5016',
                               border: 'none',
                               color: '#fff',
                               cursor: 'pointer',
-                              transition: 'all 0.2s ease'
+                              transition: 'all 0.2s ease',
+                              padding: 0
                             }}
                             title="Save changes to website"
                             onClick={async () => {
