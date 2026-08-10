@@ -13,7 +13,7 @@ export const useProducts = () => {
 };
 
 export const ProductProvider = ({ children }) => {
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState(baseProducts);
   const [loading, setLoading] = useState(true);
   const { getToken } = useAuth();
 
