@@ -265,7 +265,7 @@ const Profile = () => {
             {activePanel === 'support' && (
               <div className="profile-panel">
                 <a className="profile-contact-card" href="tel:+918125702866"><FiPhone /><span>Call support</span><strong>+91 81257 02866</strong></a>
-                <a className="profile-contact-card" href="mailto:pothineni076@gmail.com"><FiMail /><span>Email us</span><strong>pothineni076@gmail.com</strong></a>
+                <a className="profile-contact-card" href="mailto:siritraders250925@gmail.com"><FiMail /><span>Email us</span><strong>siritraders250925@gmail.com</strong></a>
                 <div className="profile-legal-block">
                   <h4>Store Address</h4>
                   <p>H.No 10-152, Nagarjuna Colony Road No 12,<br />Chitkul, Isnapur Municipality,<br />Hyderabad — 502307</p>
@@ -294,7 +294,7 @@ const Profile = () => {
                 </div>
                 <div className="profile-legal-block">
                   <h4>Contact</h4>
-                  <p>📞 81257 02866<br />✉️ pothineni076@gmail.com<br />📍 H.No 10-152, Nagarjuna Colony Road No 12, Chitkul, Isnapur Municipality, Hyderabad — 502307</p>
+                  <p>📞 81257 02866<br />✉️ siritraders250925@gmail.com<br />📍 H.No 10-152, Nagarjuna Colony Road No 12, Chitkul, Isnapur Municipality, Hyderabad — 502307</p>
                 </div>
                 <div className="profile-about-version">
                   <strong>Siri Traders</strong>
@@ -352,7 +352,7 @@ const Profile = () => {
                 </div>
                 <div className="profile-legal-block">
                   <h4>Contact Us</h4>
-                  <p>📞 81257 02866<br />✉️ pothineni076@gmail.com<br />📍 H.No 10-152, Nagarjuna Colony Road No 12, Chitkul, Isnapur Municipality, Hyderabad — 502307</p>
+                  <p>📞 81257 02866<br />✉️ siritraders250925@gmail.com<br />📍 H.No 10-152, Nagarjuna Colony Road No 12, Chitkul, Isnapur Municipality, Hyderabad — 502307</p>
                 </div>
               </div>
             )}

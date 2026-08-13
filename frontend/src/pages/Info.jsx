@@ -72,7 +72,7 @@ const Info = () => {
                   <FiMail className="info__contact-icon" />
                   <div>
                     <strong>Email</strong>
-                    <a href="mailto:pothineni076@gmail.com">pothineni076@gmail.com</a>
+                    <a href="mailto:siritraders250925@gmail.com">siritraders250925@gmail.com</a>
                   </div>
                 </div>
                 <div className="info__contact-item">

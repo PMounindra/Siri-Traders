@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 
 export async function sendOrderNotificationEmail(order, items) {
-  const adminEmail = process.env.ADMIN_EMAIL || 'pothineni076@gmail.com';
+  const adminEmail = process.env.ADMIN_EMAIL || 'siritraders250925@gmail.com';
   const smtpHost = process.env.SMTP_HOST;
   const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
   const smtpUser = process.env.SMTP_USER;
