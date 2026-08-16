@@ -20,7 +20,8 @@ import {
   FiMapPin,
   FiSettings,
   FiStar,
-  FiCheck
+  FiCheck,
+  FiTrendingUp
 } from 'react-icons/fi';
 import { getAccounts } from '../context/AuthContext';
 import { useAdminApi } from '../hooks/useAdminApi';
@@ -394,6 +395,40 @@ const Admin = () => {
     { label: 'Customers', value: liveCustomers ? liveCustomers.length : 0, icon: FiUsers },
     { label: 'Orders', value: liveOrders ? liveOrders.length : 0, icon: FiTruck },
   ];
+
+  const productSales = useMemo(() => {
+    const sales = {};
+    if (liveOrders) {
+      liveOrders.forEach(order => {
+        if (order.items) {
+          order.items.forEach(item => {
+            const prodId = item.productId || item.id;
+            const qty = parseInt(item.quantity || 1, 10);
+            if (prodId) {
+              if (!sales[prodId]) {
+                const matchedProd = allProducts.find(p => p.id === prodId);
+                sales[prodId] = {
+                  id: prodId,
+                  name: item.name || (matchedProd ? matchedProd.name : 'Unknown Product'),
+                  weight: item.weight || (matchedProd ? matchedProd.weight : ''),
+                  unit: item.unit || (matchedProd ? matchedProd.unit : ''),
+                  category: matchedProd ? (wholesaleProducts.some(w => w.id === prodId) ? 'Wholesale' : 'Retail') : 'Retail',
+                  price: item.price || (matchedProd ? matchedProd.price : 0),
+                  quantitySold: 0,
+                  ordersCount: 0,
+                  totalRevenue: 0
+                };
+              }
+              sales[prodId].quantitySold += qty;
+              sales[prodId].ordersCount += 1;
+              sales[prodId].totalRevenue += (item.price || 0) * qty;
+            }
+          });
+        }
+      });
+    }
+    return Object.values(sales).sort((a, b) => b.quantitySold - a.quantitySold);
+  }, [liveOrders, allProducts, wholesaleProducts]);
 
   const exportItems = () => {
     const isWS = activeTab === 'wholesale-products' || activeTab === 'wholesale-content';
@@ -773,8 +808,8 @@ const Admin = () => {
               ['bestsellers',        'Bestsellers',        FiStar],
               ['todays-deals',       "Today's Deals",      FiTag],
               ['customers',          'Customers',         FiUsers],
-              ['orders',             'Orders',            FiShoppingBag],
-              ['payments',           'Bills & payments',  FiDollarSign],
+              ['orders',             'Orders & Bills',    FiShoppingBag],
+              ['sales-stats',        'Product Sales',     FiTrendingUp],
               ['retail-content',     'Retail Content',    FiEdit2],
               ['wholesale-content',  'Wholesale Content', FiEdit2],
               ['delivery-zones',     'Delivery Zones',    FiTruck],
@@ -1443,129 +1478,192 @@ const Admin = () => {
           {activeTab === 'orders' && (
             <section className="admin-card admin-card--wide">
               <div className="admin-card__toolbar">
-                <h2>Customer orders</h2>
+                <h2>Orders & Bills Management</h2>
                 <button className="admin__ghost" onClick={() => adminApi.fetchAllOrders().then(setLiveOrders).catch(() => {})}>
                   ↻ Refresh
                 </button>
               </div>
-              {liveOrders === null && <p className="admin-muted">Loading orders…</p>}
+              {liveOrders === null && <p className="admin-muted">Loading orders & bills…</p>}
               {liveOrders !== null && liveOrders.length === 0 && (
                 <p className="admin-muted">No orders yet. Orders placed by customers will appear here.</p>
               )}
-              <div className="admin-order-list">
-                {(liveOrders || []).map(order => (
-                  <div key={order.id} className="admin-order-card">
-                    <FiTruck />
-                    <div>
-                      <strong>Order #{order.id}</strong>
-                      <span>User: {order.userId}</span>
-                    </div>
-                    <div><strong>Items</strong><span>{(order.items || []).map(i => `${i.name} ×${i.quantity}`).join(', ') || '—'}</span></div>
-                    <div><strong>Address</strong><span>{order.deliveryAddress || '—'}</span></div>
-                    <div><strong>Payment</strong><span>{order.paymentMethod || '—'}</span></div>
-                    <div><strong>Total</strong><span>{formatPrice(order.total)}</span></div>
-                    <div><strong>Placed</strong><span>{order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN') : '—'}</span></div>
-                    <div style={{display:'flex',alignItems:'center',gap:8}}>
-                      <strong>Status</strong>
-                      <select
-                        value={order.status}
-                        className="admin-status-select"
-                        onChange={async (e) => {
-                          const newStatus = e.target.value;
-                          try {
-                            await adminApi.updateOrderStatus(order.id, newStatus);
-                            setLiveOrders(prev => prev.map(o =>
-                              o.id === order.id ? { ...o, status: newStatus } : o
-                            ));
-                          } catch (err) {
-                            alert('Failed to update status: ' + err.message);
-                          }
-                        }}
-                      >
-                        {['Pending','Preparing','In Transit','Delivered','Paid'].map(s => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {activeTab === 'payments' && (
-            <section className="admin-card admin-card--wide">
-              <div className="admin-card__toolbar">
-                <h2>Transaction bills & payment details</h2>
-              </div>
-              <div className="admin-payment-list">
-                {(!liveOrders || liveOrders.length === 0) ? (
-                  <div className="admin-content-empty">
-                    <FiDollarSign size={32} />
-                    <p>No orders placed yet.</p>
-                  </div>
-                ) : (
-                  [...liveOrders].reverse().map(order => {
-                    // Calculate subtotal from order items or fallback to total
+              <div style={{ overflowX: 'auto' }}>
+                <div className="admin-order-list" style={{ minWidth: '1150px' }}>
+                  {[...(liveOrders || [])].reverse().map(order => {
                     const subtotal = order.items && order.items.length > 0 
                       ? order.items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0)
                       : order.total;
                     const deliveryFee = Math.max(0, order.total - subtotal);
                     const customerName = getCustomerName(order.userId);
                     const isPaid = order.status === 'Paid';
+                    const transactionId = order.paymentMethod === 'cod' ? `COD-SIRI-${100000 + order.id}` : `TXN-SIRI-${200000 + order.id}`;
 
                     return (
-                      <div key={order.id} className="admin-payment-card" style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-                        <FiDollarSign style={{ color: isPaid ? '#2D5016' : '#FF8A8A', fontSize: '20px' }} />
-                        <div style={{ minWidth: '150px' }}>
-                          <strong>BILL-{order.id + 7820}</strong>
-                          <span>{customerName} / ORD-{order.id}</span>
+                      <div key={order.id} className="admin-order-card" style={{ display: 'grid', gridTemplateColumns: '48px 1fr 1.2fr 0.9fr 1.1fr 1.1fr 0.8fr 1fr', gap: '12px', alignItems: 'center' }}>
+                        <FiTruck />
+                        
+                        {/* Column 1: IDs & Customer */}
+                        <div>
+                          <strong style={{ fontSize: '13px' }}>Order #{order.id}</strong>
+                          <span style={{ fontSize: '12px', color: '#2D5016', fontWeight: 'bold' }}>BILL-{order.id + 7820}</span>
+                          <span style={{ fontSize: '11px', color: '#687466' }}>{customerName}</span>
                         </div>
-                        <div style={{ minWidth: '130px' }}>
-                          <strong>Payment</strong>
-                          <span>{order.paymentMethod === 'cod' ? 'Cash on delivery' : (order.paymentMethod || '—')}</span>
+
+                        {/* Column 2: Items Summary List */}
+                        <div>
+                          <strong>Items Summary</strong>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+                            {(order.items || []).map((item, idx) => (
+                              <span key={idx} style={{ fontSize: '11px', lineHeight: '1.2' }}>
+                                • {item.name} {item.weight ? `(${item.weight}${item.unit})` : ''} <strong>x{item.quantity || 1}</strong>
+                              </span>
+                            ))}
+                            {(order.items || []).length === 0 && <span style={{ fontSize: '11px', color: '#9ca3af' }}>—</span>}
+                          </div>
                         </div>
-                        <div style={{ minWidth: '160px' }}>
-                          <strong>Transaction</strong>
-                          <span>{order.paymentMethod === 'cod' ? `COD-SIRI-${100000 + order.id}` : `TXN-SIRI-${200000 + order.id}`}</span>
+
+                        {/* Column 3: Delivery Address */}
+                        <div>
+                          <strong>Delivery Address</strong>
+                          <span style={{ fontSize: '11px', lineHeight: '1.3' }}>{order.deliveryAddress || '—'}</span>
                         </div>
-                        <div style={{ minWidth: '160px' }}>
-                          <strong>Bill</strong>
-                          <span>Subtotal {formatPrice(subtotal)} + Delivery {formatPrice(deliveryFee)}</span>
+
+                        {/* Column 4: Bill Summary (Delivery Cost & Summary) */}
+                        <div>
+                          <strong>Bill Summary</strong>
+                          <span style={{ fontSize: '11px' }}>Subtotal: {formatPrice(subtotal)}</span>
+                          <span style={{ fontSize: '11px', color: '#2D5016', fontWeight: '600' }}>Delivery Fee: {formatPrice(deliveryFee)}</span>
+                          <span style={{ fontSize: '12px', fontWeight: '900', marginTop: '2px', color: '#111827' }}>Total: {formatPrice(order.total)}</span>
                         </div>
-                        <div style={{ minWidth: '120px' }}>
-                          <strong>Paid</strong>
-                          <span style={{ color: isPaid ? '#2D5016' : '#FF6B35', fontWeight: 'bold' }}>
-                            {isPaid ? `${formatPrice(order.total)} / Paid` : `₹0 / Pending`}
-                          </span>
+
+                        {/* Column 5: Payment & Transaction */}
+                        <div>
+                          <strong>Payment & Txn</strong>
+                          <span style={{ fontSize: '11px' }}>Mode: {order.paymentMethod === 'cod' ? 'Cash on Delivery' : (order.paymentMethod || '—')}</span>
+                          <span style={{ fontSize: '11px', color: '#687466', fontFamily: 'monospace' }}>Ref: {transactionId}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                            <span style={{ fontSize: '11px', color: isPaid ? '#2D5016' : '#FF6B35', fontWeight: 'bold' }}>
+                              {isPaid ? 'Paid' : 'Pending'}
+                            </span>
+                            {!isPaid && (
+                              <button
+                                type="button"
+                                style={{
+                                  padding: '2px 6px',
+                                  fontSize: '10px',
+                                  background: '#FFF8DF',
+                                  border: '1px solid #2D5016',
+                                  borderRadius: '4px',
+                                  color: '#2D5016',
+                                  cursor: 'pointer',
+                                  fontWeight: '700'
+                                }}
+                                onClick={async () => {
+                                  try {
+                                    await adminApi.updateOrderStatus(order.id, 'Paid');
+                                    setLiveOrders(prev => prev.map(o =>
+                                      o.id === order.id ? { ...o, status: 'Paid' } : o
+                                    ));
+                                  } catch (err) {
+                                    alert('Failed to mark as paid: ' + err.message);
+                                  }
+                                }}
+                              >
+                                Mark Paid
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', minWidth: '110px', justifyContent: 'flex-end' }}>
-                          {!isPaid ? (
-                            <button
-                              className="admin__primary"
-                              style={{ padding: '6px 12px', fontSize: '12px', height: 'auto', borderRadius: '6px', whiteSpace: 'nowrap' }}
-                              onClick={async () => {
-                                try {
-                                  await adminApi.updateOrderStatus(order.id, 'Paid');
-                                  setLiveOrders(prev => prev.map(o =>
-                                    o.id === order.id ? { ...o, status: 'Paid' } : o
-                                  ));
-                                } catch (err) {
-                                  alert('Failed to mark as paid: ' + err.message);
-                                }
-                              }}
-                            >
-                              Mark as Paid
-                            </button>
-                          ) : (
-                            <span style={{ fontSize: '13px', color: '#2D5016', fontWeight: 800 }}>✅ Paid</span>
-                          )}
+
+                        {/* Column 6: Date Placed */}
+                        <div>
+                          <strong>Placed On</strong>
+                          <span style={{ fontSize: '11px' }}>{order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN') : '—'}</span>
+                        </div>
+
+                        {/* Column 7: Status Action */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <strong>Status</strong>
+                          <select
+                            value={order.status}
+                            className="admin-status-select"
+                            style={{ height: '32px', fontSize: '12px', padding: '0 4px', width: '100%' }}
+                            onChange={async (e) => {
+                              const newStatus = e.target.value;
+                              try {
+                                await adminApi.updateOrderStatus(order.id, newStatus);
+                                setLiveOrders(prev => prev.map(o =>
+                                  o.id === order.id ? { ...o, status: newStatus } : o
+                                ));
+                              } catch (err) {
+                                alert('Failed to update status: ' + err.message);
+                              }
+                            }}
+                          >
+                            {['Pending','Preparing','In Transit','Delivered','Paid'].map(s => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
                         </div>
                       </div>
                     );
-                  })
-                )}
+                  })}
+                </div>
               </div>
+            </section>
+          )}
+
+          {activeTab === 'sales-stats' && (
+            <section className="admin-card admin-card--wide">
+              <div className="admin-card__toolbar">
+                <h2>Product Sales Frequency</h2>
+                <span className="admin-muted">Ranked by total quantity sold</span>
+              </div>
+              {liveOrders === null && <p className="admin-muted">Loading stats…</p>}
+              {liveOrders !== null && productSales.length === 0 && (
+                <p className="admin-muted">No sales recorded yet.</p>
+              )}
+              {productSales.length > 0 && (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #2D5016', textAlign: 'left', background: '#F7F4EE' }}>
+                        <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900' }}>ITEM NAME</th>
+                        <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900' }}>CATEGORY</th>
+                        <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900' }}>UNIT PRICE</th>
+                        <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900', textAlign: 'center' }}>ORDERS COUNT</th>
+                        <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900', textAlign: 'center' }}>TOTAL QUANTITY SOLD</th>
+                        <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900', textAlign: 'right' }}>TOTAL REVENUE</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productSales.map(sale => (
+                        <tr key={sale.id} style={{ borderBottom: '1px solid var(--color-border-light)' }}>
+                          <td style={{ padding: '12px 10px', fontSize: '13px', fontWeight: '500' }}>
+                            {sale.name} {sale.weight ? `(${sale.weight} ${sale.unit})` : ''}
+                          </td>
+                          <td style={{ padding: '12px 10px', fontSize: '12px' }}>
+                            <span style={{
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              background: sale.category === 'Wholesale' ? '#FFF0EA' : '#FFF8DF',
+                              color: sale.category === 'Wholesale' ? '#FF6B35' : '#2D5016',
+                              fontWeight: '800',
+                              fontSize: '11px'
+                            }}>
+                              {sale.category}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 10px', fontSize: '13px' }}>{formatPrice(sale.price)}</td>
+                          <td style={{ padding: '12px 10px', fontSize: '13px', textAlign: 'center', fontWeight: '800' }}>{sale.ordersCount}</td>
+                          <td style={{ padding: '12px 10px', fontSize: '13px', textAlign: 'center', fontWeight: '800', color: '#2D5016' }}>{sale.quantitySold}</td>
+                          <td style={{ padding: '12px 10px', fontSize: '13px', textAlign: 'right', fontWeight: '800' }}>{formatPrice(sale.totalRevenue)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
           )}
 

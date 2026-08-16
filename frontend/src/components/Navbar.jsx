@@ -165,6 +165,7 @@ const Navbar = () => {
   const changeCustomerType = (type) => {
     setCustomerType(type);
     setMenuOpen(false);
+    navigate("/home");
   };
 
   return (
