@@ -111,6 +111,16 @@ export async function apiFetchAllUsers() {
   return res.json();
 }
 
+export async function apiSendBroadcast(data) {
+  const res = await fetch('/api/admin/broadcast', {
+    method: 'POST',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify(data),
+  });
+  return asJson(res, 'Failed to send mail broadcast');
+}
+
 // ── Offers ───────────────────────────────────────────────────────────────
 
 export async function apiFetchOffers() {
@@ -268,6 +278,7 @@ export function useAdminApi() {
     fetchAllOrders: apiFetchAllOrders,
     updateOrderStatus: apiUpdateOrderStatus,
     fetchAllUsers: apiFetchAllUsers,
+    sendBroadcast: apiSendBroadcast,
 
     fetchOffers: apiFetchOffers,
     saveOffer: apiSaveOffer,

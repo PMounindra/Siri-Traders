@@ -21,7 +21,8 @@ import {
   FiSettings,
   FiStar,
   FiCheck,
-  FiTrendingUp
+  FiTrendingUp,
+  FiMail
 } from 'react-icons/fi';
 import { getAccounts } from '../context/AuthContext';
 import { useAdminApi } from '../hooks/useAdminApi';
@@ -218,6 +219,10 @@ const Admin = () => {
   const adminApi = useAdminApi();
   const [newOrderToast, setNewOrderToast] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [broadcastSubject, setBroadcastSubject] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastSending, setBroadcastSending] = useState(false);
+  const [broadcastStatus, setBroadcastStatus] = useState(null); // { type: 'success'|'error', msg }
 
   const getCustomerName = (userId) => {
     if (!liveCustomers) return 'Customer';
@@ -810,6 +815,7 @@ const Admin = () => {
               ['customers',          'Customers',         FiUsers],
               ['orders',             'Orders & Bills',    FiShoppingBag],
               ['sales-stats',        'Product Sales',     FiTrendingUp],
+              ['broadcast',          'Email Broadcast',   FiMail],
               ['retail-content',     'Retail Content',    FiEdit2],
               ['wholesale-content',  'Wholesale Content', FiEdit2],
               ['delivery-zones',     'Delivery Zones',    FiTruck],
@@ -1664,6 +1670,134 @@ const Admin = () => {
                   </table>
                 </div>
               )}
+            </section>
+          )}
+
+          {activeTab === 'broadcast' && (
+            <section className="admin-card admin-card--wide" style={{ maxWidth: '800px', margin: '0 auto' }}>
+              <div className="admin-card__toolbar" style={{ borderBottom: '1px solid var(--color-border-light)', paddingBottom: '12px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <FiMail size={24} style={{ color: '#2D5016' }} />
+                  <div>
+                    <h2 style={{ margin: 0 }}>Mail Broadcast Campaign</h2>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
+                      Send promotions, festive offers, or store announcements to all registered customer emails for free.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {broadcastStatus && (
+                <div style={{
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  marginBottom: '20px',
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  background: broadcastStatus.type === 'success' ? '#ECFDF5' : '#FEF2F2',
+                  color: broadcastStatus.type === 'success' ? '#065F46' : '#991B1B',
+                  border: broadcastStatus.type === 'success' ? '1px solid #A7F3D0' : '1px solid #FCA5A5'
+                }}>
+                  {broadcastStatus.msg}
+                </div>
+              )}
+
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                if (!broadcastSubject.trim() || !broadcastMessage.trim()) {
+                  setBroadcastStatus({ type: 'error', msg: 'Please fill out both the Subject and Message fields.' });
+                  return;
+                }
+
+                if (!confirm('Are you sure you want to send this email campaign to all registered customers?')) {
+                  return;
+                }
+
+                setBroadcastSending(true);
+                setBroadcastStatus(null);
+
+                try {
+                  const res = await adminApi.sendBroadcast({
+                    subject: broadcastSubject,
+                    messageText: broadcastMessage
+                  });
+                  setBroadcastStatus({ type: 'success', msg: `Campaign sent successfully! Received by ${res.count} customers.` });
+                  setBroadcastSubject('');
+                  setBroadcastMessage('');
+                } catch (err) {
+                  setBroadcastStatus({ type: 'error', msg: err.message || 'Failed to send mail broadcast.' });
+                } finally {
+                  setBroadcastSending(false);
+                }
+              }}>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#111827', marginBottom: '6px' }}>
+                    Email Subject Line
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    disabled={broadcastSending}
+                    placeholder="e.g., Special Festive Offer: 10% Off All Groceries!"
+                    value={broadcastSubject}
+                    onChange={(e) => setBroadcastSubject(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--color-border-light)',
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#111827', marginBottom: '6px' }}>
+                    Email Message Body (Plain text, supports line breaks)
+                  </label>
+                  <textarea
+                    required
+                    disabled={broadcastSending}
+                    rows={8}
+                    placeholder={`Dear Customers,\n\nWe are excited to bring you a special discount on all orders placed today!\nUse coupon code FESTIVE10 at checkout to get 10% discount.\n\nThank you for shopping with us!\nSiri Traders`}
+                    value={broadcastMessage}
+                    onChange={(e) => setBroadcastMessage(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--color-border-light)',
+                      fontSize: '14px',
+                      lineHeight: '1.5',
+                      outline: 'none',
+                      fontFamily: 'inherit',
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={broadcastSending}
+                  className="admin__primary"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    opacity: broadcastSending ? 0.7 : 1
+                  }}
+                >
+                  {broadcastSending ? 'Sending Campaign Emails...' : '🚀 Send Broadcast Email to All Customers'}
+                </button>
+              </form>
             </section>
           )}
 
