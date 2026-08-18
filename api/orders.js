@@ -4,7 +4,7 @@ import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { setCorsHeaders } from './_cors.js';
 import { clerk, getAuthenticatedUserId } from './_clerkAuth.js';
-import { sendOrderNotificationEmail } from './_email.js';
+import { sendOrderNotificationEmail, sendCustomerOrderConfirmationEmail } from './_email.js';
 import { sendOrderNotificationWhatsApp } from './_whatsapp.js';
 
 // Setup Upstash Redis rate limiting: 10 requests per 30 seconds for orders endpoint
@@ -110,11 +110,16 @@ export default async function handler(req, res) {
       }
 
       // Sync user data to DB to ensure we have a record
+      let customerEmail = '';
+      let customerName = '';
       try {
         const clerkUser = await clerk.users.getUser(userId);
         const email = clerkUser.emailAddresses[0]?.emailAddress || '';
         const name = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim();
         const phone = clerkUser.phoneNumbers[0]?.phoneNumber || '';
+
+        customerEmail = email;
+        customerName = name || 'Customer';
 
         if (email) {
           // Only upsert if we have an email (it's a unique NOT NULL column)
@@ -179,6 +184,12 @@ export default async function handler(req, res) {
       sendOrderNotificationEmail(insertedOrder, items).catch(err => {
         console.error("[EMAIL ERROR] Async email send failed:", err.message);
       });
+
+      if (customerEmail) {
+        sendCustomerOrderConfirmationEmail(customerEmail, customerName, insertedOrder, items).catch(err => {
+          console.error("[CUSTOMER EMAIL ERROR] Async customer email send failed:", err.message);
+        });
+      }
 
       // Fire WhatsApp notification asynchronously (don't block HTTP response)
       sendOrderNotificationWhatsApp(insertedOrder, items).catch(err => {

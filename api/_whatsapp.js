@@ -71,3 +71,73 @@ ${itemsListText}
     return false;
   }
 }
+
+export async function sendCustomerOrderStatusWhatsApp(customerPhone, customerName, order, status) {
+  const metaPhoneId = process.env.META_PHONE_NUMBER_ID;
+  const metaAccessToken = process.env.META_ACCESS_TOKEN;
+
+  if (!metaPhoneId || !metaAccessToken) {
+    console.warn('[META WHATSAPP] Meta credentials not configured. Skipping customer status WhatsApp.');
+    return false;
+  }
+
+  // Format destination number: must be digits only (e.g. 918125702866)
+  let formattedTo = customerPhone.trim();
+  if (formattedTo.startsWith('whatsapp:')) {
+    formattedTo = formattedTo.replace('whatsapp:', '');
+  }
+  // Strip all non-digit characters
+  formattedTo = formattedTo.replace(/\D/g, '');
+
+  if (!formattedTo) return false;
+
+  try {
+    const url = `https://graph.facebook.com/v20.0/${metaPhoneId}/messages`;
+
+    // Sends a pre-approved template message to satisfy Meta's rules
+    // Template Name: order_status_update
+    // Params: {{1}} = Customer Name, {{2}} = Order ID, {{3}} = Status
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${metaAccessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: formattedTo,
+        type: "template",
+        template: {
+          name: "order_status_update",
+          language: {
+            code: "en"
+          },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                { type: "text", text: customerName || 'Customer' },
+                { type: "text", text: `ORD-${order.id}` },
+                { type: "text", text: status }
+              ]
+            }
+          ]
+        }
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.warn('[META WHATSAPP CUSTOMER] Meta API error (make sure order_status_update template is approved):', data.error?.message);
+      return false;
+    }
+
+    console.log(`[META WHATSAPP CUSTOMER] Customer status WhatsApp sent successfully! Message ID: ${data.messages?.[0]?.id}`);
+    return true;
+  } catch (error) {
+    console.error('[META WHATSAPP CUSTOMER] Failed to send customer status WhatsApp:', error.message);
+    return false;
+  }
+}

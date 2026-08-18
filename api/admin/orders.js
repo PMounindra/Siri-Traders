@@ -1,8 +1,10 @@
-import { db, orders, orderItems } from '../../db/index.js';
+import { db, orders, orderItems, users } from '../../db/index.js';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { setCorsHeaders } from '../_cors.js';
 import { isAdminRequest } from '../_adminAuth.js';
+import { sendCustomerOrderStatusUpdateEmail } from '../_email.js';
+import { sendCustomerOrderStatusWhatsApp } from '../_whatsapp.js';
 
 const VALID_STATUSES = ['Pending', 'Preparing', 'In Transit', 'Delivered', 'Paid'];
 
@@ -68,6 +70,25 @@ export default async function handler(req, res) {
         .set({ status: validation.data.status })
         .where(eq(orders.id, parsedId))
         .returning();
+
+      // Retrieve customer details to send automated notifications
+      try {
+        const [customer] = await db.select().from(users).where(eq(users.id, orderResult[0].userId));
+        if (customer) {
+          if (customer.email) {
+            sendCustomerOrderStatusUpdateEmail(customer.email, customer.name, updated[0], validation.data.status).catch(err => {
+              console.error("[EMAIL ERROR] Customer status email failed:", err.message);
+            });
+          }
+          if (customer.phone) {
+            sendCustomerOrderStatusWhatsApp(customer.phone, customer.name, updated[0], validation.data.status).catch(err => {
+              console.error("[WHATSAPP ERROR] Customer status WhatsApp failed:", err.message);
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to send customer status updates:", err.message);
+      }
 
       return res.status(200).json(updated[0]);
     }
