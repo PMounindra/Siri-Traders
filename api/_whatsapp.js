@@ -1,8 +1,7 @@
 export async function sendOrderNotificationWhatsApp(order, items) {
   const adminPhone = process.env.ADMIN_WHATSAPP_NUMBER || '+918125702866';
-  const twilioSid = process.env.TWILIO_ACCOUNT_SID;
-  const twilioToken = process.env.TWILIO_AUTH_TOKEN;
-  const twilioFrom = process.env.TWILIO_FROM_NUMBER || 'whatsapp:+14155238886'; // Twilio sandbox sender
+  const metaPhoneId = process.env.META_PHONE_NUMBER_ID;
+  const metaAccessToken = process.env.META_ACCESS_TOKEN;
 
   const itemsListText = items.map(item => {
     const qty = item.qty || item.quantity || 1;
@@ -22,59 +21,53 @@ ${itemsListText}
 
 👉 Log in to dashboard to manage: https://www.siritrader.com/admin`;
 
-  console.log(`[WHATSAPP] Attempting to send notification for order #${order.id} to ${adminPhone}`);
+  console.log(`[META WHATSAPP] Attempting to send notification for order #${order.id} to ${adminPhone}`);
 
-  if (!twilioSid || !twilioToken) {
-    console.warn('[WHATSAPP] Twilio credentials (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) not configured. Logging WhatsApp content instead:');
-    console.log('[WHATSAPP CONTENT]:\n', text);
+  if (!metaPhoneId || !metaAccessToken) {
+    console.warn('[META WHATSAPP] Meta credentials (META_PHONE_NUMBER_ID, META_ACCESS_TOKEN) not configured. Logging WhatsApp content instead:');
+    console.log('[META WHATSAPP CONTENT]:\n', text);
     return false;
   }
 
-  // Format destination number: must start with whatsapp: and have country code
+  // Format destination number: must be digits only (e.g. 918125702866)
   let formattedTo = adminPhone.trim();
-  if (!formattedTo.startsWith('whatsapp:')) {
-    // Strip spaces and special characters
-    formattedTo = formattedTo.replace(/[\s\-()]+/g, '');
-    if (!formattedTo.startsWith('+')) {
-      formattedTo = '+' + formattedTo;
-    }
-    formattedTo = 'whatsapp:' + formattedTo;
+  if (formattedTo.startsWith('whatsapp:')) {
+    formattedTo = formattedTo.replace('whatsapp:', '');
   }
-
-  // Format from number
-  let formattedFrom = twilioFrom.trim();
-  if (!formattedFrom.startsWith('whatsapp:')) {
-    formattedFrom = 'whatsapp:' + formattedFrom;
-  }
+  // Strip all non-digit characters
+  formattedTo = formattedTo.replace(/\D/g, '');
 
   try {
-    const url = `https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`;
-    const authHeader = 'Basic ' + Buffer.from(`${twilioSid}:${twilioToken}`).toString('base64');
-
-    const params = new URLSearchParams();
-    params.append('To', formattedTo);
-    params.append('From', formattedFrom);
-    params.append('Body', text);
+    const url = `https://graph.facebook.com/v20.0/${metaPhoneId}/messages`;
 
     const res = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Authorization': `Bearer ${metaAccessToken}`,
+        'Content-Type': 'application/json'
       },
-      body: params.toString()
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: formattedTo,
+        type: "text",
+        text: {
+          preview_url: false,
+          body: text
+        }
+      })
     });
 
     const data = await res.json();
 
     if (!res.ok) {
-      throw new Error(data.message || 'Twilio API error');
+      throw new Error(data.error?.message || 'Meta API error');
     }
 
-    console.log(`[WHATSAPP] Notification sent successfully! SID: ${data.sid}`);
+    console.log(`[META WHATSAPP] Notification sent successfully! Message ID: ${data.messages?.[0]?.id}`);
     return true;
   } catch (error) {
-    console.error('[WHATSAPP] Failed to send WhatsApp notification:', error.message);
+    console.error('[META WHATSAPP] Failed to send WhatsApp notification:', error.message);
     return false;
   }
 }
