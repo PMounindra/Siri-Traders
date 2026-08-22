@@ -223,6 +223,7 @@ const Admin = () => {
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [broadcastStatus, setBroadcastStatus] = useState(null); // { type: 'success'|'error', msg }
+  const [selectedMonth, setSelectedMonth] = useState('lifetime');
 
   const getCustomerName = (userId) => {
     if (!liveCustomers) return 'Customer';
@@ -434,6 +435,81 @@ const Admin = () => {
     }
     return Object.values(sales).sort((a, b) => b.quantitySold - a.quantitySold);
   }, [liveOrders, allProducts, wholesaleProducts]);
+
+  const availableMonths = useMemo(() => {
+    if (!liveOrders) return [];
+    const monthsMap = {};
+    liveOrders.forEach(order => {
+      if (order.createdAt) {
+        const d = new Date(order.createdAt);
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const label = d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+        monthsMap[monthKey] = label;
+      }
+    });
+    return Object.entries(monthsMap).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [liveOrders]);
+
+  const periodStats = useMemo(() => {
+    let filtered = liveOrders || [];
+    if (selectedMonth !== 'lifetime') {
+      filtered = (liveOrders || []).filter(order => {
+        if (!order.createdAt) return false;
+        const d = new Date(order.createdAt);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        return key === selectedMonth;
+      });
+    }
+
+    let retailQty = 0;
+    let retailRevenue = 0;
+    let wholesaleQty = 0;
+    let wholesaleRevenue = 0;
+    const productSalesMap = {};
+
+    filtered.forEach(order => {
+      if (order.items) {
+        order.items.forEach(item => {
+          const prodId = item.productId || item.id;
+          const qty = parseInt(item.quantity || 1, 10);
+          const price = item.price || 0;
+          const isWS = wholesaleProducts.some(w => w.id === prodId);
+
+          if (isWS) {
+            wholesaleQty += qty;
+            wholesaleRevenue += price * qty;
+          } else {
+            retailQty += qty;
+            retailRevenue += price * qty;
+          }
+
+          if (prodId) {
+            if (!productSalesMap[prodId]) {
+              const matchedProd = allProducts.find(p => p.id === prodId);
+              productSalesMap[prodId] = {
+                id: prodId,
+                name: item.name || (matchedProd ? matchedProd.name : 'Unknown Product'),
+                quantitySold: 0,
+              };
+            }
+            productSalesMap[prodId].quantitySold += qty;
+          }
+        });
+      }
+    });
+
+    const topItems = Object.values(productSalesMap)
+      .sort((a, b) => b.quantitySold - a.quantitySold)
+      .slice(0, 5);
+
+    return {
+      retailQty,
+      retailRevenue,
+      wholesaleQty,
+      wholesaleRevenue,
+      topItems
+    };
+  }, [liveOrders, selectedMonth, allProducts, wholesaleProducts]);
 
   const exportItems = () => {
     const isWS = activeTab === 'wholesale-products' || activeTab === 'wholesale-content';
@@ -871,6 +947,173 @@ const Admin = () => {
                   <strong>{stat.value}</strong>
                 </div>
               ))}
+            </section>
+          )}
+
+          {activeTab === 'dashboard' && (
+            <section className="admin-card admin-card--wide" style={{ marginBottom: '20px' }}>
+              <div className="admin-card__toolbar" style={{ borderBottom: '1px solid var(--color-border-light)', paddingBottom: '12px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <h2 style={{ margin: 0 }}>Sales & Product Analytics</h2>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
+                      Visual representation of product distribution and retail vs wholesale sales splits.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#111827' }}>Select Period:</span>
+                    <select
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(e.target.value)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--color-border-light)',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        background: '#FFFFFF'
+                      }}
+                    >
+                      <option value="lifetime">Lifetime Sales</option>
+                      {availableMonths.map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px' }}>
+                <div style={{ padding: '16px', background: '#FAF9F6', borderRadius: '12px', border: '1px solid var(--color-border-light)' }}>
+                  <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: '#2D5016', fontWeight: 'bold' }}>Sales Segment Distribution</h3>
+                  
+                  {liveOrders === null ? (
+                    <p style={{ fontSize: '13px', color: '#687466' }}>Loading split data…</p>
+                  ) : (periodStats.retailQty === 0 && periodStats.wholesaleQty === 0) ? (
+                    <p style={{ fontSize: '13px', color: '#687466', textAlign: 'center', padding: '30px 0' }}>No sales data available for this period.</p>
+                  ) : (() => {
+                    const totalQty = periodStats.retailQty + periodStats.wholesaleQty;
+                    const retailPct = totalQty > 0 ? (periodStats.retailQty / totalQty) * 100 : 0;
+                    const wholesalePct = totalQty > 0 ? (periodStats.wholesaleQty / totalQty) * 100 : 0;
+                    
+                    const strokeWidth = 12;
+                    const radius = 38;
+                    const circ = 2 * Math.PI * radius;
+                    const retailStroke = (retailPct / 100) * circ;
+                    const wholesaleStroke = (wholesalePct / 100) * circ;
+
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        <div style={{ position: 'relative', width: '130px', height: '130px' }}>
+                          <svg width="130" height="130" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
+                            <circle
+                              cx="50"
+                              cy="50"
+                              r={radius}
+                              fill="transparent"
+                              stroke="#E5E7EB"
+                              strokeWidth={strokeWidth}
+                            />
+                            {retailPct > 0 && (
+                              <circle
+                                cx="50"
+                                cy="50"
+                                r={radius}
+                                fill="transparent"
+                                stroke="#2D5016"
+                                strokeWidth={strokeWidth}
+                                strokeDasharray={`${retailStroke} ${circ}`}
+                              />
+                            )}
+                            {wholesalePct > 0 && (
+                              <circle
+                                cx="50"
+                                cy="50"
+                                r={radius}
+                                fill="transparent"
+                                stroke="#FF6B35"
+                                strokeWidth={strokeWidth}
+                                strokeDasharray={`${wholesaleStroke} ${circ}`}
+                                strokeDashoffset={-retailStroke}
+                              />
+                            )}
+                          </svg>
+                          <div style={{
+                            position: 'absolute',
+                            left: '50%',
+                            top: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            textAlign: 'center'
+                          }}>
+                            <span style={{ fontSize: '10px', color: '#687466', textTransform: 'uppercase', display: 'block', fontWeight: 'bold' }}>Total Qty</span>
+                            <strong style={{ fontSize: '18px', color: '#111827' }}>{totalQty}</strong>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: '150px' }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                            <div style={{ width: '12px', height: '12px', background: '#2D5016', borderRadius: '4px', marginTop: '2px' }} />
+                            <div>
+                              <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#111827', display: 'block' }}>🛍️ Retail Sales ({retailPct.toFixed(1)}%)</span>
+                              <span style={{ fontSize: '11px', color: '#687466' }}>Qty: {periodStats.retailQty} units</span>
+                              <span style={{ fontSize: '11px', color: '#2D5016', fontWeight: 'bold', display: 'block' }}>Val: {formatPrice(periodStats.retailRevenue)}</span>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                            <div style={{ width: '12px', height: '12px', background: '#FF6B35', borderRadius: '4px', marginTop: '2px' }} />
+                            <div>
+                              <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#111827', display: 'block' }}>📦 Wholesale Sales ({wholesalePct.toFixed(1)}%)</span>
+                              <span style={{ fontSize: '11px', color: '#687466' }}>Qty: {periodStats.wholesaleQty} units</span>
+                              <span style={{ fontSize: '11px', color: '#FF6B35', fontWeight: 'bold', display: 'block' }}>Val: {formatPrice(periodStats.wholesaleRevenue)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <div style={{ padding: '16px', background: '#FAF9F6', borderRadius: '12px', border: '1px solid var(--color-border-light)' }}>
+                  <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: '#2D5016', fontWeight: 'bold' }}>Top 5 Selling Items</h3>
+
+                  {liveOrders === null ? (
+                    <p style={{ fontSize: '13px', color: '#687466' }}>Loading top selling products…</p>
+                  ) : periodStats.topItems.length === 0 ? (
+                    <p style={{ fontSize: '13px', color: '#687466', textAlign: 'center', padding: '30px 0' }}>No sales data available for this period.</p>
+                  ) : (() => {
+                    const maxQty = Math.max(...periodStats.topItems.map(item => item.quantitySold), 1);
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {periodStats.topItems.map((item, idx) => {
+                          const percentage = (item.quantitySold / maxQty) * 100;
+                          return (
+                            <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                                <span style={{ fontWeight: '600', color: '#111827', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '240px' }} title={item.name}>
+                                  {idx + 1}. {item.name}
+                                </span>
+                                <strong style={{ color: '#2D5016' }}>{item.quantitySold} units</strong>
+                              </div>
+                              <div style={{ height: '14px', background: '#E5E7EB', borderRadius: '8px', overflow: 'hidden' }}>
+                                <div style={{
+                                  width: `${percentage}%`,
+                                  height: '100%',
+                                  background: 'linear-gradient(90deg, #5B8C3F, #2D5016)',
+                                  borderRadius: '8px'
+                                }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+              </div>
             </section>
           )}
 
