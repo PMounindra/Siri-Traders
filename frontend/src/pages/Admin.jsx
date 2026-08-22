@@ -436,15 +436,34 @@ const Admin = () => {
     return Object.values(sales).sort((a, b) => b.quantitySold - a.quantitySold);
   }, [liveOrders, allProducts, wholesaleProducts]);
 
+  const parseOrderDate = (dateVal) => {
+    if (!dateVal) return null;
+    if (dateVal instanceof Date) return dateVal;
+    let cleanStr = String(dateVal).trim();
+    if (cleanStr.includes(' ')) {
+      cleanStr = cleanStr.replace(' ', 'T');
+    }
+    const d = new Date(cleanStr);
+    if (isNaN(d.getTime())) {
+      const match = cleanStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) {
+        return new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10));
+      }
+    }
+    return d;
+  };
+
   const availableMonths = useMemo(() => {
     if (!liveOrders) return [];
     const monthsMap = {};
     liveOrders.forEach(order => {
       if (order.createdAt) {
-        const d = new Date(order.createdAt);
-        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        const label = d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-        monthsMap[monthKey] = label;
+        const d = parseOrderDate(order.createdAt);
+        if (d && !isNaN(d.getTime())) {
+          const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          const label = d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+          monthsMap[monthKey] = label;
+        }
       }
     });
     return Object.entries(monthsMap).sort((a, b) => b[0].localeCompare(a[0]));
@@ -455,7 +474,8 @@ const Admin = () => {
     if (selectedMonth !== 'lifetime') {
       filtered = (liveOrders || []).filter(order => {
         if (!order.createdAt) return false;
-        const d = new Date(order.createdAt);
+        const d = parseOrderDate(order.createdAt);
+        if (!d || isNaN(d.getTime())) return false;
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         return key === selectedMonth;
       });
@@ -510,6 +530,64 @@ const Admin = () => {
       topItems
     };
   }, [liveOrders, selectedMonth, allProducts, wholesaleProducts]);
+
+  const donutSegments = useMemo(() => {
+    let filtered = liveOrders || [];
+    if (selectedMonth !== 'lifetime') {
+      filtered = (liveOrders || []).filter(order => {
+        if (!order.createdAt) return false;
+        const d = parseOrderDate(order.createdAt);
+        if (!d || isNaN(d.getTime())) return false;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        return key === selectedMonth;
+      });
+    }
+
+    let totalQty = 0;
+    const allItemsMap = {};
+
+    filtered.forEach(order => {
+      if (order.items) {
+        order.items.forEach(item => {
+          const qty = parseInt(item.quantity || 1, 10);
+          const name = item.name;
+          if (name) {
+            allItemsMap[name] = (allItemsMap[name] || 0) + qty;
+            totalQty += qty;
+          }
+        });
+      }
+    });
+
+    const sortedAll = Object.entries(allItemsMap)
+      .map(([name, qty]) => ({ name, qty }))
+      .sort((a, b) => b.qty - a.qty);
+
+    const top4 = sortedAll.slice(0, 4);
+    const top4Sum = top4.reduce((sum, item) => sum + item.qty, 0);
+    const othersQty = Math.max(0, totalQty - top4Sum);
+
+    const result = top4.map((item, idx) => {
+      const colors = ['#2D5016', '#5B8C3F', '#FCD34D', '#FF6B35'];
+      return {
+        name: item.name,
+        qty: item.qty,
+        pct: totalQty > 0 ? (item.qty / totalQty) * 100 : 0,
+        color: colors[idx]
+      };
+    });
+
+    if (othersQty > 0) {
+      result.push({
+        name: 'Others',
+        qty: othersQty,
+        pct: (othersQty / totalQty) * 100,
+        color: '#9CA3AF'
+      });
+    }
+
+    return result;
+  }, [liveOrders, selectedMonth]);
 
   const exportItems = () => {
     const isWS = activeTab === 'wholesale-products' || activeTab === 'wholesale-content';
@@ -987,22 +1065,18 @@ const Admin = () => {
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px' }}>
                 <div style={{ padding: '16px', background: '#FAF9F6', borderRadius: '12px', border: '1px solid var(--color-border-light)' }}>
-                  <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: '#2D5016', fontWeight: 'bold' }}>Sales Segment Distribution</h3>
+                  <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: '#2D5016', fontWeight: 'bold' }}>Product Sales Distribution</h3>
                   
                   {liveOrders === null ? (
-                    <p style={{ fontSize: '13px', color: '#687466' }}>Loading split data…</p>
-                  ) : (periodStats.retailQty === 0 && periodStats.wholesaleQty === 0) ? (
+                    <p style={{ fontSize: '13px', color: '#687466' }}>Loading distribution data…</p>
+                  ) : donutSegments.length === 0 ? (
                     <p style={{ fontSize: '13px', color: '#687466', textAlign: 'center', padding: '30px 0' }}>No sales data available for this period.</p>
                   ) : (() => {
-                    const totalQty = periodStats.retailQty + periodStats.wholesaleQty;
-                    const retailPct = totalQty > 0 ? (periodStats.retailQty / totalQty) * 100 : 0;
-                    const wholesalePct = totalQty > 0 ? (periodStats.wholesaleQty / totalQty) * 100 : 0;
-                    
+                    const totalQty = donutSegments.reduce((sum, s) => sum + s.qty, 0);
                     const strokeWidth = 12;
                     const radius = 38;
                     const circ = 2 * Math.PI * radius;
-                    const retailStroke = (retailPct / 100) * circ;
-                    const wholesaleStroke = (wholesalePct / 100) * circ;
+                    let currentOffset = 0;
 
                     return (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -1016,29 +1090,25 @@ const Admin = () => {
                               stroke="#E5E7EB"
                               strokeWidth={strokeWidth}
                             />
-                            {retailPct > 0 && (
-                              <circle
-                                cx="50"
-                                cy="50"
-                                r={radius}
-                                fill="transparent"
-                                stroke="#2D5016"
-                                strokeWidth={strokeWidth}
-                                strokeDasharray={`${retailStroke} ${circ}`}
-                              />
-                            )}
-                            {wholesalePct > 0 && (
-                              <circle
-                                cx="50"
-                                cy="50"
-                                r={radius}
-                                fill="transparent"
-                                stroke="#FF6B35"
-                                strokeWidth={strokeWidth}
-                                strokeDasharray={`${wholesaleStroke} ${circ}`}
-                                strokeDashoffset={-retailStroke}
-                              />
-                            )}
+                            {donutSegments.map((segment, idx) => {
+                              const strokeLength = (segment.pct / 100) * circ;
+                              const strokeOffset = currentOffset;
+                              currentOffset -= strokeLength;
+
+                              return (
+                                <circle
+                                  key={idx}
+                                  cx="50"
+                                  cy="50"
+                                  r={radius}
+                                  fill="transparent"
+                                  stroke={segment.color}
+                                  strokeWidth={strokeWidth}
+                                  strokeDasharray={`${strokeLength} ${circ}`}
+                                  strokeDashoffset={strokeOffset}
+                                />
+                              );
+                            })}
                           </svg>
                           <div style={{
                             position: 'absolute',
@@ -1052,24 +1122,20 @@ const Admin = () => {
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: '150px' }}>
-                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                            <div style={{ width: '12px', height: '12px', background: '#2D5016', borderRadius: '4px', marginTop: '2px' }} />
-                            <div>
-                              <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#111827', display: 'block' }}>🛍️ Retail Sales ({retailPct.toFixed(1)}%)</span>
-                              <span style={{ fontSize: '11px', color: '#687466' }}>Qty: {periodStats.retailQty} units</span>
-                              <span style={{ fontSize: '11px', color: '#2D5016', fontWeight: 'bold', display: 'block' }}>Val: {formatPrice(periodStats.retailRevenue)}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '160px', maxWidth: '240px' }}>
+                          {donutSegments.map((segment, idx) => (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                              <div style={{ width: '10px', height: '10px', background: segment.color, borderRadius: '3px', marginTop: '3px', flexShrink: 0 }} />
+                              <div style={{ lineHeight: '1.2' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#111827', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '210px' }} title={segment.name}>
+                                  {segment.name}
+                                </span>
+                                <span style={{ fontSize: '10px', color: '#687466' }}>
+                                  {segment.qty} units ({segment.pct.toFixed(1)}%)
+                                </span>
+                              </div>
                             </div>
-                          </div>
-
-                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                            <div style={{ width: '12px', height: '12px', background: '#FF6B35', borderRadius: '4px', marginTop: '2px' }} />
-                            <div>
-                              <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#111827', display: 'block' }}>📦 Wholesale Sales ({wholesalePct.toFixed(1)}%)</span>
-                              <span style={{ fontSize: '11px', color: '#687466' }}>Qty: {periodStats.wholesaleQty} units</span>
-                              <span style={{ fontSize: '11px', color: '#FF6B35', fontWeight: 'bold', display: 'block' }}>Val: {formatPrice(periodStats.wholesaleRevenue)}</span>
-                            </div>
-                          </div>
+                          ))}
                         </div>
                       </div>
                     );
