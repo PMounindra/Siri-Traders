@@ -231,6 +231,7 @@ const Admin = () => {
   const [appliedStartDate, setAppliedStartDate] = useState('');
   const [appliedEndDate, setAppliedEndDate] = useState('');
   const [selectedBroadcastEmails, setSelectedBroadcastEmails] = useState([]);
+  const [productSearchQuery, setProductSearchQuery] = useState('');
 
   const getCustomerName = (userId) => {
     if (!liveCustomers) return 'Customer';
@@ -640,6 +641,124 @@ const Admin = () => {
 
     return result;
   }, [liveOrders, appliedPeriod, appliedStartDate, appliedEndDate]);
+
+  const getTopAreaForProduct = (productId) => {
+    const { startDate, endDate } = getPeriodDateRange(appliedPeriod, appliedStartDate, appliedEndDate);
+    let filteredOrders = liveOrders || [];
+    if (appliedPeriod !== 'lifetime') {
+      filteredOrders = (liveOrders || []).filter(order => {
+        if (!order.createdAt) return false;
+        const d = parseOrderDate(order.createdAt);
+        if (!d || isNaN(d.getTime())) return false;
+        
+        if (startDate && d < startDate) return false;
+        if (endDate && d > endDate) return false;
+        return true;
+      });
+    }
+
+    const areaCount = {};
+    filteredOrders.forEach(order => {
+      const hasProduct = order.items && order.items.some(item => (item.productId || item.id) === productId);
+      if (hasProduct && order.deliveryAddress) {
+        let matchedZone = 'Other Address';
+        const addr = order.deliveryAddress.toUpperCase();
+        
+        for (const zone of deliveryZones) {
+          if (zone.name && addr.includes(zone.name.toUpperCase())) {
+            matchedZone = zone.name;
+            break;
+          }
+        }
+        
+        if (matchedZone === 'Other Address') {
+          if (addr.includes('ISNAPUR')) matchedZone = 'Isnapur';
+          else if (addr.includes('CHITKUL')) matchedZone = 'Chitkul';
+          else if (addr.includes('PATANCHERU')) matchedZone = 'Patancheru';
+          else {
+            const parts = order.deliveryAddress.split(',');
+            if (parts.length >= 2) {
+              matchedZone = parts[parts.length - 2].trim();
+            } else {
+              matchedZone = order.deliveryAddress.trim();
+            }
+            if (matchedZone.length > 20) {
+              matchedZone = matchedZone.slice(0, 17) + '...';
+            }
+          }
+        }
+        
+        areaCount[matchedZone] = (areaCount[matchedZone] || 0) + 1;
+      }
+    });
+
+    let topArea = '—';
+    let maxVal = 0;
+    Object.entries(areaCount).forEach(([area, count]) => {
+      if (count > maxVal) {
+        maxVal = count;
+        topArea = area;
+      }
+    });
+
+    return topArea;
+  };
+
+  const filteredSalesStats = useMemo(() => {
+    const { startDate, endDate } = getPeriodDateRange(appliedPeriod, appliedStartDate, appliedEndDate);
+    
+    let filteredOrders = liveOrders || [];
+    if (appliedPeriod !== 'lifetime') {
+      filteredOrders = (liveOrders || []).filter(order => {
+        if (!order.createdAt) return false;
+        const d = parseOrderDate(order.createdAt);
+        if (!d || isNaN(d.getTime())) return false;
+        
+        if (startDate && d < startDate) return false;
+        if (endDate && d > endDate) return false;
+        return true;
+      });
+    }
+
+    const sales = {};
+    
+    filteredOrders.forEach(order => {
+      if (order.items) {
+        order.items.forEach(item => {
+          const prodId = item.productId || item.id;
+          if (prodId) {
+            if (!sales[prodId]) {
+              const matchedProd = allProducts.find(p => p.id === prodId);
+              sales[prodId] = {
+                id: prodId,
+                name: item.name || (matchedProd ? matchedProd.name : 'Unknown Product'),
+                weight: item.weight || (matchedProd ? matchedProd.weight : ''),
+                unit: item.unit || (matchedProd ? matchedProd.unit : ''),
+                category: matchedProd ? (wholesaleProducts.some(w => w.id === prodId) ? 'Wholesale' : 'Retail') : 'Retail',
+                price: item.price || (matchedProd ? matchedProd.price : 0),
+                quantitySold: 0,
+                ordersCount: 0,
+                totalRevenue: 0
+              };
+            }
+            const qty = parseInt(item.quantity || 1, 10);
+            sales[prodId].quantitySold += qty;
+            sales[prodId].ordersCount += 1;
+            sales[prodId].totalRevenue += (item.price || 0) * qty;
+          }
+        });
+      }
+    });
+
+    let result = Object.values(sales);
+
+    if (productSearchQuery.trim()) {
+      const q = productSearchQuery.toLowerCase();
+      result = result.filter(item => item.name.toLowerCase().includes(q));
+    }
+
+    return result.sort((a, b) => b.quantitySold - a.quantitySold);
+  }, [liveOrders, appliedPeriod, appliedStartDate, appliedEndDate, allProducts, wholesaleProducts, productSearchQuery]);
 
   const exportItems = () => {
     const isWS = activeTab === 'wholesale-products' || activeTab === 'wholesale-content';
@@ -1080,370 +1199,7 @@ const Admin = () => {
             </section>
           )}
 
-          {activeTab === 'dashboard' && (
-            <section className="admin-card admin-card--wide" style={{ marginBottom: '20px' }}>
-              <div className="admin-card__toolbar" style={{ borderBottom: '1px solid var(--color-border-light)', paddingBottom: '12px', marginBottom: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '12px' }}>
-                  <div>
-                    <h2 style={{ margin: 0 }}>Sales & Product Analytics</h2>
-                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
-                      Visual representation of product distribution and retail vs wholesale sales splits.
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#111827' }}>Select Period:</span>
-                    <div style={{ position: 'relative' }}>
-                      <button
-                        onClick={() => {
-                          setAnalyticsPeriod(appliedPeriod);
-                          setCustomStartDate(appliedStartDate);
-                          setCustomEndDate(appliedEndDate);
-                          setPeriodPickerOpen(!periodPickerOpen);
-                        }}
-                        style={{
-                          padding: '8px 16px',
-                          borderRadius: '6px',
-                          border: '1px solid var(--color-border-light)',
-                          fontSize: '13px',
-                          fontWeight: '600',
-                          cursor: 'pointer',
-                          background: '#FFFFFF',
-                          color: '#111827',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                        }}
-                      >
-                        📅 <span>{(() => {
-                          switch (appliedPeriod) {
-                            case 'today': return 'Today';
-                            case 'yesterday': return 'Yesterday';
-                            case 'last-7': return 'Last 7 Days';
-                            case 'last-30': return 'Last 30 Days';
-                            case 'this-month': return 'This Month';
-                            case 'last-month': return 'Last Month';
-                            case 'custom':
-                              if (appliedStartDate && appliedEndDate) {
-                                return `${new Date(appliedStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} - ${new Date(appliedEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`;
-                              }
-                              return 'Custom Range';
-                            case 'lifetime':
-                            default:
-                              return 'Lifetime Sales';
-                          }
-                        })()}</span>
-                      </button>
 
-                      {periodPickerOpen && (
-                        <>
-                          <div
-                            style={{
-                              position: 'fixed',
-                              inset: 0,
-                              zIndex: 998,
-                              background: 'transparent'
-                            }}
-                            onClick={() => setPeriodPickerOpen(false)}
-                          />
-
-                          <div
-                            style={{
-                              position: 'absolute',
-                              right: 0,
-                              top: '100%',
-                              marginTop: '8px',
-                              background: '#FFFFFF',
-                              borderRadius: '12px',
-                              border: '1px solid var(--color-border-light)',
-                              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
-                              zIndex: 999,
-                              width: '420px',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              overflow: 'hidden'
-                            }}
-                          >
-                            <div style={{ display: 'flex', minHeight: '260px' }}>
-                              <div
-                                style={{
-                                  width: '160px',
-                                  borderRight: '1px solid var(--color-border-light)',
-                                  background: '#FAF9F6',
-                                  padding: '8px 0',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '2px'
-                                }}
-                              >
-                                <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#687466', padding: '6px 16px', textTransform: 'uppercase' }}>
-                                  Presets
-                                </span>
-                                {[
-                                  ['lifetime', 'Lifetime'],
-                                  ['today', 'Today'],
-                                  ['yesterday', 'Yesterday'],
-                                  ['last-7', 'Last 7 days'],
-                                  ['last-30', 'Last 30 days'],
-                                  ['this-month', 'This month'],
-                                  ['last-month', 'Last month'],
-                                  ['custom', 'Custom Range']
-                                ].map(([val, label]) => (
-                                  <button
-                                    key={val}
-                                    onClick={() => {
-                                      setAnalyticsPeriod(val);
-                                      if (val !== 'custom') {
-                                        const { startDate, endDate } = getPeriodDateRange(val, '', '');
-                                        if (startDate) setCustomStartDate(startDate.toISOString().split('T')[0]);
-                                        if (endDate) setCustomEndDate(endDate.toISOString().split('T')[0]);
-                                      }
-                                    }}
-                                    style={{
-                                      padding: '8px 16px',
-                                      textAlign: 'left',
-                                      fontSize: '12px',
-                                      border: 'none',
-                                      background: analyticsPeriod === val ? '#E6ECD9' : 'transparent',
-                                      color: analyticsPeriod === val ? '#2D5016' : '#4B5563',
-                                      fontWeight: analyticsPeriod === val ? '700' : '500',
-                                      cursor: 'pointer',
-                                      width: '100%'
-                                    }}
-                                  >
-                                    {label}
-                                  </button>
-                                ))}
-                              </div>
-
-                              <div style={{ flex: 1, padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#111827' }}>
-                                  Custom Range (IST)
-                                </span>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                  <label style={{ fontSize: '10px', fontWeight: '600', color: '#6B7280' }}>Start Date</label>
-                                  <input
-                                    type="date"
-                                    value={customStartDate}
-                                    onChange={(e) => {
-                                      setCustomStartDate(e.target.value);
-                                      setAnalyticsPeriod('custom');
-                                    }}
-                                    onClick={() => setAnalyticsPeriod('custom')}
-                                    style={{
-                                      padding: '6px 8px',
-                                      borderRadius: '6px',
-                                      border: '1px solid var(--color-border-light)',
-                                      fontSize: '12px',
-                                      background: '#FFFFFF',
-                                      color: '#111827',
-                                      outline: 'none',
-                                      width: '100%',
-                                      cursor: 'pointer'
-                                    }}
-                                  />
-                                </div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                  <label style={{ fontSize: '10px', fontWeight: '600', color: '#6B7280' }}>End Date</label>
-                                  <input
-                                    type="date"
-                                    value={customEndDate}
-                                    onChange={(e) => {
-                                      setCustomEndDate(e.target.value);
-                                      setAnalyticsPeriod('custom');
-                                    }}
-                                    onClick={() => setAnalyticsPeriod('custom')}
-                                    style={{
-                                      padding: '6px 8px',
-                                      borderRadius: '6px',
-                                      border: '1px solid var(--color-border-light)',
-                                      fontSize: '12px',
-                                      background: '#FFFFFF',
-                                      color: '#111827',
-                                      outline: 'none',
-                                      width: '100%',
-                                      cursor: 'pointer'
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            <div
-                              style={{
-                                display: 'flex',
-                                justifyContent: 'flex-end',
-                                gap: '8px',
-                                padding: '12px 16px',
-                                background: '#F9FAFB',
-                                borderTop: '1px solid var(--color-border-light)'
-                              }}
-                            >
-                              <button
-                                onClick={() => setPeriodPickerOpen(false)}
-                                style={{
-                                  padding: '6px 12px',
-                                  borderRadius: '6px',
-                                  border: '1px solid var(--color-border-light)',
-                                  background: '#FFFFFF',
-                                  color: '#4B5563',
-                                  fontSize: '12px',
-                                  fontWeight: '600',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setAppliedPeriod(analyticsPeriod);
-                                  setAppliedStartDate(customStartDate);
-                                  setAppliedEndDate(customEndDate);
-                                  setPeriodPickerOpen(false);
-                                }}
-                                style={{
-                                  padding: '6px 12px',
-                                  borderRadius: '6px',
-                                  border: 'none',
-                                  background: '#2D5016',
-                                  color: '#FFFFFF',
-                                  fontSize: '12px',
-                                  fontWeight: '600',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                Update
-                              </button>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px' }}>
-                <div style={{ padding: '16px', background: '#FAF9F6', borderRadius: '12px', border: '1px solid var(--color-border-light)' }}>
-                  <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: '#2D5016', fontWeight: 'bold' }}>Product Sales Distribution</h3>
-                  
-                  {liveOrders === null ? (
-                    <p style={{ fontSize: '13px', color: '#687466' }}>Loading distribution data…</p>
-                  ) : donutSegments.length === 0 ? (
-                    <p style={{ fontSize: '13px', color: '#687466', textAlign: 'center', padding: '30px 0' }}>No sales data available for this period.</p>
-                  ) : (() => {
-                    const totalQty = donutSegments.reduce((sum, s) => sum + s.qty, 0);
-                    const strokeWidth = 12;
-                    const radius = 38;
-                    const circ = 2 * Math.PI * radius;
-                    let currentOffset = 0;
-
-                    return (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                        <div style={{ position: 'relative', width: '130px', height: '130px' }}>
-                          <svg width="130" height="130" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
-                            <circle
-                              cx="50"
-                              cy="50"
-                              r={radius}
-                              fill="transparent"
-                              stroke="#E5E7EB"
-                              strokeWidth={strokeWidth}
-                            />
-                            {donutSegments.map((segment, idx) => {
-                              const strokeLength = (segment.pct / 100) * circ;
-                              const strokeOffset = currentOffset;
-                              currentOffset -= strokeLength;
-
-                              return (
-                                <circle
-                                  key={idx}
-                                  cx="50"
-                                  cy="50"
-                                  r={radius}
-                                  fill="transparent"
-                                  stroke={segment.color}
-                                  strokeWidth={strokeWidth}
-                                  strokeDasharray={`${strokeLength} ${circ}`}
-                                  strokeDashoffset={strokeOffset}
-                                />
-                              );
-                            })}
-                          </svg>
-                          <div style={{
-                            position: 'absolute',
-                            left: '50%',
-                            top: '50%',
-                            transform: 'translate(-50%, -50%)',
-                            textAlign: 'center'
-                          }}>
-                            <span style={{ fontSize: '10px', color: '#687466', textTransform: 'uppercase', display: 'block', fontWeight: 'bold' }}>Total Qty</span>
-                            <strong style={{ fontSize: '18px', color: '#111827' }}>{totalQty}</strong>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '160px', maxWidth: '240px' }}>
-                          {donutSegments.map((segment, idx) => (
-                            <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                              <div style={{ width: '10px', height: '10px', background: segment.color, borderRadius: '3px', marginTop: '3px', flexShrink: 0 }} />
-                              <div style={{ lineHeight: '1.2' }}>
-                                <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#111827', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '210px' }} title={segment.name}>
-                                  {segment.name}
-                                </span>
-                                <span style={{ fontSize: '10px', color: '#687466' }}>
-                                  {segment.qty} units ({segment.pct.toFixed(1)}%)
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                <div style={{ padding: '16px', background: '#FAF9F6', borderRadius: '12px', border: '1px solid var(--color-border-light)' }}>
-                  <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: '#2D5016', fontWeight: 'bold' }}>Top 5 Selling Items</h3>
-
-                  {liveOrders === null ? (
-                    <p style={{ fontSize: '13px', color: '#687466' }}>Loading top selling products…</p>
-                  ) : periodStats.topItems.length === 0 ? (
-                    <p style={{ fontSize: '13px', color: '#687466', textAlign: 'center', padding: '30px 0' }}>No sales data available for this period.</p>
-                  ) : (() => {
-                    const maxQty = Math.max(...periodStats.topItems.map(item => item.quantitySold), 1);
-                    return (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {periodStats.topItems.map((item, idx) => {
-                          const percentage = (item.quantitySold / maxQty) * 100;
-                          return (
-                            <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                                <span style={{ fontWeight: '600', color: '#111827', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '240px' }} title={item.name}>
-                                  {idx + 1}. {item.name}
-                                </span>
-                                <strong style={{ color: '#2D5016' }}>{item.quantitySold} units</strong>
-                              </div>
-                              <div style={{ height: '14px', background: '#E5E7EB', borderRadius: '8px', overflow: 'hidden' }}>
-                                <div style={{
-                                  width: `${percentage}%`,
-                                  height: '100%',
-                                  background: 'linear-gradient(90deg, #5B8C3F, #2D5016)',
-                                  borderRadius: '8px'
-                                }} />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()}
-                </div>
-
-              </div>
-            </section>
-          )}
 
           {/* Store links banner */}
           {(activeTab === 'retail-products' || activeTab === 'retail-content') && (
@@ -2191,57 +1947,485 @@ const Admin = () => {
           )}
 
           {activeTab === 'sales-stats' && (
-            <section className="admin-card admin-card--wide">
-              <div className="admin-card__toolbar">
-                <h2>Product Sales Frequency</h2>
-                <span className="admin-muted">Ranked by total quantity sold</span>
-              </div>
-              {liveOrders === null && <p className="admin-muted">Loading stats…</p>}
-              {liveOrders !== null && productSales.length === 0 && (
-                <p className="admin-muted">No sales recorded yet.</p>
-              )}
-              {productSales.length > 0 && (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '2px solid #2D5016', textAlign: 'left', background: '#F7F4EE' }}>
-                        <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900' }}>ITEM NAME</th>
-                        <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900' }}>CATEGORY</th>
-                        <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900' }}>UNIT PRICE</th>
-                        <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900', textAlign: 'center' }}>ORDERS COUNT</th>
-                        <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900', textAlign: 'center' }}>TOTAL QUANTITY SOLD</th>
-                        <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900', textAlign: 'right' }}>TOTAL REVENUE</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {productSales.map(sale => (
-                        <tr key={sale.id} style={{ borderBottom: '1px solid var(--color-border-light)' }}>
-                          <td style={{ padding: '12px 10px', fontSize: '13px', fontWeight: '500' }}>
-                            {sale.name} {sale.weight ? `(${sale.weight} ${sale.unit})` : ''}
-                          </td>
-                          <td style={{ padding: '12px 10px', fontSize: '12px' }}>
-                            <span style={{
-                              padding: '2px 8px',
-                              borderRadius: '12px',
-                              background: sale.category === 'Wholesale' ? '#FFF0EA' : '#FFF8DF',
-                              color: sale.category === 'Wholesale' ? '#FF6B35' : '#2D5016',
-                              fontWeight: '800',
-                              fontSize: '11px'
-                            }}>
-                              {sale.category}
-                            </span>
-                          </td>
-                          <td style={{ padding: '12px 10px', fontSize: '13px' }}>{formatPrice(sale.price)}</td>
-                          <td style={{ padding: '12px 10px', fontSize: '13px', textAlign: 'center', fontWeight: '800' }}>{sale.ordersCount}</td>
-                          <td style={{ padding: '12px 10px', fontSize: '13px', textAlign: 'center', fontWeight: '800', color: '#2D5016' }}>{sale.quantitySold}</td>
-                          <td style={{ padding: '12px 10px', fontSize: '13px', textAlign: 'right', fontWeight: '800' }}>{formatPrice(sale.totalRevenue)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              <section className="admin-card admin-card--wide">
+                <div className="admin-card__toolbar" style={{ borderBottom: '1px solid var(--color-border-light)', paddingBottom: '12px', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '12px' }}>
+                    <div>
+                      <h2 style={{ margin: 0 }}>Sales & Product Analytics</h2>
+                      <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
+                        Visual representation of product sales distribution and top performers.
+                      </p>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#111827' }}>Select Period:</span>
+                      <div style={{ position: 'relative' }}>
+                        <button
+                          onClick={() => {
+                            setAnalyticsPeriod(appliedPeriod);
+                            setCustomStartDate(appliedStartDate);
+                            setCustomEndDate(appliedEndDate);
+                            setPeriodPickerOpen(!periodPickerOpen);
+                          }}
+                          style={{
+                            padding: '8px 16px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--color-border-light)',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            background: '#FFFFFF',
+                            color: '#111827',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                          }}
+                        >
+                          📅 <span>{(() => {
+                            switch (appliedPeriod) {
+                              case 'today': return 'Today';
+                              case 'yesterday': return 'Yesterday';
+                              case 'last-7': return 'Last 7 Days';
+                              case 'last-30': return 'Last 30 Days';
+                              case 'this-month': return 'This Month';
+                              case 'last-month': return 'Last Month';
+                              case 'custom':
+                                if (appliedStartDate && appliedEndDate) {
+                                  return `${new Date(appliedStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} - ${new Date(appliedEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`;
+                                }
+                                return 'Custom Range';
+                              case 'lifetime':
+                              default:
+                                return 'Lifetime Sales';
+                            }
+                          })()}</span>
+                        </button>
+
+                        {periodPickerOpen && (
+                          <>
+                            <div
+                              style={{
+                                position: 'fixed',
+                                inset: 0,
+                                zIndex: 998,
+                                background: 'transparent'
+                              }}
+                              onClick={() => setPeriodPickerOpen(false)}
+                            />
+
+                            <div
+                              style={{
+                                position: 'absolute',
+                                right: 0,
+                                top: '100%',
+                                marginTop: '8px',
+                                background: '#FFFFFF',
+                                borderRadius: '12px',
+                                border: '1px solid var(--color-border-light)',
+                                boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                                zIndex: 999,
+                                width: '420px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                overflow: 'hidden'
+                              }}
+                            >
+                              <div style={{ display: 'flex', minHeight: '260px' }}>
+                                <div
+                                  style={{
+                                    width: '160px',
+                                    borderRight: '1px solid var(--color-border-light)',
+                                    background: '#FAF9F6',
+                                    padding: '8px 0',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '2px'
+                                  }}
+                                >
+                                  <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#687466', padding: '6px 16px', textTransform: 'uppercase' }}>
+                                    Presets
+                                  </span>
+                                  {[
+                                    ['lifetime', 'Lifetime'],
+                                    ['today', 'Today'],
+                                    ['yesterday', 'Yesterday'],
+                                    ['last-7', 'Last 7 days'],
+                                    ['last-30', 'Last 30 days'],
+                                    ['this-month', 'This month'],
+                                    ['last-month', 'Last month'],
+                                    ['custom', 'Custom Range']
+                                  ].map(([val, label]) => (
+                                    <button
+                                      key={val}
+                                      onClick={() => {
+                                        setAnalyticsPeriod(val);
+                                        if (val !== 'custom') {
+                                          const { startDate, endDate } = getPeriodDateRange(val, '', '');
+                                          if (startDate) setCustomStartDate(startDate.toISOString().split('T')[0]);
+                                          if (endDate) setCustomEndDate(endDate.toISOString().split('T')[0]);
+                                        }
+                                      }}
+                                      style={{
+                                        padding: '8px 16px',
+                                        textAlign: 'left',
+                                        fontSize: '12px',
+                                        border: 'none',
+                                        background: analyticsPeriod === val ? '#E6ECD9' : 'transparent',
+                                        color: analyticsPeriod === val ? '#2D5016' : '#4B5563',
+                                        fontWeight: analyticsPeriod === val ? '700' : '500',
+                                        cursor: 'pointer',
+                                        width: '100%'
+                                      }}
+                                    >
+                                      {label}
+                                    </button>
+                                  ))}
+                                </div>
+
+                                <div style={{ flex: 1, padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#111827' }}>
+                                    Custom Range (IST)
+                                  </span>
+
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <label style={{ fontSize: '10px', fontWeight: '600', color: '#6B7280' }}>Start Date</label>
+                                    <input
+                                      type="date"
+                                      value={customStartDate}
+                                      onChange={(e) => {
+                                        setCustomStartDate(e.target.value);
+                                        setAnalyticsPeriod('custom');
+                                      }}
+                                      onClick={() => setAnalyticsPeriod('custom')}
+                                      style={{
+                                        padding: '6px 8px',
+                                        borderRadius: '6px',
+                                        border: '1px solid var(--color-border-light)',
+                                        fontSize: '12px',
+                                        background: '#FFFFFF',
+                                        color: '#111827',
+                                        outline: 'none',
+                                        width: '100%',
+                                        cursor: 'pointer'
+                                      }}
+                                    />
+                                  </div>
+
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <label style={{ fontSize: '10px', fontWeight: '600', color: '#6B7280' }}>End Date</label>
+                                    <input
+                                      type="date"
+                                      value={customEndDate}
+                                      onChange={(e) => {
+                                        setCustomEndDate(e.target.value);
+                                        setAnalyticsPeriod('custom');
+                                      }}
+                                      onClick={() => setAnalyticsPeriod('custom')}
+                                      style={{
+                                        padding: '6px 8px',
+                                        borderRadius: '6px',
+                                        border: '1px solid var(--color-border-light)',
+                                        fontSize: '12px',
+                                        background: '#FFFFFF',
+                                        color: '#111827',
+                                        outline: 'none',
+                                        width: '100%',
+                                        cursor: 'pointer'
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  justifyContent: 'flex-end',
+                                  gap: '8px',
+                                  padding: '12px 16px',
+                                  background: '#F9FAFB',
+                                  borderTop: '1px solid var(--color-border-light)'
+                                }}
+                              >
+                                <button
+                                  onClick={() => setPeriodPickerOpen(false)}
+                                  style={{
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--color-border-light)',
+                                    background: '#FFFFFF',
+                                    color: '#4B5563',
+                                    fontSize: '12px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setAppliedPeriod(analyticsPeriod);
+                                    setAppliedStartDate(customStartDate);
+                                    setAppliedEndDate(customEndDate);
+                                    setPeriodPickerOpen(false);
+                                  }}
+                                  style={{
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    background: '#2D5016',
+                                    color: '#FFFFFF',
+                                    fontSize: '12px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Update
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </section>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px' }}>
+                  
+                  <div style={{ padding: '16px', background: '#FAF9F6', borderRadius: '12px', border: '1px solid var(--color-border-light)' }}>
+                    <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: '#2D5016', fontWeight: 'bold' }}>Product Sales Distribution</h3>
+                    
+                    {liveOrders === null ? (
+                      <p style={{ fontSize: '13px', color: '#687466' }}>Loading distribution data…</p>
+                    ) : donutSegments.length === 0 ? (
+                      <p style={{ fontSize: '13px', color: '#687466', textAlign: 'center', padding: '30px 0' }}>No sales data available for this period.</p>
+                    ) : (() => {
+                      const totalQty = donutSegments.reduce((sum, s) => sum + s.qty, 0);
+                      const strokeWidth = 12;
+                      const radius = 38;
+                      const circ = 2 * Math.PI * radius;
+                      let currentOffset = 0;
+
+                      return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                          <div style={{ position: 'relative', width: '130px', height: '130px' }}>
+                            <svg width="130" height="130" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
+                              <circle
+                                cx="50"
+                                cy="50"
+                                r={radius}
+                                fill="transparent"
+                                stroke="#E5E7EB"
+                                strokeWidth={strokeWidth}
+                              />
+                              {donutSegments.map((segment, idx) => {
+                                const strokeLength = (segment.pct / 100) * circ;
+                                const strokeOffset = currentOffset;
+                                currentOffset -= strokeLength;
+
+                                return (
+                                  <circle
+                                    key={idx}
+                                    cx="50"
+                                    cy="50"
+                                    r={radius}
+                                    fill="transparent"
+                                    stroke={segment.color}
+                                    strokeWidth={strokeWidth}
+                                    strokeDasharray={`${strokeLength} ${circ}`}
+                                    strokeDashoffset={strokeOffset}
+                                  />
+                                );
+                              })}
+                            </svg>
+                            <div style={{
+                              position: 'absolute',
+                              left: '50%',
+                              top: '50%',
+                              transform: 'translate(-50%, -50%)',
+                              textAlign: 'center'
+                            }}>
+                              <span style={{ fontSize: '10px', color: '#687466', textTransform: 'uppercase', display: 'block', fontWeight: 'bold' }}>Total Qty</span>
+                              <strong style={{ fontSize: '18px', color: '#111827' }}>{totalQty}</strong>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '160px', maxWidth: '240px' }}>
+                            {donutSegments.map((segment, idx) => (
+                              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                                <div style={{ width: '10px', height: '10px', background: segment.color, borderRadius: '3px', marginTop: '3px', flexShrink: 0 }} />
+                                <div style={{ lineHeight: '1.2' }}>
+                                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#111827', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '210px' }} title={segment.name}>
+                                    {segment.name}
+                                  </span>
+                                  <span style={{ fontSize: '10px', color: '#687466' }}>
+                                    {segment.qty} units ({segment.pct.toFixed(1)}%)
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  <div style={{ padding: '16px', background: '#FAF9F6', borderRadius: '12px', border: '1px solid var(--color-border-light)' }}>
+                    <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: '#2D5016', fontWeight: 'bold' }}>Top 5 Selling Items</h3>
+
+                    {liveOrders === null ? (
+                      <p style={{ fontSize: '13px', color: '#687466' }}>Loading top selling products…</p>
+                    ) : periodStats.topItems.length === 0 ? (
+                      <p style={{ fontSize: '13px', color: '#687466', textAlign: 'center', padding: '30px 0' }}>No sales data available for this period.</p>
+                    ) : (() => {
+                      const maxQty = Math.max(...periodStats.topItems.map(item => item.quantitySold), 1);
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          {periodStats.topItems.map((item, idx) => {
+                            const percentage = (item.quantitySold / maxQty) * 100;
+                            return (
+                              <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                                  <span style={{ fontWeight: '600', color: '#111827', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '240px' }} title={item.name}>
+                                    {idx + 1}. {item.name}
+                                  </span>
+                                  <strong style={{ color: '#2D5016' }}>{item.quantitySold} units</strong>
+                                </div>
+                                <div style={{ height: '14px', background: '#E5E7EB', borderRadius: '8px', overflow: 'hidden' }}>
+                                  <div style={{
+                                    width: `${percentage}%`,
+                                    height: '100%',
+                                    background: 'linear-gradient(90deg, #5B8C3F, #2D5016)',
+                                    borderRadius: '8px'
+                                  }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                </div>
+              </section>
+
+              <section className="admin-card admin-card--wide">
+                <div className="admin-card__toolbar" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '12px', borderBottom: '1px solid var(--color-border-light)', paddingBottom: '16px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '10px' }}>
+                    <div>
+                      <h2 style={{ margin: 0 }}>Product Sales Frequencies & Target Areas</h2>
+                      <span className="admin-muted">Shows sales volumes and the highest-purchasing delivery area for each item.</span>
+                    </div>
+                  </div>
+                  
+                  <div style={{ width: '100%', display: 'flex', gap: '8px', maxWidth: '400px', position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '10px', top: '7px', color: '#9CA3AF' }}>🔍</span>
+                    <input
+                      type="text"
+                      placeholder="Search items by name..."
+                      value={productSearchQuery}
+                      onChange={(e) => setProductSearchQuery(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px 8px 32px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--color-border-light)',
+                        fontSize: '13px',
+                        outline: 'none'
+                      }}
+                    />
+                    {productSearchQuery && (
+                      <button
+                        onClick={() => setProductSearchQuery('')}
+                        style={{
+                          position: 'absolute',
+                          right: '10px',
+                          top: '6px',
+                          border: 'none',
+                          background: 'transparent',
+                          fontSize: '14px',
+                          cursor: 'pointer',
+                          color: '#9CA3AF'
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {liveOrders === null && <p className="admin-muted">Loading stats table…</p>}
+                {liveOrders !== null && filteredSalesStats.length === 0 && (
+                  <p className="admin-muted" style={{ padding: '20px 0', textAlign: 'center' }}>
+                    No products found matching your criteria.
+                  </p>
+                )}
+                {filteredSalesStats.length > 0 && (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid #2D5016', textAlign: 'left', background: '#F7F4EE' }}>
+                          <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900' }}>ITEM NAME</th>
+                          <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900' }}>CATEGORY</th>
+                          <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900' }}>UNIT PRICE</th>
+                          <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900', textAlign: 'center' }}>ORDERS COUNT</th>
+                          <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900', textAlign: 'center' }}>TIMES SOLD</th>
+                          <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900', textAlign: 'right' }}>TOTAL SOLD AMOUNT</th>
+                          <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900', textAlign: 'center' }}>TOP SALES AREA</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredSalesStats.map(sale => (
+                          <tr key={sale.id} style={{ borderBottom: '1px solid var(--color-border-light)' }}>
+                            <td style={{ padding: '12px 10px', fontSize: '13px', fontWeight: '600', color: '#111827' }}>
+                              {sale.name} {sale.weight ? `(${sale.weight} ${sale.unit})` : ''}
+                            </td>
+                            <td style={{ padding: '12px 10px', fontSize: '12px' }}>
+                              <span style={{
+                                padding: '2px 8px',
+                                borderRadius: '12px',
+                                background: sale.category === 'Wholesale' ? '#FFF0EA' : '#FFF8DF',
+                                color: sale.category === 'Wholesale' ? '#FF6B35' : '#2D5016',
+                                fontWeight: '800',
+                                fontSize: '11px'
+                              }}>
+                                {sale.category}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 10px', fontSize: '13px' }}>{formatPrice(sale.price)}</td>
+                            <td style={{ padding: '12px 10px', fontSize: '13px', textAlign: 'center', fontWeight: '700' }}>{sale.ordersCount}</td>
+                            <td style={{ padding: '12px 10px', fontSize: '13px', textAlign: 'center', fontWeight: '800', color: '#2D5016' }}>
+                              {sale.quantitySold} units
+                            </td>
+                            <td style={{ padding: '12px 10px', fontSize: '13px', textAlign: 'right', fontWeight: '800', color: '#111827' }}>
+                              {formatPrice(sale.totalRevenue)}
+                            </td>
+                            <td style={{ padding: '12px 10px', fontSize: '13px', textAlign: 'center', fontWeight: '700' }}>
+                              <span style={{
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                background: '#E6ECD9',
+                                color: '#2D5016',
+                                fontSize: '11px',
+                                border: '1px solid #C4D4C0'
+                              }}>
+                                {getTopAreaForProduct(sale.id)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+
+            </div>
           )}
 
           {activeTab === 'broadcast' && (
