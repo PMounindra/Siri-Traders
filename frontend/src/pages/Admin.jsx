@@ -34,6 +34,23 @@ import { toWebpImage } from '../utils/images';
 import { getUserStorageKey } from '../utils/userStorage';
 import './Admin.css';
 
+const formatWeightUnit = (weight, unit) => {
+  if (!weight) return '';
+  const wStr = String(weight).trim();
+  const uStr = String(unit || '').trim();
+  
+  if (!uStr) return wStr;
+  
+  const wLower = wStr.toLowerCase();
+  const uLower = uStr.toLowerCase();
+  
+  if (wLower.endsWith(uLower)) {
+    return wStr;
+  }
+  
+  return `${wStr} ${uStr}`;
+};
+
 const ADMIN_PRODUCTS_RETAIL_KEY = 'siri-admin-products-retail';
 const ADMIN_PRODUCTS_WHOLESALE_KEY = 'siri-admin-products-wholesale';
 
@@ -1848,7 +1865,7 @@ const Admin = () => {
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
                             {(order.items || []).map((item, idx) => (
                               <span key={idx} style={{ fontSize: '11px', lineHeight: '1.2' }}>
-                                • {item.name} {item.weight ? `(${item.weight}${item.unit})` : ''} <strong>x{item.quantity || 1}</strong>
+                                • {item.name} {item.weight ? `(${formatWeightUnit(item.weight, item.unit)})` : ''} <strong>x{item.quantity || 1}</strong>
                               </span>
                             ))}
                             {(order.items || []).length === 0 && <span style={{ fontSize: '11px', color: '#9ca3af' }}>—</span>}
@@ -2383,7 +2400,7 @@ const Admin = () => {
                         {filteredSalesStats.map(sale => (
                           <tr key={sale.id} style={{ borderBottom: '1px solid var(--color-border-light)' }}>
                             <td style={{ padding: '12px 10px', fontSize: '13px', fontWeight: '600', color: '#111827' }}>
-                              {sale.name} {sale.weight ? `(${sale.weight} ${sale.unit})` : ''}
+                              {sale.name} {sale.weight ? `(${formatWeightUnit(sale.weight, sale.unit)})` : ''}
                             </td>
                             <td style={{ padding: '12px 10px', fontSize: '12px' }}>
                               <span style={{
