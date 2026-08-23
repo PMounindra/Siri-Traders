@@ -624,35 +624,35 @@ const Checkout = () => {
                   color: '#2D5016'
                 }}>
                   <p style={{ margin: '0 0 10px', fontWeight: '800', fontSize: '15px', color: '#2D5016', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    💳 Doorstep Payment Options
+                    <FiCreditCard /> Doorstep Payment Options
                   </p>
                   <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#687466', fontWeight: '500', lineHeight: '1.4' }}>
                     Pay at your doorstep during delivery using any of these convenient methods:
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                      <span style={{ fontSize: '16px' }}>💵</span>
+                      <FiCheck style={{ color: '#5B8C3F', marginTop: '3px', flexShrink: 0 }} />
                       <div>
                         <strong style={{ display: 'block', fontSize: '13px', color: '#111827' }}>Cash on Delivery</strong>
                         <span style={{ fontSize: '11px', color: '#687466' }}>Standard cash payment is always welcome.</span>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                      <span style={{ fontSize: '16px' }}>🍱</span>
+                      <FiCheck style={{ color: '#5B8C3F', marginTop: '3px', flexShrink: 0 }} />
                       <div>
                         <strong style={{ display: 'block', fontSize: '13px', color: '#111827' }}>Sodexo Meal Cards</strong>
                         <span style={{ fontSize: '11px', color: '#687466' }}>We happily accept Sodexo cards during delivery.</span>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                      <span style={{ fontSize: '16px' }}>💳</span>
+                      <FiCheck style={{ color: '#5B8C3F', marginTop: '3px', flexShrink: 0 }} />
                       <div>
                         <strong style={{ display: 'block', fontSize: '13px', color: '#111827' }}>Credit & Debit Cards</strong>
                         <span style={{ fontSize: '11px', color: '#687466' }}>Swipe your cards with our delivery executive.</span>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                      <span style={{ fontSize: '16px' }}>📱</span>
+                      <FiCheck style={{ color: '#5B8C3F', marginTop: '3px', flexShrink: 0 }} />
                       <div>
                         <strong style={{ display: 'block', fontSize: '13px', color: '#111827' }}>UPI Payments (GPay/PhonePe)</strong>
                         <span style={{ fontSize: '11px', color: '#687466' }}>Scan the QR code and pay directly via any UPI app.</span>
