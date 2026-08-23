@@ -223,7 +223,13 @@ const Admin = () => {
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [broadcastStatus, setBroadcastStatus] = useState(null); // { type: 'success'|'error', msg }
-  const [selectedMonth, setSelectedMonth] = useState('lifetime');
+  const [analyticsPeriod, setAnalyticsPeriod] = useState('lifetime');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
+  const [appliedPeriod, setAppliedPeriod] = useState('lifetime');
+  const [appliedStartDate, setAppliedStartDate] = useState('');
+  const [appliedEndDate, setAppliedEndDate] = useState('');
 
   const getCustomerName = (userId) => {
     if (!liveCustomers) return 'Customer';
@@ -453,31 +459,66 @@ const Admin = () => {
     return d;
   };
 
-  const availableMonths = useMemo(() => {
-    if (!liveOrders) return [];
-    const monthsMap = {};
-    liveOrders.forEach(order => {
-      if (order.createdAt) {
-        const d = parseOrderDate(order.createdAt);
-        if (d && !isNaN(d.getTime())) {
-          const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-          const label = d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-          monthsMap[monthKey] = label;
+  const getPeriodDateRange = (period, startVal, endVal) => {
+    const now = new Date();
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    
+    let startDate = null;
+    let endDate = todayEnd;
+
+    switch (period) {
+      case 'today':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        break;
+      case 'yesterday':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
+        break;
+      case 'last-7':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0);
+        break;
+      case 'last-30':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0, 0);
+        break;
+      case 'this-month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+        break;
+      case 'last-month':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+        endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+        break;
+      case 'custom':
+        if (startVal) {
+          startDate = new Date(startVal);
+          startDate.setHours(0, 0, 0, 0);
         }
-      }
-    });
-    return Object.entries(monthsMap).sort((a, b) => b[0].localeCompare(a[0]));
-  }, [liveOrders]);
+        if (endVal) {
+          endDate = new Date(endVal);
+          endDate.setHours(23, 59, 59, 999);
+        }
+        break;
+      case 'lifetime':
+      default:
+        startDate = null;
+        endDate = null;
+        break;
+    }
+    return { startDate, endDate };
+  };
 
   const periodStats = useMemo(() => {
+    const { startDate, endDate } = getPeriodDateRange(appliedPeriod, appliedStartDate, appliedEndDate);
+    
     let filtered = liveOrders || [];
-    if (selectedMonth !== 'lifetime') {
+    if (appliedPeriod !== 'lifetime') {
       filtered = (liveOrders || []).filter(order => {
         if (!order.createdAt) return false;
         const d = parseOrderDate(order.createdAt);
         if (!d || isNaN(d.getTime())) return false;
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        return key === selectedMonth;
+        
+        if (startDate && d < startDate) return false;
+        if (endDate && d > endDate) return false;
+        return true;
       });
     }
 
@@ -529,17 +570,21 @@ const Admin = () => {
       wholesaleRevenue,
       topItems
     };
-  }, [liveOrders, selectedMonth, allProducts, wholesaleProducts]);
+  }, [liveOrders, appliedPeriod, appliedStartDate, appliedEndDate, allProducts, wholesaleProducts]);
 
   const donutSegments = useMemo(() => {
+    const { startDate, endDate } = getPeriodDateRange(appliedPeriod, appliedStartDate, appliedEndDate);
+    
     let filtered = liveOrders || [];
-    if (selectedMonth !== 'lifetime') {
+    if (appliedPeriod !== 'lifetime') {
       filtered = (liveOrders || []).filter(order => {
         if (!order.createdAt) return false;
         const d = parseOrderDate(order.createdAt);
         if (!d || isNaN(d.getTime())) return false;
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        return key === selectedMonth;
+        
+        if (startDate && d < startDate) return false;
+        if (endDate && d > endDate) return false;
+        return true;
       });
     }
 
@@ -587,7 +632,7 @@ const Admin = () => {
     }
 
     return result;
-  }, [liveOrders, selectedMonth]);
+  }, [liveOrders, appliedPeriod, appliedStartDate, appliedEndDate]);
 
   const exportItems = () => {
     const isWS = activeTab === 'wholesale-products' || activeTab === 'wholesale-content';
@@ -1040,25 +1085,227 @@ const Admin = () => {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#111827' }}>Select Period:</span>
-                    <select
-                      value={selectedMonth}
-                      onChange={(e) => setSelectedMonth(e.target.value)}
-                      style={{
-                        padding: '6px 12px',
-                        borderRadius: '6px',
-                        border: '1px solid var(--color-border-light)',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        outline: 'none',
-                        cursor: 'pointer',
-                        background: '#FFFFFF'
-                      }}
-                    >
-                      <option value="lifetime">Lifetime Sales</option>
-                      {availableMonths.map(([key, label]) => (
-                        <option key={key} value={key}>{label}</option>
-                      ))}
-                    </select>
+                    <div style={{ position: 'relative' }}>
+                      <button
+                        onClick={() => {
+                          setAnalyticsPeriod(appliedPeriod);
+                          setCustomStartDate(appliedStartDate);
+                          setCustomEndDate(appliedEndDate);
+                          setPeriodPickerOpen(!periodPickerOpen);
+                        }}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: '6px',
+                          border: '1px solid var(--color-border-light)',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          background: '#FFFFFF',
+                          color: '#111827',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                        }}
+                      >
+                        📅 <span>{(() => {
+                          switch (appliedPeriod) {
+                            case 'today': return 'Today';
+                            case 'yesterday': return 'Yesterday';
+                            case 'last-7': return 'Last 7 Days';
+                            case 'last-30': return 'Last 30 Days';
+                            case 'this-month': return 'This Month';
+                            case 'last-month': return 'Last Month';
+                            case 'custom':
+                              if (appliedStartDate && appliedEndDate) {
+                                return `${new Date(appliedStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} - ${new Date(appliedEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`;
+                              }
+                              return 'Custom Range';
+                            case 'lifetime':
+                            default:
+                              return 'Lifetime Sales';
+                          }
+                        })()}</span>
+                      </button>
+
+                      {periodPickerOpen && (
+                        <>
+                          <div
+                            style={{
+                              position: 'fixed',
+                              inset: 0,
+                              zIndex: 998,
+                              background: 'transparent'
+                            }}
+                            onClick={() => setPeriodPickerOpen(false)}
+                          />
+
+                          <div
+                            style={{
+                              position: 'absolute',
+                              right: 0,
+                              top: '100%',
+                              marginTop: '8px',
+                              background: '#FFFFFF',
+                              borderRadius: '12px',
+                              border: '1px solid var(--color-border-light)',
+                              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                              zIndex: 999,
+                              width: '420px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              overflow: 'hidden'
+                            }}
+                          >
+                            <div style={{ display: 'flex', minHeight: '260px' }}>
+                              <div
+                                style={{
+                                  width: '160px',
+                                  borderRight: '1px solid var(--color-border-light)',
+                                  background: '#FAF9F6',
+                                  padding: '8px 0',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '2px'
+                                }}
+                              >
+                                <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#687466', padding: '6px 16px', textTransform: 'uppercase' }}>
+                                  Presets
+                                </span>
+                                {[
+                                  ['lifetime', 'Lifetime'],
+                                  ['today', 'Today'],
+                                  ['yesterday', 'Yesterday'],
+                                  ['last-7', 'Last 7 days'],
+                                  ['last-30', 'Last 30 days'],
+                                  ['this-month', 'This month'],
+                                  ['last-month', 'Last month'],
+                                  ['custom', 'Custom Range']
+                                ].map(([val, label]) => (
+                                  <button
+                                    key={val}
+                                    onClick={() => {
+                                      setAnalyticsPeriod(val);
+                                      if (val !== 'custom') {
+                                        const { startDate, endDate } = getPeriodDateRange(val, '', '');
+                                        if (startDate) setCustomStartDate(startDate.toISOString().split('T')[0]);
+                                        if (endDate) setCustomEndDate(endDate.toISOString().split('T')[0]);
+                                      }
+                                    }}
+                                    style={{
+                                      padding: '8px 16px',
+                                      textAlign: 'left',
+                                      fontSize: '12px',
+                                      border: 'none',
+                                      background: analyticsPeriod === val ? '#E6ECD9' : 'transparent',
+                                      color: analyticsPeriod === val ? '#2D5016' : '#4B5563',
+                                      fontWeight: analyticsPeriod === val ? '700' : '500',
+                                      cursor: 'pointer',
+                                      width: '100%'
+                                    }}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+
+                              <div style={{ flex: 1, padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#111827' }}>
+                                  Custom Range (IST)
+                                </span>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <label style={{ fontSize: '10px', fontWeight: '600', color: '#6B7280' }}>Start Date</label>
+                                  <input
+                                    type="date"
+                                    disabled={analyticsPeriod !== 'custom'}
+                                    value={customStartDate}
+                                    onChange={(e) => setCustomStartDate(e.target.value)}
+                                    style={{
+                                      padding: '6px 8px',
+                                      borderRadius: '6px',
+                                      border: '1px solid var(--color-border-light)',
+                                      fontSize: '12px',
+                                      background: analyticsPeriod === 'custom' ? '#FFFFFF' : '#F3F4F6',
+                                      color: '#111827',
+                                      outline: 'none',
+                                      width: '100%'
+                                    }}
+                                  />
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <label style={{ fontSize: '10px', fontWeight: '600', color: '#6B7280' }}>End Date</label>
+                                  <input
+                                    type="date"
+                                    disabled={analyticsPeriod !== 'custom'}
+                                    value={customEndDate}
+                                    onChange={(e) => setCustomEndDate(e.target.value)}
+                                    style={{
+                                      padding: '6px 8px',
+                                      borderRadius: '6px',
+                                      border: '1px solid var(--color-border-light)',
+                                      fontSize: '12px',
+                                      background: analyticsPeriod === 'custom' ? '#FFFFFF' : '#F3F4F6',
+                                      color: '#111827',
+                                      outline: 'none',
+                                      width: '100%'
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'flex-end',
+                                gap: '8px',
+                                padding: '12px 16px',
+                                background: '#F9FAFB',
+                                borderTop: '1px solid var(--color-border-light)'
+                              }}
+                            >
+                              <button
+                                onClick={() => setPeriodPickerOpen(false)}
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--color-border-light)',
+                                  background: '#FFFFFF',
+                                  color: '#4B5563',
+                                  fontSize: '12px',
+                                  fontWeight: '600',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setAppliedPeriod(analyticsPeriod);
+                                  setAppliedStartDate(customStartDate);
+                                  setAppliedEndDate(customEndDate);
+                                  setPeriodPickerOpen(false);
+                                }}
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  background: '#2D5016',
+                                  color: '#FFFFFF',
+                                  fontSize: '12px',
+                                  fontWeight: '600',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Update
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
