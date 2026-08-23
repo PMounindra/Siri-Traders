@@ -230,6 +230,7 @@ const Admin = () => {
   const [appliedPeriod, setAppliedPeriod] = useState('lifetime');
   const [appliedStartDate, setAppliedStartDate] = useState('');
   const [appliedEndDate, setAppliedEndDate] = useState('');
+  const [selectedBroadcastEmails, setSelectedBroadcastEmails] = useState([]);
 
   const getCustomerName = (userId) => {
     if (!liveCustomers) return 'Customer';
@@ -325,7 +326,13 @@ const Admin = () => {
   // ── Load live orders, customers, offers, coupons, zones, categories, admins on mount ──
   useEffect(() => {
     adminApi.fetchAllOrders().then(setLiveOrders).catch(() => setLiveOrders([]));
-    adminApi.fetchAllUsers().then(setLiveCustomers).catch(() => setLiveCustomers([]));
+    adminApi.fetchAllUsers().then(usersList => {
+      setLiveCustomers(usersList);
+      if (Array.isArray(usersList)) {
+        const emails = usersList.map(u => u.email).filter(Boolean);
+        setSelectedBroadcastEmails(emails);
+      }
+    }).catch(() => setLiveCustomers([]));
     adminApi.fetchOffers().then(data => setOffers(data.map(normalizeOffer))).catch(() => {});
     adminApi.fetchCoupons().then(setCoupons).catch(() => {});
     adminApi.fetchDeliveryZones().then(setDeliveryZones).catch(() => {});
@@ -2273,7 +2280,12 @@ const Admin = () => {
                   return;
                 }
 
-                if (!confirm('Are you sure you want to send this email campaign to all registered customers?')) {
+                if (selectedBroadcastEmails.length === 0) {
+                  setBroadcastStatus({ type: 'error', msg: 'Please select at least one customer recipient.' });
+                  return;
+                }
+
+                if (!confirm(`Are you sure you want to send this email campaign to the ${selectedBroadcastEmails.length} selected customer(s)?`)) {
                   return;
                 }
 
@@ -2283,7 +2295,8 @@ const Admin = () => {
                 try {
                   const res = await adminApi.sendBroadcast({
                     subject: broadcastSubject,
-                    messageText: broadcastMessage
+                    messageText: broadcastMessage,
+                    recipients: selectedBroadcastEmails
                   });
                   setBroadcastStatus({ type: 'success', msg: `Campaign sent successfully! Received by ${res.count} customers.` });
                   setBroadcastSubject('');
@@ -2294,6 +2307,83 @@ const Admin = () => {
                   setBroadcastSending(false);
                 }
               }}>
+                <div style={{ marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#111827', margin: 0 }}>
+                      Recipients ({selectedBroadcastEmails.length} selected)
+                    </label>
+                    {liveCustomers && liveCustomers.length > 0 && (
+                      <label style={{ fontSize: '12px', fontWeight: '600', color: '#2D5016', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', userSelect: 'none' }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedBroadcastEmails.length === liveCustomers.filter(c => c.email).length}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              const allEmails = liveCustomers.map(c => c.email).filter(Boolean);
+                              setSelectedBroadcastEmails(allEmails);
+                            } else {
+                              setSelectedBroadcastEmails([]);
+                            }
+                          }}
+                        />
+                        Select All
+                      </label>
+                    )}
+                  </div>
+                  
+                  <div style={{
+                    maxHeight: '180px',
+                    overflowY: 'auto',
+                    border: '1px solid var(--color-border-light)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    background: '#FAF9F6'
+                  }}>
+                    {liveCustomers === null ? (
+                      <p style={{ margin: 0, fontSize: '12px', color: '#687466' }}>Loading customers…</p>
+                    ) : liveCustomers.length === 0 ? (
+                      <p style={{ margin: 0, fontSize: '12px', color: '#687466' }}>No registered customers found.</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {liveCustomers.map(customer => {
+                          if (!customer.email) return null;
+                          const isSelected = selectedBroadcastEmails.includes(customer.email);
+                          return (
+                            <label
+                              key={customer.id || customer.email}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                fontSize: '12px',
+                                color: '#111827',
+                                cursor: 'pointer',
+                                padding: '4px 0',
+                                borderBottom: '1px solid #F3F4F6',
+                                userSelect: 'none'
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {
+                                  if (isSelected) {
+                                    setSelectedBroadcastEmails(prev => prev.filter(e => e !== customer.email));
+                                  } else {
+                                    setSelectedBroadcastEmails(prev => [...prev, customer.email]);
+                                  }
+                                }}
+                              />
+                              <span>
+                                <strong>{customer.name || 'Customer'}</strong> ({customer.email})
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
                 <div style={{ marginBottom: '16px' }}>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#111827', marginBottom: '6px' }}>
                     Email Subject Line

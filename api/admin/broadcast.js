@@ -21,17 +21,22 @@ export default async function handler(req, res) {
     }
 
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    const { subject, messageText } = body;
+    const { subject, messageText, recipients: bodyRecipients } = body;
 
     if (!subject || !messageText) {
       return res.status(400).json({ error: 'Subject and message text are required' });
     }
 
-    const allUsers = await db.select().from(users);
-    const recipients = allUsers.map(u => u.email).filter(Boolean);
+    let recipients = [];
+    if (Array.isArray(bodyRecipients) && bodyRecipients.length > 0) {
+      recipients = bodyRecipients.filter(Boolean);
+    } else {
+      const allUsers = await db.select().from(users);
+      recipients = allUsers.map(u => u.email).filter(Boolean);
+    }
 
     if (recipients.length === 0) {
-      return res.status(200).json({ success: true, count: 0, message: 'No registered customers to email.' });
+      return res.status(200).json({ success: true, count: 0, message: 'No recipients selected or available.' });
     }
 
     const smtpHost = process.env.SMTP_HOST;
