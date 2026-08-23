@@ -1218,18 +1218,22 @@ const Admin = () => {
                                   <label style={{ fontSize: '10px', fontWeight: '600', color: '#6B7280' }}>Start Date</label>
                                   <input
                                     type="date"
-                                    disabled={analyticsPeriod !== 'custom'}
                                     value={customStartDate}
-                                    onChange={(e) => setCustomStartDate(e.target.value)}
+                                    onChange={(e) => {
+                                      setCustomStartDate(e.target.value);
+                                      setAnalyticsPeriod('custom');
+                                    }}
+                                    onClick={() => setAnalyticsPeriod('custom')}
                                     style={{
                                       padding: '6px 8px',
                                       borderRadius: '6px',
                                       border: '1px solid var(--color-border-light)',
                                       fontSize: '12px',
-                                      background: analyticsPeriod === 'custom' ? '#FFFFFF' : '#F3F4F6',
+                                      background: '#FFFFFF',
                                       color: '#111827',
                                       outline: 'none',
-                                      width: '100%'
+                                      width: '100%',
+                                      cursor: 'pointer'
                                     }}
                                   />
                                 </div>
@@ -1238,18 +1242,22 @@ const Admin = () => {
                                   <label style={{ fontSize: '10px', fontWeight: '600', color: '#6B7280' }}>End Date</label>
                                   <input
                                     type="date"
-                                    disabled={analyticsPeriod !== 'custom'}
                                     value={customEndDate}
-                                    onChange={(e) => setCustomEndDate(e.target.value)}
+                                    onChange={(e) => {
+                                      setCustomEndDate(e.target.value);
+                                      setAnalyticsPeriod('custom');
+                                    }}
+                                    onClick={() => setAnalyticsPeriod('custom')}
                                     style={{
                                       padding: '6px 8px',
                                       borderRadius: '6px',
                                       border: '1px solid var(--color-border-light)',
                                       fontSize: '12px',
-                                      background: analyticsPeriod === 'custom' ? '#FFFFFF' : '#F3F4F6',
+                                      background: '#FFFFFF',
                                       color: '#111827',
                                       outline: 'none',
-                                      width: '100%'
+                                      width: '100%',
+                                      cursor: 'pointer'
                                     }}
                                   />
                                 </div>
