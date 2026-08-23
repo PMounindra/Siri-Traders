@@ -615,17 +615,50 @@ const Checkout = () => {
                   )}
                 </div>
 
-                <div className="checkout__why-shop">
-                  <p className="checkout__why-shop-title">Why shop with Siri Traders?</p>
-                  {whyShopPoints.map(point => (
-                    <div className="checkout__why-shop-item" key={point.title}>
-                      <FiCheckCircle />
+                <div className="checkout__payment-info-box" style={{
+                  padding: '16px',
+                  background: '#FAF9F6',
+                  borderRadius: '12px',
+                  border: '1px solid var(--color-border-light)',
+                  marginBottom: '20px',
+                  color: '#2D5016'
+                }}>
+                  <p style={{ margin: '0 0 10px', fontWeight: '800', fontSize: '15px', color: '#2D5016', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    💳 Doorstep Payment Options
+                  </p>
+                  <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#687466', fontWeight: '500', lineHeight: '1.4' }}>
+                    Pay at your doorstep during delivery using any of these convenient methods:
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                      <span style={{ fontSize: '16px' }}>💵</span>
                       <div>
-                        <strong>{point.title}</strong>
-                        <span>{point.sub}</span>
+                        <strong style={{ display: 'block', fontSize: '13px', color: '#111827' }}>Cash on Delivery</strong>
+                        <span style={{ fontSize: '11px', color: '#687466' }}>Standard cash payment is always welcome.</span>
                       </div>
                     </div>
-                  ))}
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                      <span style={{ fontSize: '16px' }}>🍱</span>
+                      <div>
+                        <strong style={{ display: 'block', fontSize: '13px', color: '#111827' }}>Sodexo Meal Cards</strong>
+                        <span style={{ fontSize: '11px', color: '#687466' }}>We happily accept Sodexo cards during delivery.</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                      <span style={{ fontSize: '16px' }}>💳</span>
+                      <div>
+                        <strong style={{ display: 'block', fontSize: '13px', color: '#111827' }}>Credit & Debit Cards</strong>
+                        <span style={{ fontSize: '11px', color: '#687466' }}>Swipe your cards with our delivery executive.</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                      <span style={{ fontSize: '16px' }}>📱</span>
+                      <div>
+                        <strong style={{ display: 'block', fontSize: '13px', color: '#111827' }}>UPI Payments (GPay/PhonePe)</strong>
+                        <span style={{ fontSize: '11px', color: '#687466' }}>Scan the QR code and pay directly via any UPI app.</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <button className="checkout__place-btn" onClick={handlePlaceOrder} id="place-order-btn">
