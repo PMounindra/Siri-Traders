@@ -203,7 +203,57 @@ const getStoredList = (key) => {
   }
 };
 
+
+const ADMIN_ROLE_PERMISSIONS = {
+  Owner: ['dashboard','sales-stats','orders','customers','retail-products','wholesale-products','offers','bestsellers','todays-deals','retail-content','wholesale-content','delivery-zones','broadcast','admins'],
+  'Super Admin': ['dashboard','sales-stats','orders','customers','retail-products','wholesale-products','offers','bestsellers','todays-deals','retail-content','wholesale-content','delivery-zones','broadcast'],
+  'Product Manager': ['dashboard','retail-products','wholesale-products','bestsellers','todays-deals'],
+  'Order Manager': ['dashboard','orders','customers','delivery-zones'],
+  'Marketing Manager': ['dashboard','offers','bestsellers','todays-deals','broadcast'],
+  'Content Manager': ['dashboard','retail-content','wholesale-content'],
+  'Customer Support': ['dashboard','customers','orders','delivery-zones'],
+  Viewer: ['dashboard','sales-stats']
+};
+
+const ADMIN_NAV_SECTIONS = [
+  {
+    title: 'SALES ANALYTICS',
+    items: [
+      ['dashboard', 'Overview', FiBarChart2],
+      ['sales-stats', 'Product Sales', FiTrendingUp],
+      ['orders', 'Orders & Bills', FiShoppingBag],
+      ['customers', 'Customers', FiUsers]
+    ]
+  },
+  {
+    title: 'CONTENT MANAGEMENT',
+    items: [
+      ['retail-products', 'Retail Items', FiPackage],
+      ['wholesale-products', 'Wholesale Items', FiPackage],
+      ['offers', 'Offers & Coupons', FiGift],
+      ['bestsellers', 'Bestsellers', FiStar],
+      ['todays-deals', "Today's Deals", FiTag],
+      ['retail-content', 'Retail Content', FiEdit2],
+      ['wholesale-content', 'Wholesale Content', FiEdit2]
+    ]
+  },
+  {
+    title: 'OPERATIONS',
+    items: [
+      ['delivery-zones', 'Delivery Zones', FiTruck],
+      ['broadcast', 'Email Broadcast', FiMail]
+    ]
+  },
+  {
+    title: 'ADMINISTRATION',
+    items: [
+      ['admins', 'Admin Members', FiLock]
+    ]
+  }
+];
+
 const Admin = () => {
+  const [selectedAdminRole, setSelectedAdminRole] = useState('Owner');
   const navigate = useNavigate();
   const editFormRef = useRef(null);
   const [adminSession, setAdminSession] = useState(null);
@@ -225,7 +275,7 @@ const Admin = () => {
       stockNote: product.inStock ? 'In stock' : 'Out of stock'
     })))
   );
-
+  
   const [offers, setOffers] = useState([]);
   const [coupons, setCoupons] = useState([]);
   const [productDraft, setProductDraft] = useState(blankProduct);
@@ -318,6 +368,7 @@ const Admin = () => {
   };
 
   const normalizeOffer = (o) => ({ ...o, group: o.groupType || o.group || 'daily' });
+  const allowedAdminTabs = ADMIN_ROLE_PERMISSIONS[selectedAdminRole] || ADMIN_ROLE_PERMISSIONS.Viewer;
 
   // ── Load products from DB on mount ──
   useEffect(() => {
@@ -331,7 +382,7 @@ const Admin = () => {
     }).catch(() => { /* offline – localStorage fallback still works */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
+  
   // ── Check real admin session on mount ──
   useEffect(() => {
     adminApi.me().then(session => {
@@ -340,6 +391,23 @@ const Admin = () => {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep the role selector aligned with the authenticated admin on first load.
+  useEffect(() => {
+    if (adminSession?.role) {
+      const sessionRole = String(adminSession.role);
+      if (ADMIN_ROLE_PERMISSIONS[sessionRole]) {
+        setSelectedAdminRole(sessionRole);
+      }
+    }
+  }, [adminSession]);
+
+  // Never leave the user on a page that the selected role cannot access.
+  useEffect(() => {
+    if (!allowedAdminTabs.includes(activeTab)) {
+      setActiveTab(allowedAdminTabs[0] || 'dashboard');
+    }
+  }, [selectedAdminRole, activeTab, allowedAdminTabs]);
 
   // ── Load live orders, customers, offers, coupons, zones, categories, admins on mount ──
   useEffect(() => {
@@ -421,8 +489,7 @@ const Admin = () => {
 
   // keep for legacy references
   const filteredProducts = activeTab === 'wholesale-products' ? filteredWholesaleProducts : filteredRetailProducts;
-
-  const allProducts = [...retailProducts, ...wholesaleProducts];
+  const allProducts = useMemo(() => [...retailProducts, ...wholesaleProducts],[retailProducts, wholesaleProducts]);
 
   const stats = [
     { label: 'Retail products', value: retailProducts.length, icon: FiPackage },
@@ -721,6 +788,48 @@ const Admin = () => {
     return topArea;
   };
 
+  const getOrderRevenue = (order) => {
+    if (!order) return 0;
+    if (typeof order.total === 'number') return order.total;
+    if (order.total != null && !Number.isNaN(Number(order.total))) return Number(order.total);
+    return (order.items || []).reduce((sum, item) => sum + (Number(item.price) || 0) * (parseInt(item.quantity || 1, 10)), 0);
+  };
+
+  const getRangeSummary = (days) => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1), 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const orders = (liveOrders || []).filter(order => {
+      const date = parseOrderDate(order.createdAt);
+      return date && !Number.isNaN(date.getTime()) && date >= start && date <= end;
+    });
+    const revenue = orders.reduce((sum, order) => sum + getOrderRevenue(order), 0);
+    const units = orders.reduce((sum, order) => sum + (order.items || []).reduce((itemSum, item) => itemSum + parseInt(item.quantity || 1, 10), 0), 0);
+    return { revenue, orders: orders.length, units };
+  };
+
+  const salesToday = getRangeSummary(1);
+  const salesLast7 = getRangeSummary(7);
+  const salesLast30 = getRangeSummary(30);
+  const averageOrderValue = salesLast30.orders ? salesLast30.revenue / salesLast30.orders : 0;
+
+  const revenueLast30Days = Array.from({ length: 30 }, (_, index) => {
+    const now = new Date();
+    const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (29 - index), 0, 0, 0, 0);
+    const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
+    const revenue = (liveOrders || []).reduce((sum, order) => {
+      const date = parseOrderDate(order.createdAt);
+      if (!date || Number.isNaN(date.getTime()) || date < day || date > dayEnd) return sum;
+      return sum + getOrderRevenue(order);
+    }, 0);
+    return {
+      date: day,
+      label: day.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+      revenue
+    };
+  });
+
+
   const filteredSalesStats = useMemo(() => {
     const { startDate, endDate } = getPeriodDateRange(appliedPeriod, appliedStartDate, appliedEndDate);
     
@@ -736,7 +845,7 @@ const Admin = () => {
         return true;
       });
     }
-
+    
     const sales = {};
     
     filteredOrders.forEach(order => {
@@ -766,17 +875,17 @@ const Admin = () => {
         });
       }
     });
-
+    
     let result = Object.values(sales);
-
+    
     if (productSearchQuery.trim()) {
       const q = productSearchQuery.toLowerCase();
       result = result.filter(item => item.name.toLowerCase().includes(q));
     }
-
+    
     return result.sort((a, b) => b.quantitySold - a.quantitySold);
   }, [liveOrders, appliedPeriod, appliedStartDate, appliedEndDate, allProducts, wholesaleProducts, productSearchQuery]);
-
+  
   const exportItems = () => {
     const isWS = activeTab === 'wholesale-products' || activeTab === 'wholesale-content';
     const source = isWS ? wholesaleProducts : retailProducts;
@@ -796,7 +905,7 @@ const Admin = () => {
       customer.totalSpent || 0
     ])
   ]);
-
+  
   const handleImageUpload = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -805,7 +914,7 @@ const Admin = () => {
     reader.readAsDataURL(file);
     event.target.value = '';
   };
-
+  
   const handleOfferImageUpload = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -814,21 +923,21 @@ const Admin = () => {
     reader.readAsDataURL(file);
     event.target.value = '';
   };
-
+  
   const saveProduct = async (event) => {
     event.preventDefault();
     const isWholesale = activeTab === 'wholesale-products';
-
+    
     // Build variants from checked options + custom entries
     const builtVariants = [
       ...checkedVariants
-        .filter(label => variantPrices[label])
-        .map(label => ({ label, price: Number(variantPrices[label]) || 0 })),
+      .filter(label => variantPrices[label])
+      .map(label => ({ label, price: Number(variantPrices[label]) || 0 })),
       ...customVariants
-        .filter(v => v.label.trim() && v.price)
-        .map(v => ({ label: v.label.trim(), price: Number(v.price) || 0 }))
+      .filter(v => v.label.trim() && v.price)
+      .map(v => ({ label: v.label.trim(), price: Number(v.price) || 0 }))
     ];
-
+    
     const baseNext = {
       ...productDraft,
       price: Number(productDraft.price) || (builtVariants[0]?.price || 0),
@@ -840,7 +949,7 @@ const Admin = () => {
       isTodaysDeal: Boolean(productDraft.isTodaysDeal),
       variants: builtVariants.length > 0 ? builtVariants : undefined
     };
-
+    
     let nextProduct = baseNext;
     if (isWholesale) {
       const variants = builtVariants.length > 0 ? builtVariants : [];
@@ -863,7 +972,7 @@ const Admin = () => {
         variants: variants.length > 0 ? variants : undefined
       };
     }
-
+    
     // ── API sync ──────────────────────────────────────────────────────
     setApiLoading(true);
     setSaveToast(null);
@@ -871,11 +980,11 @@ const Admin = () => {
       const isEdit = Boolean(productDraft.id && typeof productDraft.id === 'number');
       // Strip UI-only fields that are not in the DB schema
       const { stockNote, id: _id, wholesalePrice, bulkPackLabel, bulkPackPrice,
-              wholesaleCaseLabel, wholesaleCasePrice, ...apiPayload } = nextProduct;
-      if (isEdit) {
-        const saved = await adminApi.updateProduct(productDraft.id, apiPayload);
-        nextProduct = { ...nextProduct, id: saved.id };
-      } else {
+        wholesaleCaseLabel, wholesaleCasePrice, ...apiPayload } = nextProduct;
+        if (isEdit) {
+          const saved = await adminApi.updateProduct(productDraft.id, apiPayload);
+          nextProduct = { ...nextProduct, id: saved.id };
+        } else {
         const saved = await adminApi.createProduct(apiPayload);
         nextProduct = { ...nextProduct, id: saved.id };
       }
@@ -889,19 +998,19 @@ const Admin = () => {
     } finally {
       setApiLoading(false);
     }
-
+    
     if (isWholesale) {
       const exists = wholesaleProducts.some(p => String(p.id) === String(nextProduct.id));
       const next = exists
-        ? wholesaleProducts.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p)
-        : [nextProduct, ...wholesaleProducts];
+      ? wholesaleProducts.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p)
+      : [nextProduct, ...wholesaleProducts];
       persistWholesaleProducts(next);
       setProductDraft(blankWholesaleProduct);
     } else {
       const exists = retailProducts.some(p => String(p.id) === String(nextProduct.id));
       const next = exists
-        ? retailProducts.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p)
-        : [nextProduct, ...retailProducts];
+      ? retailProducts.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p)
+      : [nextProduct, ...retailProducts];
       persistRetailProducts(next);
       setProductDraft(blankProduct);
     }
@@ -910,7 +1019,17 @@ const Admin = () => {
     setVariantPrices({});
     setCustomVariants([{ label: '', price: '' }]);
   };
-
+  const topProductStats = [...filteredSalesStats].sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, 5);
+  const categorySalesStats = ['Retail', 'Wholesale'].map(category => {
+    const rows = filteredSalesStats.filter(item => item.category === category);
+    return {
+      category,
+      revenue: rows.reduce((sum, item) => sum + item.totalRevenue, 0),
+      units: rows.reduce((sum, item) => sum + item.quantitySold, 0),
+      orders: rows.reduce((sum, item) => sum + item.ordersCount, 0)
+    };
+  });
+  
   const editProduct = (product) => {
     const isWholesale = Boolean(product.wholesalePrice);
     const isProductsTab = activeTab === 'retail-products' || activeTab === 'wholesale-products';
@@ -953,7 +1072,7 @@ const Admin = () => {
       );
     }
   };
-
+  
   // removeProduct: removes from the correct mode's array + syncs to API
   const removeProduct = async (productId) => {
     if (!window.confirm('Delete this product? This cannot be undone.')) return;
@@ -1099,7 +1218,7 @@ const Admin = () => {
   }
 
   return (
-    <div className="page-wrapper admin-page-wrapper">
+  <div className="page-wrapper admin-page-wrapper admin-habane">
       {newOrderToast && (
         <div className="admin-new-order-toast">
           <div className="admin-new-order-toast__content">
@@ -1129,52 +1248,78 @@ const Admin = () => {
         {/* Left Sidebar */}
         <aside className={`admin-sidebar ${mobileMenuOpen ? 'admin-sidebar--open' : ''}`}>
           <div className="admin-sidebar__brand">
+
             <img src="/logo-mark.webp" alt="Siri Traders" className="admin-sidebar__logo" />
             <div>
               <strong>SIRI TRADERS</strong>
               <span>Control Center</span>
             </div>
           </div>
-
+         
           <div className="admin-sidebar__user">
-            <div className="admin-sidebar__avatar">
-              {adminSession.name ? adminSession.name[0].toUpperCase() : 'A'}
-            </div>
-            <div className="admin-sidebar__user-info">
-              <strong>{adminSession.name || 'Admin'}</strong>
-              <span>{String(adminSession.role || 'Administrator').toUpperCase()}</span>
-            </div>
-          </div>
+  <div className="admin-sidebar__avatar">
+    {adminSession.name ? adminSession.name[0].toUpperCase() : 'A'}
+  </div>
 
-          <nav className="admin-sidebar__nav">
-            {[
-              ['dashboard',          'Overview',          FiBarChart2],
-              ['retail-products',    'Retail Items',      FiPackage],
-              ['wholesale-products', 'Wholesale Items',   FiPackage],
-              ['offers',             'Offers & coupons',  FiGift],
-              ['bestsellers',        'Bestsellers',        FiStar],
-              ['todays-deals',       "Today's Deals",      FiTag],
-              ['customers',          'Customers',         FiUsers],
-              ['orders',             'Orders & Bills',    FiShoppingBag],
-              ['sales-stats',        'Product Sales',     FiTrendingUp],
-              ['broadcast',          'Email Broadcast',   FiMail],
-              ['retail-content',     'Retail Content',    FiEdit2],
-              ['wholesale-content',  'Wholesale Content', FiEdit2],
-              ['delivery-zones',     'Delivery Zones',    FiTruck],
-              ['admins',             'Admins',            FiLock]
-            ].map(([id, label, Icon]) => (
-              <button
-                key={id}
-                className={activeTab === id ? 'admin-sidebar__nav-item admin-sidebar__nav-item--active' : 'admin-sidebar__nav-item'}
-                onClick={() => {
-                  setActiveTab(id);
-                  setMobileMenuOpen(false);
-                }}
-              >
-                <Icon /> <span>{label}</span>
-              </button>
-            ))}
-          </nav>
+  <div className="admin-sidebar__user-info">
+    <strong>{adminSession.name || 'Admin'}</strong>
+    <span>{String(adminSession.role || 'Administrator').toUpperCase()}</span>
+  </div>
+</div>
+
+{/* ADMIN ROLE SELECTOR */}
+<div className="admin-role-selector">
+  <label htmlFor="admin-role">SELECT ADMIN ROLE</label>
+
+  <select
+    id="admin-role"
+    value={selectedAdminRole}
+    onChange={(e) => setSelectedAdminRole(e.target.value)}
+  >
+    <option value="Owner">Owner</option>
+    <option value="Super Admin">Super Admin</option>
+    <option value="Product Manager">Product Manager</option>
+    <option value="Order Manager">Order Manager</option>
+    <option value="Marketing Manager">Marketing Manager</option>
+    <option value="Content Manager">Content Manager</option>
+    <option value="Customer Support">Customer Support</option>
+    <option value="Viewer">Viewer</option>
+  </select>
+</div>
+
+<nav className="admin-sidebar__nav">
+  {ADMIN_NAV_SECTIONS.map(section => {
+    const visibleItems = section.items.filter(([id]) => allowedAdminTabs.includes(id));
+    if (visibleItems.length === 0) return null;
+
+    return (
+      <div className="admin-sidebar__section" key={section.title}>
+        <div className="admin-sidebar__section-title">
+          <span>{section.title}</span>
+        </div>
+
+        {visibleItems.map(([id, label, Icon]) => (
+          <button
+            key={id}
+            type="button"
+            className={
+              activeTab === id
+                ? 'admin-sidebar__nav-item admin-sidebar__nav-item--active'
+                : 'admin-sidebar__nav-item'
+            }
+            onClick={() => {
+              setActiveTab(id);
+              setMobileMenuOpen(false);
+            }}
+          >
+            <Icon />
+            <span>{label}</span>
+          </button>
+        ))}
+      </div>
+    );
+  })}
+</nav>
 
           <div className="admin-sidebar__footer">
             <button className="admin-sidebar__logout" onClick={handleAdminLogout}>
@@ -1964,476 +2109,187 @@ const Admin = () => {
           )}
 
           {activeTab === 'sales-stats' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              
-              <section className="admin-card admin-card--wide">
-                <div className="admin-card__toolbar" style={{ borderBottom: '1px solid var(--color-border-light)', paddingBottom: '12px', marginBottom: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '12px' }}>
-                    <div>
-                      <h2 style={{ margin: 0 }}>Sales & Product Analytics</h2>
-                      <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
-                        Visual representation of product sales distribution and top performers.
-                      </p>
-                    </div>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#111827' }}>Select Period:</span>
-                      <div style={{ position: 'relative' }}>
-                        <button
-                          onClick={() => {
-                            setAnalyticsPeriod(appliedPeriod);
-                            setCustomStartDate(appliedStartDate);
-                            setCustomEndDate(appliedEndDate);
-                            setPeriodPickerOpen(!periodPickerOpen);
-                          }}
-                          style={{
-                            padding: '8px 16px',
-                            borderRadius: '6px',
-                            border: '1px solid var(--color-border-light)',
-                            fontSize: '13px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            background: '#FFFFFF',
-                            color: '#111827',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                          }}
-                        >
-                          📅 <span>{(() => {
-                            switch (appliedPeriod) {
-                              case 'today': return 'Today';
-                              case 'yesterday': return 'Yesterday';
-                              case 'last-7': return 'Last 7 Days';
-                              case 'last-30': return 'Last 30 Days';
-                              case 'this-month': return 'This Month';
-                              case 'last-month': return 'Last Month';
-                              case 'custom':
-                                if (appliedStartDate && appliedEndDate) {
-                                  return `${new Date(appliedStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} - ${new Date(appliedEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`;
-                                }
-                                return 'Custom Range';
-                              case 'lifetime':
-                              default:
-                                return 'Lifetime Sales';
-                            }
-                          })()}</span>
-                        </button>
-
-                        {periodPickerOpen && (
-                          <>
-                            <div
-                              style={{
-                                position: 'fixed',
-                                inset: 0,
-                                zIndex: 998,
-                                background: 'transparent'
-                              }}
-                              onClick={() => setPeriodPickerOpen(false)}
-                            />
-
-                            <div
-                              style={{
-                                position: 'absolute',
-                                right: 0,
-                                top: '100%',
-                                marginTop: '8px',
-                                background: '#FFFFFF',
-                                borderRadius: '12px',
-                                border: '1px solid var(--color-border-light)',
-                                boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
-                                zIndex: 999,
-                                width: '420px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                overflow: 'hidden'
-                              }}
-                            >
-                              <div style={{ display: 'flex', minHeight: '260px' }}>
-                                <div
-                                  style={{
-                                    width: '160px',
-                                    borderRight: '1px solid var(--color-border-light)',
-                                    background: '#FAF9F6',
-                                    padding: '8px 0',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '2px'
-                                  }}
-                                >
-                                  <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#687466', padding: '6px 16px', textTransform: 'uppercase' }}>
-                                    Presets
-                                  </span>
-                                  {[
-                                    ['lifetime', 'Lifetime'],
-                                    ['today', 'Today'],
-                                    ['yesterday', 'Yesterday'],
-                                    ['last-7', 'Last 7 days'],
-                                    ['last-30', 'Last 30 days'],
-                                    ['this-month', 'This month'],
-                                    ['last-month', 'Last month'],
-                                    ['custom', 'Custom Range']
-                                  ].map(([val, label]) => (
-                                    <button
-                                      key={val}
-                                      onClick={() => {
-                                        setAnalyticsPeriod(val);
-                                        if (val !== 'custom') {
-                                          const { startDate, endDate } = getPeriodDateRange(val, '', '');
-                                          if (startDate) setCustomStartDate(startDate.toISOString().split('T')[0]);
-                                          if (endDate) setCustomEndDate(endDate.toISOString().split('T')[0]);
-                                        }
-                                      }}
-                                      style={{
-                                        padding: '8px 16px',
-                                        textAlign: 'left',
-                                        fontSize: '12px',
-                                        border: 'none',
-                                        background: analyticsPeriod === val ? '#E6ECD9' : 'transparent',
-                                        color: analyticsPeriod === val ? '#2D5016' : '#4B5563',
-                                        fontWeight: analyticsPeriod === val ? '700' : '500',
-                                        cursor: 'pointer',
-                                        width: '100%'
-                                      }}
-                                    >
-                                      {label}
-                                    </button>
-                                  ))}
-                                </div>
-
-                                <div style={{ flex: 1, padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#111827' }}>
-                                    Custom Range (IST)
-                                  </span>
-
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '10px', fontWeight: '600', color: '#6B7280' }}>Start Date</label>
-                                    <input
-                                      type="date"
-                                      value={customStartDate}
-                                      onChange={(e) => {
-                                        setCustomStartDate(e.target.value);
-                                        setAnalyticsPeriod('custom');
-                                      }}
-                                      onClick={() => setAnalyticsPeriod('custom')}
-                                      style={{
-                                        padding: '6px 8px',
-                                        borderRadius: '6px',
-                                        border: '1px solid var(--color-border-light)',
-                                        fontSize: '12px',
-                                        background: '#FFFFFF',
-                                        color: '#111827',
-                                        outline: 'none',
-                                        width: '100%',
-                                        cursor: 'pointer'
-                                      }}
-                                    />
-                                  </div>
-
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '10px', fontWeight: '600', color: '#6B7280' }}>End Date</label>
-                                    <input
-                                      type="date"
-                                      value={customEndDate}
-                                      onChange={(e) => {
-                                        setCustomEndDate(e.target.value);
-                                        setAnalyticsPeriod('custom');
-                                      }}
-                                      onClick={() => setAnalyticsPeriod('custom')}
-                                      style={{
-                                        padding: '6px 8px',
-                                        borderRadius: '6px',
-                                        border: '1px solid var(--color-border-light)',
-                                        fontSize: '12px',
-                                        background: '#FFFFFF',
-                                        color: '#111827',
-                                        outline: 'none',
-                                        width: '100%',
-                                        cursor: 'pointer'
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  justifyContent: 'flex-end',
-                                  gap: '8px',
-                                  padding: '12px 16px',
-                                  background: '#F9FAFB',
-                                  borderTop: '1px solid var(--color-border-light)'
-                                }}
-                              >
-                                <button
-                                  onClick={() => setPeriodPickerOpen(false)}
-                                  style={{
-                                    padding: '6px 12px',
-                                    borderRadius: '6px',
-                                    border: '1px solid var(--color-border-light)',
-                                    background: '#FFFFFF',
-                                    color: '#4B5563',
-                                    fontSize: '12px',
-                                    fontWeight: '600',
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setAppliedPeriod(analyticsPeriod);
-                                    setAppliedStartDate(customStartDate);
-                                    setAppliedEndDate(customEndDate);
-                                    setPeriodPickerOpen(false);
-                                  }}
-                                  style={{
-                                    padding: '6px 12px',
-                                    borderRadius: '6px',
-                                    border: 'none',
-                                    background: '#2D5016',
-                                    color: '#FFFFFF',
-                                    fontSize: '12px',
-                                    fontWeight: '600',
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  Update
-                                </button>
-                              </div>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+            <div className="sales-analytics-page">
+              <header className="sales-page-header">
+                <div>
+                  <div className="sales-eyebrow">PRODUCT SALES</div>
+                  <h1>Sales Stats</h1>
+                  <p>Track revenue, orders and product performance.</p>
                 </div>
+              </header>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px' }}>
-                  
-                  <div style={{ padding: '16px', background: '#FAF9F6', borderRadius: '12px', border: '1px solid var(--color-border-light)' }}>
-                    <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: '#2D5016', fontWeight: 'bold' }}>Product Sales Distribution</h3>
-                    
-                    {liveOrders === null ? (
-                      <p style={{ fontSize: '13px', color: '#687466' }}>Loading distribution data…</p>
-                    ) : donutSegments.length === 0 ? (
-                      <p style={{ fontSize: '13px', color: '#687466', textAlign: 'center', padding: '30px 0' }}>No sales data available for this period.</p>
-                    ) : (() => {
-                      const totalQty = donutSegments.reduce((sum, s) => sum + s.qty, 0);
-                      const strokeWidth = 12;
-                      const radius = 38;
-                      const circ = 2 * Math.PI * radius;
-                      let currentOffset = 0;
-
-                      return (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                          <div style={{ position: 'relative', width: '130px', height: '130px' }}>
-                            <svg width="130" height="130" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
-                              <circle
-                                cx="50"
-                                cy="50"
-                                r={radius}
-                                fill="transparent"
-                                stroke="#E5E7EB"
-                                strokeWidth={strokeWidth}
-                              />
-                              {donutSegments.map((segment, idx) => {
-                                const strokeLength = (segment.pct / 100) * circ;
-                                const strokeOffset = currentOffset;
-                                currentOffset -= strokeLength;
-
-                                return (
-                                  <circle
-                                    key={idx}
-                                    cx="50"
-                                    cy="50"
-                                    r={radius}
-                                    fill="transparent"
-                                    stroke={segment.color}
-                                    strokeWidth={strokeWidth}
-                                    strokeDasharray={`${strokeLength} ${circ}`}
-                                    strokeDashoffset={strokeOffset}
-                                  />
-                                );
-                              })}
-                            </svg>
-                            <div style={{
-                              position: 'absolute',
-                              left: '50%',
-                              top: '50%',
-                              transform: 'translate(-50%, -50%)',
-                              textAlign: 'center'
-                            }}>
-                              <span style={{ fontSize: '10px', color: '#687466', textTransform: 'uppercase', display: 'block', fontWeight: 'bold' }}>Total Qty</span>
-                              <strong style={{ fontSize: '18px', color: '#111827' }}>{totalQty}</strong>
-                            </div>
-                          </div>
-
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '160px', maxWidth: '240px' }}>
-                            {donutSegments.map((segment, idx) => (
-                              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                                <div style={{ width: '10px', height: '10px', background: segment.color, borderRadius: '3px', marginTop: '3px', flexShrink: 0 }} />
-                                <div style={{ lineHeight: '1.2' }}>
-                                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#111827', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '210px' }} title={segment.name}>
-                                    {segment.name}
-                                  </span>
-                                  <span style={{ fontSize: '10px', color: '#687466' }}>
-                                    {segment.qty} units ({segment.pct.toFixed(1)}%)
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  <div style={{ padding: '16px', background: '#FAF9F6', borderRadius: '12px', border: '1px solid var(--color-border-light)' }}>
-                    <h3 style={{ margin: '0 0 16px', fontSize: '15px', color: '#2D5016', fontWeight: 'bold' }}>Top 5 Selling Items</h3>
-
-                    {liveOrders === null ? (
-                      <p style={{ fontSize: '13px', color: '#687466' }}>Loading top selling products…</p>
-                    ) : periodStats.topItems.length === 0 ? (
-                      <p style={{ fontSize: '13px', color: '#687466', textAlign: 'center', padding: '30px 0' }}>No sales data available for this period.</p>
-                    ) : (() => {
-                      const maxQty = Math.max(...periodStats.topItems.map(item => item.quantitySold), 1);
-                      return (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          {periodStats.topItems.map((item, idx) => {
-                            const percentage = (item.quantitySold / maxQty) * 100;
-                            return (
-                              <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                                  <span style={{ fontWeight: '600', color: '#111827', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '240px' }} title={item.name}>
-                                    {idx + 1}. {item.name}
-                                  </span>
-                                  <strong style={{ color: '#2D5016' }}>{item.quantitySold} units</strong>
-                                </div>
-                                <div style={{ height: '14px', background: '#E5E7EB', borderRadius: '8px', overflow: 'hidden' }}>
-                                  <div style={{
-                                    width: `${percentage}%`,
-                                    height: '100%',
-                                    background: 'linear-gradient(90deg, #5B8C3F, #2D5016)',
-                                    borderRadius: '8px'
-                                  }} />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })()}
-                  </div>
-
+              <section className="sales-kpi-grid">
+                <div className="sales-kpi-card">
+                  <span>TODAY</span>
+                  <strong>{formatPrice(salesToday.revenue)}</strong>
+                  <small>{salesToday.orders} orders</small>
+                </div>
+                <div className="sales-kpi-card">
+                  <span>LAST 7 DAYS</span>
+                  <strong>{formatPrice(salesLast7.revenue)}</strong>
+                  <small>{salesLast7.orders} orders</small>
+                </div>
+                <div className="sales-kpi-card">
+                  <span>LAST 30 DAYS</span>
+                  <strong>{formatPrice(salesLast30.revenue)}</strong>
+                  <small>{salesLast30.orders} orders</small>
+                </div>
+                <div className="sales-kpi-card">
+                  <span>AVG ORDER VALUE</span>
+                  <strong>{formatPrice(averageOrderValue)}</strong>
+                  <small>30-day average</small>
                 </div>
               </section>
 
-              <section className="admin-card admin-card--wide">
-                <div className="admin-card__toolbar" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '12px', borderBottom: '1px solid var(--color-border-light)', paddingBottom: '16px', marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '10px' }}>
-                    <div>
-                      <h2 style={{ margin: 0 }}>Product Sales Frequencies & Target Areas</h2>
-                      <span className="admin-muted">Shows sales volumes and the highest-purchasing delivery area for each item.</span>
+              <section className="sales-chart-card">
+                <div className="sales-section-label">REVENUE, LAST 30 DAYS</div>
+                <div className="sales-line-chart-wrap">
+                  {(() => {
+                    const maxRevenue = Math.max(...revenueLast30Days.map(item => item.revenue), 1);
+                    const chartWidth = 1000;
+                    const chartHeight = 300;
+                    const left = 52;
+                    const right = 12;
+                    const top = 18;
+                    const bottom = 38;
+                    const innerWidth = chartWidth - left - right;
+                    const innerHeight = chartHeight - top - bottom;
+                    const points = revenueLast30Days.map((item, index) => {
+                      const x = left + (index / (revenueLast30Days.length - 1)) * innerWidth;
+                      const y = top + innerHeight - (item.revenue / maxRevenue) * innerHeight;
+                      return { ...item, x, y };
+                    });
+                    const linePath = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+                    const areaPath = `${linePath} L ${points[points.length - 1].x} ${top + innerHeight} L ${points[0].x} ${top + innerHeight} Z`;
+                    const tickValues = [0, 0.25, 0.5, 0.75, 1];
+                    return (
+                      <svg className="sales-line-chart" viewBox={`0 0 ${chartWidth} ${chartHeight}`} role="img" aria-label="Revenue for the last 30 days">
+                        {tickValues.map((tick) => {
+                          const y = top + innerHeight - tick * innerHeight;
+                          return (
+                            <g key={tick}>
+                              <line x1={left} x2={chartWidth - right} y1={y} y2={y} className="sales-chart-grid" />
+                              <text x={left - 12} y={y + 4} textAnchor="end" className="sales-chart-axis">{formatPrice(maxRevenue * tick)}</text>
+                            </g>
+                          );
+                        })}
+                        <path d={areaPath} className="sales-chart-area" />
+                        <path d={linePath} className="sales-chart-line" />
+                        {points.filter((_, index) => index === 0 || index === 7 || index === 14 || index === 21 || index === 29).map(point => (
+                          <text key={point.label} x={point.x} y={chartHeight - 10} textAnchor={point.x === left ? 'start' : point.x === chartWidth - right ? 'end' : 'middle'} className="sales-chart-axis">{point.label}</text>
+                        ))}
+                      </svg>
+                    );
+                  })()}
+                </div>
+              </section>
+
+              <section className="sales-mini-grid">
+                <div className="sales-mini-card">
+                  <span>TOTAL UNITS SOLD</span>
+                  <strong>{salesLast30.units.toLocaleString('en-IN')}</strong>
+                  <small>Last 30 days</small>
+                </div>
+                <div className="sales-mini-card">
+                  <span>TOP PRODUCT</span>
+                  <strong>{topProductStats[0]?.name || 'No sales yet'}</strong>
+                  <small>{topProductStats[0] ? `${topProductStats[0].quantitySold} units sold` : 'Waiting for sales data'}</small>
+                </div>
+                <div className="sales-mini-card">
+                  <span>TOP SALES AREA</span>
+                  <strong>{topProductStats[0] ? getTopAreaForProduct(topProductStats[0].id) : '—'}</strong>
+                  <small>For the best-selling product</small>
+                </div>
+              </section>
+
+              <section className="sales-bottom-grid">
+                <div className="sales-simple-card">
+                  <div className="sales-card-heading">
+                    <div className="sales-section-label">TOP PRODUCTS</div>
+                    <span>Last 30 days</span>
+                  </div>
+                  {topProductStats.length === 0 ? (
+                    <div className="sales-empty">No sales data available.</div>
+                  ) : (
+                    <div className="sales-product-list">
+                      {topProductStats.map((product, index) => {
+                        const max = Math.max(topProductStats[0]?.totalRevenue || 1, 1);
+                        return (
+                          <div className="sales-product-row" key={product.id}>
+                            <div className="sales-product-meta">
+                              <span>{index + 1}. {product.name}</span>
+                              <strong>{formatPrice(product.totalRevenue)}</strong>
+                            </div>
+                            <div className="sales-product-bar"><i style={{ width: `${Math.max(4, (product.totalRevenue / max) * 100)}%` }} /></div>
+                            <small>{product.quantitySold} units · {product.ordersCount} orders</small>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </div>
-                  
-                  <div style={{ width: '100%', display: 'flex', gap: '8px', maxWidth: '400px', position: 'relative' }}>
-                    <span style={{ position: 'absolute', left: '10px', top: '7px', color: '#9CA3AF' }}>🔍</span>
-                    <input
-                      type="text"
-                      placeholder="Search items by name..."
-                      value={productSearchQuery}
-                      onChange={(e) => setProductSearchQuery(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px 8px 32px',
-                        borderRadius: '6px',
-                        border: '1px solid var(--color-border-light)',
-                        fontSize: '13px',
-                        outline: 'none'
-                      }}
-                    />
-                    {productSearchQuery && (
-                      <button
-                        onClick={() => setProductSearchQuery('')}
-                        style={{
-                          position: 'absolute',
-                          right: '10px',
-                          top: '6px',
-                          border: 'none',
-                          background: 'transparent',
-                          fontSize: '14px',
-                          cursor: 'pointer',
-                          color: '#9CA3AF'
-                        }}
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
 
-                {liveOrders === null && <p className="admin-muted">Loading stats table…</p>}
-                {liveOrders !== null && filteredSalesStats.length === 0 && (
-                  <p className="admin-muted" style={{ padding: '20px 0', textAlign: 'center' }}>
-                    No products found matching your criteria.
-                  </p>
-                )}
-                {filteredSalesStats.length > 0 && (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+                <div className="sales-simple-card">
+                  <div className="sales-card-heading">
+                    <div className="sales-section-label">SALES BY TYPE</div>
+                    <span>Lifetime filtered data</span>
+                  </div>
+                  <div className="sales-category-list">
+                    {categorySalesStats.map(item => (
+                      <div className="sales-category-row" key={item.category}>
+                        <div>
+                          <strong>{item.category}</strong>
+                          <small>{item.units} units · {item.orders} orders</small>
+                        </div>
+                        <strong>{formatPrice(item.revenue)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              <section className="sales-simple-card sales-table-card">
+                <div className="sales-card-heading sales-table-heading">
+                  <div>
+                    <div className="sales-section-label">PRODUCT PERFORMANCE</div>
+                    <p>Detailed product sales performance and highest-purchasing area.</p>
+                  </div>
+                  <div className="sales-search-wrap">
+                    <FiSearch />
+                    <input
+                      type="text"
+                      placeholder="Search products..."
+                      value={productSearchQuery}
+                      onChange={(e) => setProductSearchQuery(e.target.value)}
+                    />
+                  </div>
+                </div>
+                {liveOrders === null ? (
+                  <div className="sales-empty">Loading sales data…</div>
+                ) : filteredSalesStats.length === 0 ? (
+                  <div className="sales-empty">No products found matching your search.</div>
+                ) : (
+                  <div className="sales-table-scroll">
+                    <table className="sales-simple-table">
                       <thead>
-                        <tr style={{ borderBottom: '2px solid #2D5016', textAlign: 'left', background: '#F7F4EE' }}>
-                          <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900' }}>ITEM NAME</th>
-                          <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900' }}>CATEGORY</th>
-                          <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900' }}>UNIT PRICE</th>
-                          <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900', textAlign: 'center' }}>ORDERS COUNT</th>
-                          <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900', textAlign: 'center' }}>TIMES SOLD</th>
-                          <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900', textAlign: 'right' }}>TOTAL SOLD AMOUNT</th>
-                          <th style={{ padding: '12px 10px', fontSize: '13px', color: '#2D5016', fontWeight: '900', textAlign: 'center' }}>TOP SALES AREA</th>
+                        <tr>
+                          <th>PRODUCT</th>
+                          <th>CATEGORY</th>
+                          <th>ORDERS</th>
+                          <th>UNITS SOLD</th>
+                          <th>REVENUE</th>
+                          <th>TOP AREA</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredSalesStats.map(sale => (
-                          <tr key={sale.id} style={{ borderBottom: '1px solid var(--color-border-light)' }}>
-                            <td style={{ padding: '12px 10px', fontSize: '13px', fontWeight: '600', color: '#111827' }}>
-                              {sale.name} {sale.weight ? `(${formatWeightUnit(sale.weight, sale.unit)})` : ''}
-                            </td>
-                            <td style={{ padding: '12px 10px', fontSize: '12px' }}>
-                              <span style={{
-                                padding: '2px 8px',
-                                borderRadius: '12px',
-                                background: sale.category === 'Wholesale' ? '#FFF0EA' : '#FFF8DF',
-                                color: sale.category === 'Wholesale' ? '#FF6B35' : '#2D5016',
-                                fontWeight: '800',
-                                fontSize: '11px'
-                              }}>
-                                {sale.category}
-                              </span>
-                            </td>
-                            <td style={{ padding: '12px 10px', fontSize: '13px' }}>{formatPrice(sale.price)}</td>
-                            <td style={{ padding: '12px 10px', fontSize: '13px', textAlign: 'center', fontWeight: '700' }}>{sale.ordersCount}</td>
-                            <td style={{ padding: '12px 10px', fontSize: '13px', textAlign: 'center', fontWeight: '800', color: '#2D5016' }}>
-                              {sale.quantitySold} units
-                            </td>
-                            <td style={{ padding: '12px 10px', fontSize: '13px', textAlign: 'right', fontWeight: '800', color: '#111827' }}>
-                              {formatPrice(sale.totalRevenue)}
-                            </td>
-                            <td style={{ padding: '12px 10px', fontSize: '13px', textAlign: 'center', fontWeight: '700' }}>
-                              <span style={{
-                                padding: '4px 10px',
-                                borderRadius: '6px',
-                                background: '#E6ECD9',
-                                color: '#2D5016',
-                                fontSize: '11px',
-                                border: '1px solid #C4D4C0'
-                              }}>
-                                {getTopAreaForProduct(sale.id)}
-                              </span>
-                            </td>
+                          <tr key={sale.id}>
+                            <td><strong>{sale.name}</strong>{sale.weight ? <small>{formatWeightUnit(sale.weight, sale.unit)}</small> : null}</td>
+                            <td>{sale.category}</td>
+                            <td>{sale.ordersCount}</td>
+                            <td>{sale.quantitySold}</td>
+                            <td><strong>{formatPrice(sale.totalRevenue)}</strong></td>
+                            <td>{getTopAreaForProduct(sale.id)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -2441,7 +2297,6 @@ const Admin = () => {
                   </div>
                 )}
               </section>
-
             </div>
           )}
 
@@ -2951,31 +2806,36 @@ const Admin = () => {
           )}
 
           {activeTab === 'admins' && (
-            <section className="admin-grid">
-              <form className="admin-form" onSubmit={saveAdmin}>
-                <h2>Add admin user</h2>
-                <input value={adminDraft.name} onChange={(e) => setAdminDraft(prev => ({ ...prev, name: e.target.value }))} placeholder="Full name" required />
-                <input value={adminDraft.email} onChange={(e) => setAdminDraft(prev => ({ ...prev, email: e.target.value }))} placeholder="Email" type="email" required />
-                <input value={adminDraft.password} onChange={(e) => setAdminDraft(prev => ({ ...prev, password: e.target.value }))} placeholder="Password (min 8 characters)" type="password" minLength={8} required />
-                <select value={adminDraft.role} onChange={(e) => setAdminDraft(prev => ({ ...prev, role: e.target.value }))}>
-                  <option>Manager</option>
-                  <option>Editor</option>
-                  <option>Super Admin</option>
-                </select>
-                {adminError && <p style={{color:'#FF6B35',fontSize:13,fontWeight:700}}>{adminError}</p>}
-                <button type="submit" className="admin__primary"><FiPlus /> Add admin</button>
-              </form>
-              <div className="admin-card">
-                <h2>Admin accounts</h2>
-                {adminAccounts.map(account => (
-                  <div key={account.id} className="admin-row admin-row--plain">
-                    <FiLock />
-                    <span>{account.name}<small>{account.email} / {account.role}</small></span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
+  <section className="admin-grid">
+    <form className="admin-form" onSubmit={saveAdmin}>
+      <h2>Add admin user</h2>
+      <input value={adminDraft.name} onChange={(e) => setAdminDraft(prev => ({ ...prev, name: e.target.value }))} placeholder="Full name" required />
+      <input value={adminDraft.email} onChange={(e) => setAdminDraft(prev => ({ ...prev, email: e.target.value }))} placeholder="Email" type="email" required />
+      <input value={adminDraft.password} onChange={(e) => setAdminDraft(prev => ({ ...prev, password: e.target.value }))} placeholder="Password (min 8 characters)" type="password" minLength={8} required />
+      <select value={adminDraft.role} onChange={(e) => setAdminDraft(prev => ({ ...prev, role: e.target.value }))}>
+        <option value="Owner">Owner</option>
+        <option value="Super Admin">Super Admin</option>
+        <option value="Product Manager">Product Manager</option>
+        <option value="Order Manager">Order Manager</option>
+        <option value="Marketing Manager">Marketing Manager</option>
+        <option value="Content Manager">Content Manager</option>
+        <option value="Customer Support">Customer Support</option>
+        <option value="Viewer">Viewer</option>
+      </select>
+      {adminError && <p style={{color:'#FF6B35',fontSize:13,fontWeight:700}}>{adminError}</p>}
+      <button type="submit" className="admin__primary"><FiPlus /> Add admin</button>
+    </form>
+    <div className="admin-card">
+      <h2>Admin accounts</h2>
+      {adminAccounts.map(account => (
+        <div key={account.id} className="admin-row admin-row--plain">
+          <FiLock />
+          <span>{account.name}<small>{account.email} / {account.role}</small></span>
+        </div>
+      ))}
+    </div>
+  </section>
+)}
 
         </main>
       </div>
