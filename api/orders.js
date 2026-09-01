@@ -139,13 +139,27 @@ export default async function handler(req, res) {
         console.warn("Failed to sync user data, proceeding with order anyway:", err.message);
       }
 
-      // Create order & order items (avoiding transactions which are unsupported in neon-http)
+      const isCod = (paymentMethod || '').toLowerCase().includes('cod');
+      const tempId = Date.now();
+      const txnId = isCod ? `COD-SIRI-${Math.floor(100000 + Math.random() * 900000)}` : `TXN-SIRI-${Math.floor(200000 + Math.random() * 900000)}`;
+      const trackingNumber = `TRK-SIRI-${Math.floor(500000 + Math.random() * 900000)}`;
+
+      // Create order & order items
       const orderResult = await db.insert(orders).values({
         userId,
         total,
         deliveryAddress: deliveryAddress || '',
         paymentMethod: paymentMethod || 'COD',
-        status: paymentMethod === 'cod' ? 'Preparing' : 'Paid'
+        status: isCod ? 'Preparing' : 'Paid',
+        customerName: customerName || body.customerName || 'Customer',
+        customerPhone: body.customerPhone || '',
+        customerEmail: customerEmail || body.customerEmail || '',
+        paymentStatus: isCod ? 'Pending' : 'Paid',
+        paymentGateway: isCod ? 'Cash on Delivery' : (body.paymentGateway || 'UPI / Online'),
+        paymentTxnId: txnId,
+        trackingNumber: trackingNumber,
+        deliverySlot: body.deliverySlot || 'Morning (7:00 AM - 10:00 AM)',
+        deliveryDate: body.deliveryDate || new Date().toLocaleDateString('en-IN')
       }).returning();
 
       const insertedOrder = orderResult[0];

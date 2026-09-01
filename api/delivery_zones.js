@@ -39,7 +39,15 @@ export default async function handler(req, res) {
           active: body.active !== false,
           deliveryFee: Number(body.deliveryFee) || 0,
           freeDeliveryThreshold: Number(body.freeDeliveryThreshold) || 0,
-          handlingCharge: Number(body.handlingCharge) || 0
+          handlingCharge: Number(body.handlingCharge) || 0,
+          minOrderValue: Number(body.minOrderValue) || 0,
+          deliverySlots: Array.isArray(body.deliverySlots) ? body.deliverySlots : [
+            'Morning (7:00 AM - 10:00 AM)',
+            'Afternoon (1:00 PM - 4:00 PM)',
+            'Evening (6:00 PM - 9:00 PM)',
+            'Express (15-30 mins)'
+          ],
+          driverAssigned: body.driverAssigned || ''
         };
 
         const saved = await db.insert(deliveryZones).values(values).onConflictDoUpdate({
@@ -71,6 +79,9 @@ export default async function handler(req, res) {
       if (body.deliveryFee !== undefined) patch.deliveryFee = Number(body.deliveryFee) || 0;
       if (body.freeDeliveryThreshold !== undefined) patch.freeDeliveryThreshold = Number(body.freeDeliveryThreshold) || 0;
       if (body.handlingCharge !== undefined) patch.handlingCharge = Number(body.handlingCharge) || 0;
+      if (body.minOrderValue !== undefined) patch.minOrderValue = Number(body.minOrderValue) || 0;
+      if (body.deliverySlots !== undefined) patch.deliverySlots = body.deliverySlots;
+      if (body.driverAssigned !== undefined) patch.driverAssigned = body.driverAssigned;
 
       const updated = await db.update(deliveryZones).set(patch).where(eq(deliveryZones.id, id)).returning();
       return res.status(200).json(updated[0]);
@@ -90,6 +101,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
     console.error("Error in /api/delivery_zones:", error);
-    return res.status(500).json({ error: 'Something went wrong' });
+    return res.status(500).json({ error: 'Something went wrong: ' + error.message });
   }
 }

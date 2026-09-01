@@ -140,6 +140,16 @@ export async function apiUpdateOrderStatus(id, status) {
   return asJson(res, 'Failed to update order');
 }
 
+export async function apiUpdateOrder(id, data) {
+  const res = await fetch(`/api/admin/orders?id=${id}`, {
+    method: 'PATCH',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify(data),
+  });
+  return asJson(res, 'Failed to update order');
+}
+
 export async function apiFetchAllUsers() {
   const res = await fetch('/api/admin/users', withCreds);
   if (!res.ok) throw new Error('Failed to load users');
@@ -317,6 +327,7 @@ export function useAdminApi() {
 
     fetchAllOrders: apiFetchAllOrders,
     updateOrderStatus: apiUpdateOrderStatus,
+    updateOrder: apiUpdateOrder,
     fetchAllUsers: apiFetchAllUsers,
     sendBroadcast: apiSendBroadcast,
 
