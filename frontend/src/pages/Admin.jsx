@@ -32,7 +32,12 @@ import {
   FiArchive,
   FiSliders,
   FiInfo,
-  FiCheckCircle
+  FiCheckCircle,
+  FiCopy,
+  FiEye,
+  FiEyeOff,
+  FiPercent,
+  FiGrid
 } from 'react-icons/fi';
 import { useAdminApi } from '../hooks/useAdminApi';
 import { products as baseProducts, getProducts as getAllProducts } from '../data/products';
@@ -68,39 +73,67 @@ const writeStorage = (key, value) => {
   localStorage.setItem(key, JSON.stringify(value));
 };
 
+const genSku = (category = 'GEN') => `SIRI-${(category || 'GEN').substring(0, 3).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+const genBarcode = () => `890${Math.floor(100000000 + Math.random() * 900000000)}`;
+
 const blankProduct = {
   id: '',
   name: '',
   category: 'pulses',
+  subcategory: '',
   brand: '',
+  sku: '',
+  barcode: '',
   weight: '',
   unit: 'g',
+  packSize: '',
   price: '',
   mrp: '',
+  costPrice: '',
   discount: '',
+  gstRate: '0',
+  hsnCode: '',
+  batchNumber: '',
+  mfgDate: '',
+  expiryDate: '',
   image: '',
   description: '',
   inStock: true,
   stockNote: 'In stock',
-  deliveryTime: '10 mins',
+  isPublished: true,
+  isArchived: false,
+  deliveryTime: '15 mins',
   isBestseller: false,
-  isTodaysDeal: false
+  isTodaysDeal: false,
+  variants: []
 };
 
 const blankWholesaleProduct = {
   id: '',
   name: '',
   category: 'pulses',
+  subcategory: '',
   brand: '',
+  sku: '',
+  barcode: '',
   weight: '',
   unit: 'kg',
+  packSize: '',
   price: '',
   mrp: '',
+  costPrice: '',
   discount: '',
+  gstRate: '0',
+  hsnCode: '',
+  batchNumber: '',
+  mfgDate: '',
+  expiryDate: '',
   image: '',
   description: '',
   inStock: true,
   stockNote: 'In stock',
+  isPublished: true,
+  isArchived: false,
   deliveryTime: 'Same day',
   isBestseller: false,
   isTodaysDeal: false,
@@ -108,7 +141,8 @@ const blankWholesaleProduct = {
   bulkPackLabel: '',
   bulkPackPrice: '',
   wholesaleCaseLabel: '',
-  wholesaleCasePrice: ''
+  wholesaleCasePrice: '',
+  variants: []
 };
 
 const blankOffer = {
@@ -220,15 +254,27 @@ const Admin = () => {
   const [retailProducts, setRetailProducts] = useState(() =>
     readStorage(ADMIN_PRODUCTS_RETAIL_KEY, baseProducts.map(product => ({
       ...product,
-      stockNote: product.inStock ? 'In stock' : 'Out of stock'
+      stockNote: product.inStock ? 'In stock' : 'Out of stock',
+      isPublished: product.isPublished ?? true,
+      isArchived: product.isArchived ?? false
     })))
   );
   const [wholesaleProducts, setWholesaleProducts] = useState(() =>
     readStorage(ADMIN_PRODUCTS_WHOLESALE_KEY, getAllProducts('wholesale').map(product => ({
       ...product,
-      stockNote: product.inStock ? 'In stock' : 'Out of stock'
+      stockNote: product.inStock ? 'In stock' : 'Out of stock',
+      isPublished: product.isPublished ?? true,
+      isArchived: product.isArchived ?? false
     })))
   );
+
+  // Status & Brand filters for products
+  const [productStatusFilter, setProductStatusFilter] = useState('all'); // 'all'|'published'|'draft'|'archived'
+  const [productCategoryFilter, setProductCategoryFilter] = useState('all');
+  const [expandedVariantId, setExpandedVariantId] = useState(null);
+
+  // Detailed Variant Table Builder state in Editor
+  const [detailedVariants, setDetailedVariants] = useState([]);
   
   const [offers, setOffers] = useState([]);
   const [coupons, setCoupons] = useState([]);
@@ -245,12 +291,11 @@ const Admin = () => {
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [broadcastStatus, setBroadcastStatus] = useState(null);
   const [selectedBroadcastEmails, setSelectedBroadcastEmails] = useState([]);
-  const [productSearchQuery, setProductSearchQuery] = useState('');
 
   // ── Inventory Management State ──
   const [inventoryData, setInventoryData] = useState(null);
   const [inventoryLoading, setInventoryLoading] = useState(false);
-  const [inventoryFilter, setInventoryFilter] = useState('all'); // 'all'|'low-stock'|'out-of-stock'|'near-expiry'|'expired'|'incoming'|'logs'
+  const [inventoryFilter, setInventoryFilter] = useState('all');
   const [inventorySearch, setInventorySearch] = useState('');
   const [inventoryCategory, setInventoryCategory] = useState('all');
   const [inventoryLogs, setInventoryLogs] = useState([]);
@@ -294,12 +339,12 @@ const Admin = () => {
   const [newCat, setNewCat] = useState({ name: '', image: '', color: '#F7F4EE' });
   const [deliveryZones, setDeliveryZones] = useState([]);
   const [newZone, setNewZone] = useState({ area: '', pincode: '', time: '30 mins', distance: '', deliveryFee: 0, freeDeliveryThreshold: 0, handlingCharge: 0 });
-  const [savedZoneIds, setSavedZoneIds] = useState({});
 
-  const defaultVariantOptions = ['100 g','200 g','250 g','500 g','1 kg','2 kg','5 kg','10 kg','100 ml','200 ml','500 ml','1 L','5 L','15 L'];
-  const [checkedVariants, setCheckedVariants] = useState([]);
-  const [variantPrices, setVariantPrices] = useState({});
-  const [customVariants, setCustomVariants] = useState([{ label: '', price: '' }]);
+  const groceryUnitPresets = [
+    '100 g', '250 g', '500 g', '1 kg', '2 kg', '5 kg', '10 kg', '25 kg',
+    '100 ml', '200 ml', '500 ml', '1 L', '2 L', '5 L', '15 L',
+    '1 pc', 'Pack of 2', 'Pack of 4', 'Pack of 6', 'Pack of 12', 'Box (10 pcs)'
+  ];
 
   const getCustomerName = (userId) => {
     if (!liveCustomers) return 'Customer';
@@ -378,12 +423,22 @@ const Admin = () => {
 
   // ── Load initial data ──
   useEffect(() => {
-    adminApi.fetchProducts().then(dbProducts => {
+    adminApi.fetchProducts(true).then(dbProducts => {
       if (!dbProducts || dbProducts.length === 0) return;
       const retail = dbProducts.filter(p => !p.wholesalePrice);
       const ws = dbProducts.filter(p => p.wholesalePrice);
-      if (retail.length > 0) persistRetailProducts(retail.map(p => ({ ...p, stockNote: p.inStock ? 'In stock' : 'Out of stock' })));
-      if (ws.length > 0) persistWholesaleProducts(ws.map(p => ({ ...p, stockNote: p.inStock ? 'In stock' : 'Out of stock' })));
+      if (retail.length > 0) persistRetailProducts(retail.map(p => ({
+        ...p,
+        stockNote: p.inStock ? 'In stock' : 'Out of stock',
+        isPublished: p.isPublished ?? true,
+        isArchived: p.isArchived ?? false
+      })));
+      if (ws.length > 0) persistWholesaleProducts(ws.map(p => ({
+        ...p,
+        stockNote: p.inStock ? 'In stock' : 'Out of stock',
+        isPublished: p.isPublished ?? true,
+        isArchived: p.isArchived ?? false
+      })));
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -476,24 +531,37 @@ const Admin = () => {
 
   const allProducts = useMemo(() => [...retailProducts, ...wholesaleProducts], [retailProducts, wholesaleProducts]);
 
-  const filteredRetailProducts = useMemo(() => {
-    const q = searchQuery.toLowerCase();
-    return retailProducts.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      (p.brand || '').toLowerCase().includes(q) ||
-      (p.category || '').toLowerCase().includes(q)
-    );
-  }, [retailProducts, searchQuery]);
+  // ── Product filtering with Search, Category, and Status (Published, Draft, Archived) ──
+  const filterProductList = (productsList) => {
+    return productsList.filter(p => {
+      // Status filter
+      if (productStatusFilter === 'published' && (p.isPublished === false || p.isArchived)) return false;
+      if (productStatusFilter === 'draft' && (p.isPublished !== false || p.isArchived)) return false;
+      if (productStatusFilter === 'archived' && !p.isArchived) return false;
 
-  const filteredWholesaleProducts = useMemo(() => {
-    const q = searchQuery.toLowerCase();
-    return wholesaleProducts.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      (p.brand || '').toLowerCase().includes(q) ||
-      (p.category || '').toLowerCase().includes(q)
-    );
-  }, [wholesaleProducts, searchQuery]);
+      // Category filter
+      if (productCategoryFilter !== 'all' && p.category !== productCategoryFilter) return false;
 
+      // Search query (matches Name, Brand, SKU, Barcode, Subcategory)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchName = (p.name || '').toLowerCase().includes(q);
+        const matchBrand = (p.brand || '').toLowerCase().includes(q);
+        const matchCategory = (p.category || '').toLowerCase().includes(q);
+        const matchSubcategory = (p.subcategory || '').toLowerCase().includes(q);
+        const matchSku = (p.sku || '').toLowerCase().includes(q);
+        const matchBarcode = (p.barcode || '').toLowerCase().includes(q);
+        if (!matchName && !matchBrand && !matchCategory && !matchSubcategory && !matchSku && !matchBarcode) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  };
+
+  const filteredRetailProducts = useMemo(() => filterProductList(retailProducts), [retailProducts, searchQuery, productStatusFilter, productCategoryFilter]);
+  const filteredWholesaleProducts = useMemo(() => filterProductList(wholesaleProducts), [wholesaleProducts, searchQuery, productStatusFilter, productCategoryFilter]);
   const filteredProducts = activeTab === 'wholesale-products' ? filteredWholesaleProducts : filteredRetailProducts;
 
   // ── Filtered Inventory Items ──
@@ -501,7 +569,6 @@ const Admin = () => {
     if (!inventoryData?.items) return [];
     let list = inventoryData.items;
 
-    // Filter by tab
     if (inventoryFilter === 'low-stock') {
       list = list.filter(i => i.isLowStock);
     } else if (inventoryFilter === 'out-of-stock') {
@@ -514,12 +581,10 @@ const Admin = () => {
       list = list.filter(i => i.incomingStock > 0);
     }
 
-    // Category filter
     if (inventoryCategory !== 'all') {
       list = list.filter(i => i.category === inventoryCategory);
     }
 
-    // Search query
     if (inventorySearch.trim()) {
       const q = inventorySearch.toLowerCase();
       list = list.filter(i =>
@@ -740,47 +805,62 @@ const Admin = () => {
     event.target.value = '';
   };
 
+  // ── Save Product ──
   const saveProduct = async (event) => {
     event.preventDefault();
     const isWholesale = activeTab === 'wholesale-products';
     
-    const builtVariants = [
-      ...checkedVariants.filter(label => variantPrices[label]).map(label => ({ label, price: Number(variantPrices[label]) || 0 })),
-      ...customVariants.filter(v => v.label.trim() && v.price).map(v => ({ label: v.label.trim(), price: Number(v.price) || 0 }))
-    ];
-    
+    // Clean and validate variants
+    const validVariants = detailedVariants.filter(v => v.label && (v.price || v.price === 0)).map(v => ({
+      id: v.id || `var-${Date.now()}-${Math.random()}`,
+      label: v.label,
+      packSize: v.packSize || '',
+      unit: v.unit || productDraft.unit || 'g',
+      price: Number(v.price) || 0,
+      mrp: Number(v.mrp) || Number(v.price) || 0,
+      costPrice: Number(v.costPrice) || 0,
+      stock: Number(v.stock) || 0,
+      sku: v.sku || '',
+      barcode: v.barcode || '',
+      inStock: v.inStock !== false
+    }));
+
+    const basePrice = Number(productDraft.price) || (validVariants[0]?.price || 0);
+    const baseCost = Number(productDraft.costPrice) || (validVariants[0]?.costPrice || Math.round(basePrice * 0.78));
+    const baseMrp = Number(productDraft.mrp) || basePrice;
+
     const baseNext = {
       ...productDraft,
-      price: Number(productDraft.price) || (builtVariants[0]?.price || 0),
-      mrp: Number(productDraft.mrp) || Number(productDraft.price) || 0,
-      discount: Number(productDraft.discount) || 0,
+      subcategory: productDraft.subcategory || '',
+      sku: productDraft.sku || genSku(productDraft.category),
+      barcode: productDraft.barcode || genBarcode(),
+      price: basePrice,
+      mrp: baseMrp,
+      costPrice: baseCost,
+      discount: Number(productDraft.discount) || (baseMrp > basePrice ? Math.round(((baseMrp - basePrice) / baseMrp) * 100) : 0),
+      gstRate: Number(productDraft.gstRate) || 0,
+      hsnCode: productDraft.hsnCode || '',
+      batchNumber: productDraft.batchNumber || `BAT-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
+      mfgDate: productDraft.mfgDate || '',
+      expiryDate: productDraft.expiryDate || '',
       image: productDraft.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80',
       inStock: productDraft.stockNote !== 'Out of stock',
+      isPublished: productDraft.isPublished !== false,
+      isArchived: Boolean(productDraft.isArchived),
       isBestseller: Boolean(productDraft.isBestseller),
       isTodaysDeal: Boolean(productDraft.isTodaysDeal),
-      variants: builtVariants.length > 0 ? builtVariants : undefined
+      variants: validVariants.length > 0 ? validVariants : undefined
     };
     
     let nextProduct = baseNext;
     if (isWholesale) {
-      const variants = builtVariants.length > 0 ? builtVariants : [];
-      if (baseNext.weight && baseNext.price && variants.length === 0) {
-        variants.push({ label: `${baseNext.weight} ${baseNext.unit}`, price: baseNext.price });
-      }
-      if (productDraft.bulkPackLabel && productDraft.bulkPackPrice) {
-        variants.push({ label: productDraft.bulkPackLabel, price: Number(productDraft.bulkPackPrice) || 0 });
-      }
-      if (productDraft.wholesaleCaseLabel && productDraft.wholesaleCasePrice) {
-        variants.push({ label: productDraft.wholesaleCaseLabel, price: Number(productDraft.wholesaleCasePrice) || 0 });
-      }
       nextProduct = {
         ...baseNext,
         wholesalePrice: Number(productDraft.wholesalePrice) || baseNext.price,
         bulkPackLabel: productDraft.bulkPackLabel || '',
         bulkPackPrice: Number(productDraft.bulkPackPrice) || 0,
         wholesaleCaseLabel: productDraft.wholesaleCaseLabel || '',
-        wholesaleCasePrice: Number(productDraft.wholesaleCasePrice) || 0,
-        variants: variants.length > 0 ? variants : undefined
+        wholesaleCasePrice: Number(productDraft.wholesaleCasePrice) || 0
       };
     }
     
@@ -788,7 +868,7 @@ const Admin = () => {
     setSaveToast(null);
     try {
       const isEdit = Boolean(productDraft.id && typeof productDraft.id === 'number');
-      const { stockNote, id: _id, wholesalePrice, bulkPackLabel, bulkPackPrice, wholesaleCaseLabel, wholesaleCasePrice, ...apiPayload } = nextProduct;
+      const { stockNote, id: _id, ...apiPayload } = nextProduct;
       if (isEdit) {
         const saved = await adminApi.updateProduct(productDraft.id, apiPayload);
         nextProduct = { ...nextProduct, id: saved.id };
@@ -796,9 +876,9 @@ const Admin = () => {
         const saved = await adminApi.createProduct(apiPayload);
         nextProduct = { ...nextProduct, id: saved.id };
       }
-      setSaveToast({ type: 'success', msg: `✅ “${nextProduct.name}” saved to database (ID: ${nextProduct.id})` });
+      setSaveToast({ type: 'success', msg: `✅ “${nextProduct.name}” saved to database (SKU: ${nextProduct.sku})` });
       setTimeout(() => setSaveToast(null), 5000);
-      loadInventory(); // reload inventory to track new product
+      loadInventory();
     } catch (err) {
       if (!productDraft.id) nextProduct = { ...nextProduct, id: Date.now() };
       setSaveToast({ type: 'error', msg: `⚠️ DB error: ${err.message}` });
@@ -818,31 +898,126 @@ const Admin = () => {
       persistRetailProducts(next);
       setProductDraft(blankProduct);
     }
-    setCheckedVariants([]);
-    setVariantPrices({});
-    setCustomVariants([{ label: '', price: '' }]);
+    setDetailedVariants([]);
   };
 
   const editProduct = (product) => {
     const isWholesale = Boolean(product.wholesalePrice);
     const isProductsTab = activeTab === 'retail-products' || activeTab === 'wholesale-products';
     const targetTab = isProductsTab ? activeTab : (isWholesale ? 'wholesale-products' : 'retail-products');
+    
     setProductDraft({
       ...product,
-      price: String(product.price),
-      mrp: String(product.mrp),
-      discount: String(product.discount),
+      subcategory: product.subcategory || '',
+      sku: product.sku || genSku(product.category),
+      barcode: product.barcode || genBarcode(),
+      costPrice: product.costPrice != null ? String(product.costPrice) : '',
+      gstRate: product.gstRate != null ? String(product.gstRate) : '0',
+      hsnCode: product.hsnCode || '',
+      batchNumber: product.batchNumber || '',
+      mfgDate: product.mfgDate || '',
+      expiryDate: product.expiryDate || '',
+      isPublished: product.isPublished !== false,
+      isArchived: Boolean(product.isArchived),
+      price: String(product.price || ''),
+      mrp: String(product.mrp || ''),
+      discount: String(product.discount || ''),
       wholesalePrice: product.wholesalePrice != null ? String(product.wholesalePrice) : '',
       bulkPackLabel: product.bulkPackLabel || '',
       bulkPackPrice: product.bulkPackPrice != null ? String(product.bulkPackPrice) : '',
       wholesaleCaseLabel: product.wholesaleCaseLabel || '',
       wholesaleCasePrice: product.wholesaleCasePrice != null ? String(product.wholesaleCasePrice) : ''
     });
+
+    if (Array.isArray(product.variants) && product.variants.length > 0) {
+      setDetailedVariants(product.variants);
+    } else {
+      setDetailedVariants([]);
+    }
+
     setActiveTab(targetTab);
     setTimeout(() => {
       const editForm = document.querySelector('.admin-workspace .admin-form');
       editForm?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 150);
+  };
+
+  // ── Duplicate Product Helper ──
+  const duplicateProduct = (product) => {
+    const isWholesale = Boolean(product.wholesalePrice);
+    const targetTab = isWholesale ? 'wholesale-products' : 'retail-products';
+    const clonedVariants = (product.variants || []).map(v => ({
+      ...v,
+      id: `var-${Date.now()}-${Math.random()}`,
+      sku: genSku(product.category),
+      barcode: genBarcode()
+    }));
+
+    setProductDraft({
+      ...product,
+      id: '', // cleared to trigger create
+      name: `Copy of ${product.name}`,
+      sku: genSku(product.category),
+      barcode: genBarcode(),
+      price: String(product.price || ''),
+      mrp: String(product.mrp || ''),
+      costPrice: String(product.costPrice || ''),
+      discount: String(product.discount || ''),
+      gstRate: String(product.gstRate || '0'),
+      hsnCode: product.hsnCode || '',
+      batchNumber: `BAT-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
+      isPublished: true,
+      isArchived: false,
+      wholesalePrice: product.wholesalePrice != null ? String(product.wholesalePrice) : '',
+      bulkPackLabel: product.bulkPackLabel || '',
+      bulkPackPrice: product.bulkPackPrice != null ? String(product.bulkPackPrice) : '',
+      wholesaleCaseLabel: product.wholesaleCaseLabel || '',
+      wholesaleCasePrice: product.wholesaleCasePrice != null ? String(product.wholesaleCasePrice) : ''
+    });
+
+    setDetailedVariants(clonedVariants);
+    setActiveTab(targetTab);
+    setSaveToast({ type: 'success', msg: `📋 Cloned "${product.name}" into editor. Adjust details and click "Save item"!` });
+    setTimeout(() => {
+      const editForm = document.querySelector('.admin-workspace .admin-form');
+      editForm?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
+  };
+
+  // ── Archive / Restore Product ──
+  const toggleArchiveProduct = async (product) => {
+    const nextArchived = !product.isArchived;
+    const isWholesale = Boolean(product.wholesalePrice);
+    const updater = p => p.id === product.id ? { ...p, isArchived: nextArchived } : p;
+    if (isWholesale) persistWholesaleProducts(wholesaleProducts.map(updater));
+    else persistRetailProducts(retailProducts.map(updater));
+    if (typeof product.id === 'number') {
+      try {
+        await adminApi.updateProduct(product.id, { isArchived: nextArchived });
+      } catch (err) {
+        console.error('Failed to update archive status:', err);
+      }
+    }
+    setSaveToast({ type: 'success', msg: nextArchived ? `📁 Archived "${product.name}"` : `Restored "${product.name}" from archive` });
+    setTimeout(() => setSaveToast(null), 3000);
+  };
+
+  // ── Publish / Hide Product ──
+  const togglePublishProduct = async (product) => {
+    const nextPub = product.isPublished === false ? true : false;
+    const isWholesale = Boolean(product.wholesalePrice);
+    const updater = p => p.id === product.id ? { ...p, isPublished: nextPub } : p;
+    if (isWholesale) persistWholesaleProducts(wholesaleProducts.map(updater));
+    else persistRetailProducts(retailProducts.map(updater));
+    if (typeof product.id === 'number') {
+      try {
+        await adminApi.updateProduct(product.id, { isPublished: nextPub });
+      } catch (err) {
+        console.error('Failed to update published status:', err);
+      }
+    }
+    setSaveToast({ type: 'success', msg: nextPub ? `🟢 Published "${product.name}" to store` : `🟡 Hidden "${product.name}" (Draft)` });
+    setTimeout(() => setSaveToast(null), 3000);
   };
 
   const updateProductStock = async (productId, stockNote, isWholesale) => {
@@ -950,7 +1125,7 @@ const Admin = () => {
       p.id === productId
         ? {
             ...p,
-            [field]: ['price', 'mrp', 'discount'].includes(field) ? Number(value) || 0 : value,
+            [field]: ['price', 'mrp', 'discount', 'costPrice', 'gstRate'].includes(field) ? Number(value) || 0 : value,
             inStock: field === 'stockNote' ? value !== 'Out of stock' : p.inStock
           }
         : p;
@@ -997,6 +1172,12 @@ const Admin = () => {
     nearExpiryCount: 0,
     expiredCount: 0
   };
+
+  // Profit margin calculation for currently edited product
+  const currSellPrice = Number(productDraft.price) || 0;
+  const currCostPrice = Number(productDraft.costPrice) || 0;
+  const currProfitAmount = currSellPrice - currCostPrice;
+  const currProfitMarginPct = currSellPrice > 0 ? Math.round(((currSellPrice - currCostPrice) / currSellPrice) * 100) : 0;
 
   return (
     <div className="page-wrapper admin-page-wrapper admin-habane">
@@ -1120,8 +1301,10 @@ const Admin = () => {
               <h1>
                 {activeTab === 'dashboard' && 'Overview Management'}
                 {activeTab === 'inventory' && 'Grocery Inventory Hub'}
+                {activeTab === 'retail-products' && 'Grocery Products & Variants'}
+                {activeTab === 'wholesale-products' && 'Wholesale Products & Bulk Packs'}
                 {activeTab === 'sales-stats' && 'Product Sales & Analytics'}
-                {activeTab !== 'dashboard' && activeTab !== 'inventory' && activeTab !== 'sales-stats' && activeTab.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                {activeTab !== 'dashboard' && activeTab !== 'inventory' && activeTab !== 'retail-products' && activeTab !== 'wholesale-products' && activeTab !== 'sales-stats' && activeTab.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
               </h1>
             </div>
             
@@ -1145,760 +1328,11 @@ const Admin = () => {
             </section>
           )}
 
-          {/* =========================================================================
-             GROCERY INVENTORY MANAGEMENT MODULE
-             ========================================================================= */}
-          {activeTab === 'inventory' && (
-            <div className="admin-inventory-page">
-              {/* Critical Stock / Expiry Alerts Banners */}
-              <div className="inventory-alerts-container">
-                {invSummary.outOfStockCount > 0 && (
-                  <div className="inventory-alert-banner inventory-alert-banner--danger">
-                    <div className="inventory-alert-banner__content">
-                      <FiAlertCircle size={20} />
-                      <span><strong>Out of Stock Alert:</strong> {invSummary.outOfStockCount} grocery product(s) have 0 available units and are marked out of stock.</span>
-                    </div>
-                    <button className="inventory-alert-banner__btn" onClick={() => setInventoryFilter('out-of-stock')}>View Out of Stock Items</button>
-                  </div>
-                )}
-                {invSummary.lowStockCount > 0 && (
-                  <div className="inventory-alert-banner inventory-alert-banner--warning">
-                    <div className="inventory-alert-banner__content">
-                      <FiAlertTriangle size={20} />
-                      <span><strong>Low Stock Alert:</strong> {invSummary.lowStockCount} product(s) are at or below their configured reorder threshold.</span>
-                    </div>
-                    <button className="inventory-alert-banner__btn" onClick={() => setInventoryFilter('low-stock')}>View Low Stock Items</button>
-                  </div>
-                )}
-                {(invSummary.expiredCount > 0 || invSummary.nearExpiryCount > 0) && (
-                  <div className="inventory-alert-banner inventory-alert-banner--warning" style={{ background: '#FFF7ED', borderColor: '#FDBA74', color: '#C2410C' }}>
-                    <div className="inventory-alert-banner__content">
-                      <FiClock size={20} />
-                      <span>
-                        <strong>Expiry Warning:</strong> {invSummary.expiredCount} expired product(s) & {invSummary.nearExpiryCount} item(s) expiring within 30 days.
-                      </span>
-                    </div>
-                    <button className="inventory-alert-banner__btn" onClick={() => setInventoryFilter(invSummary.expiredCount > 0 ? 'expired' : 'near-expiry')}>
-                      View Expiry Warnings
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Top KPI Metrics Overview */}
-              <section className="inventory-kpi-grid">
-                <div className="inventory-kpi-card">
-                  <div className="inventory-kpi-card__header">
-                    <span className="inventory-kpi-card__label">Total Inventory Valuation</span>
-                    <FiDollarSign className="inventory-kpi-card__icon" />
-                  </div>
-                  <strong>{formatPrice(invSummary.totalValuation)}</strong>
-                  <small>Retail Value: {formatPrice(invSummary.totalRetailValuation)}</small>
-                </div>
-
-                <div className="inventory-kpi-card">
-                  <div className="inventory-kpi-card__header">
-                    <span className="inventory-kpi-card__label">Total Stock Units</span>
-                    <FiPackage className="inventory-kpi-card__icon" />
-                  </div>
-                  <strong>{invSummary.totalAvailableUnits.toLocaleString('en-IN')}</strong>
-                  <small>{invSummary.totalReservedUnits} units currently reserved in orders</small>
-                </div>
-
-                <div className={`inventory-kpi-card ${invSummary.lowStockCount > 0 ? 'inventory-kpi-card--warning' : ''}`}>
-                  <div className="inventory-kpi-card__header">
-                    <span className="inventory-kpi-card__label">Low Stock Alerts</span>
-                    <FiAlertTriangle className="inventory-kpi-card__icon" style={{ color: invSummary.lowStockCount > 0 ? '#F59E0B' : undefined }} />
-                  </div>
-                  <strong style={{ color: invSummary.lowStockCount > 0 ? '#B45309' : undefined }}>{invSummary.lowStockCount}</strong>
-                  <small>Below configured reorder level</small>
-                </div>
-
-                <div className={`inventory-kpi-card ${invSummary.outOfStockCount > 0 ? 'inventory-kpi-card--danger' : ''}`}>
-                  <div className="inventory-kpi-card__header">
-                    <span className="inventory-kpi-card__label">Out of Stock</span>
-                    <FiAlertCircle className="inventory-kpi-card__icon" style={{ color: invSummary.outOfStockCount > 0 ? '#EF4444' : undefined }} />
-                  </div>
-                  <strong style={{ color: invSummary.outOfStockCount > 0 ? '#B91C1C' : undefined }}>{invSummary.outOfStockCount}</strong>
-                  <small>0 available units</small>
-                </div>
-              </section>
-
-              {/* Secondary Status Breakdown Bar */}
-              <div className="inventory-breakdown-bar">
-                <span className="inventory-breakdown-title">Stock Status:</span>
-                <span className="inventory-pill inventory-pill--available">Available: {invSummary.totalAvailableUnits}</span>
-                <span className="inventory-pill inventory-pill--reserved">Reserved in Orders: {invSummary.totalReservedUnits}</span>
-                <span className="inventory-pill inventory-pill--damaged">Damaged: {invSummary.totalDamagedUnits}</span>
-                <span className="inventory-pill inventory-pill--returned">Returned: {invSummary.totalReturnedUnits}</span>
-                <span className="inventory-pill inventory-pill--expired">Expired: {invSummary.totalExpiredUnits}</span>
-                <span className="inventory-pill inventory-pill--incoming">Incoming Shipment: {invSummary.totalIncomingUnits}</span>
-              </div>
-
-              {/* Toolbar & Filter Tabs */}
-              <div className="admin-card admin-card--wide" style={{ padding: '16px 20px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div className="inventory-filters-tabs">
-                    <button
-                      className={`inventory-filter-btn ${inventoryFilter === 'all' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setInventoryFilter('all')}
-                    >
-                      All Items <span className="inventory-badge-count">{inventoryData?.items?.length || 0}</span>
-                    </button>
-                    <button
-                      className={`inventory-filter-btn ${inventoryFilter === 'low-stock' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setInventoryFilter('low-stock')}
-                    >
-                      ⚠️ Low Stock <span className="inventory-badge-count">{invSummary.lowStockCount}</span>
-                    </button>
-                    <button
-                      className={`inventory-filter-btn ${inventoryFilter === 'out-of-stock' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setInventoryFilter('out-of-stock')}
-                    >
-                      ❌ Out of Stock <span className="inventory-badge-count">{invSummary.outOfStockCount}</span>
-                    </button>
-                    <button
-                      className={`inventory-filter-btn ${inventoryFilter === 'near-expiry' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setInventoryFilter('near-expiry')}
-                    >
-                      ⏳ Near Expiry <span className="inventory-badge-count">{invSummary.nearExpiryCount}</span>
-                    </button>
-                    <button
-                      className={`inventory-filter-btn ${inventoryFilter === 'expired' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setInventoryFilter('expired')}
-                    >
-                      ⛔ Expired <span className="inventory-badge-count">{invSummary.expiredCount}</span>
-                    </button>
-                    <button
-                      className={`inventory-filter-btn ${inventoryFilter === 'incoming' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setInventoryFilter('incoming')}
-                    >
-                      📦 Incoming <span className="inventory-badge-count">{invSummary.totalIncomingUnits}</span>
-                    </button>
-                    <button
-                      className={`inventory-filter-btn ${inventoryFilter === 'logs' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setInventoryFilter('logs')}
-                    >
-                      📋 Movement & Adjustments Log
-                    </button>
-                  </div>
-
-                  {inventoryFilter !== 'logs' && (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                      <div style={{ display: 'flex', gap: '10px', flex: 1, minWidth: '280px', maxWidth: '600px' }}>
-                        <div className="admin-search-label" style={{ flex: 1 }}>
-                          <FiSearch />
-                          <input
-                            placeholder="Search item name, brand, SKU or batch..."
-                            value={inventorySearch}
-                            onChange={(e) => setInventorySearch(e.target.value)}
-                            style={{ width: '100%' }}
-                          />
-                        </div>
-                        <select
-                          className="admin-input-box"
-                          style={{ width: '160px', height: '38px', borderRadius: '10px' }}
-                          value={inventoryCategory}
-                          onChange={(e) => setInventoryCategory(e.target.value)}
-                        >
-                          <option value="all">All Categories</option>
-                          {(dbCategories.length ? dbCategories : categories).map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button className="admin__ghost" onClick={loadInventory} style={{ height: '38px', padding: '0 12px', fontSize: '12px' }}>
-                          <FiRefreshCw size={13} /> Refresh
-                        </button>
-                        <button className="admin__primary" onClick={exportInventoryCsv} style={{ height: '38px', padding: '0 14px', fontSize: '12px' }}>
-                          📥 Export CSV
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Main Table Content */}
-              {inventoryFilter !== 'logs' ? (
-                <div className="inventory-table-wrap">
-                  <table className="inventory-table">
-                    <thead>
-                      <tr>
-                        <th>ITEM / BATCH DETAILS</th>
-                        <th>CATEGORY</th>
-                        <th>AVAILABLE</th>
-                        <th>RESERVED</th>
-                        <th>DAMAGED / RETURNED</th>
-                        <th>INCOMING</th>
-                        <th>UNIT COST / VALUE</th>
-                        <th>REORDER LEVEL</th>
-                        <th>EXPIRY DATE</th>
-                        <th style={{ textAlign: 'center' }}>ACTIONS</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {inventoryLoading ? (
-                        <tr>
-                          <td colSpan="10" style={{ textAlign: 'center', padding: '36px', color: '#687466' }}>
-                            Loading live inventory tracking...
-                          </td>
-                        </tr>
-                      ) : filteredInventoryItems.length === 0 ? (
-                        <tr>
-                          <td colSpan="10" style={{ textAlign: 'center', padding: '36px', color: '#687466' }}>
-                            No inventory items matching your filter/search.
-                          </td>
-                        </tr>
-                      ) : filteredInventoryItems.map(item => (
-                        <tr key={item.productId}>
-                          {/* Item details */}
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <img src={toWebpImage(item.image)} alt={item.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', background: '#F7F4EE' }} />
-                              <div>
-                                <strong style={{ fontSize: '13px', color: '#111827' }}>{item.name}</strong>
-                                <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>
-                                  {item.brand ? `${item.brand} · ` : ''}{item.weight}{item.unit} · SKU #{item.productId}
-                                </span>
-                                {item.batchNumber && (
-                                  <span style={{ fontSize: '10px', background: '#F3F4F6', color: '#374151', padding: '1px 5px', borderRadius: '4px', display: 'inline-block', marginTop: '2px' }}>
-                                    Batch: {item.batchNumber}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* Category */}
-                          <td>
-                            <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'capitalize', color: '#2D5016' }}>
-                              {item.category}
-                            </span>
-                            {item.isWholesale && (
-                              <span style={{ display: 'block', fontSize: '10px', color: '#FF6B35', fontWeight: '800' }}>Wholesale</span>
-                            )}
-                          </td>
-
-                          {/* Available Stock */}
-                          <td>
-                            <span className={`inventory-pill ${item.isOutOfStock ? 'inventory-pill--out' : (item.isLowStock ? 'inventory-pill--low' : 'inventory-pill--available')}`}>
-                              {item.availableStock} units
-                            </span>
-                          </td>
-
-                          {/* Reserved Stock */}
-                          <td>
-                            {item.reservedStock > 0 ? (
-                              <span className="inventory-pill inventory-pill--reserved">{item.reservedStock} units</span>
-                            ) : (
-                              <span style={{ color: '#9CA3AF', fontSize: '12px' }}>0</span>
-                            )}
-                          </td>
-
-                          {/* Damaged & Returned */}
-                          <td>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px' }}>
-                              {item.damagedStock > 0 && <span style={{ color: '#9D174D' }}>Damaged: <strong>{item.damagedStock}</strong></span>}
-                              {item.returnedStock > 0 && <span style={{ color: '#6B21A8' }}>Returned: <strong>{item.returnedStock}</strong></span>}
-                              {item.expiredStock > 0 && <span style={{ color: '#7F1D1D' }}>Expired: <strong>{item.expiredStock}</strong></span>}
-                              {item.damagedStock === 0 && item.returnedStock === 0 && item.expiredStock === 0 && <span style={{ color: '#9CA3AF' }}>0</span>}
-                            </div>
-                          </td>
-
-                          {/* Incoming Stock */}
-                          <td>
-                            {item.incomingStock > 0 ? (
-                              <span className="inventory-pill inventory-pill--incoming">+{item.incomingStock}</span>
-                            ) : (
-                              <span style={{ color: '#9CA3AF', fontSize: '12px' }}>0</span>
-                            )}
-                          </td>
-
-                          {/* Cost & Valuation */}
-                          <td>
-                            <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>Cost: {formatPrice(item.costPrice)}</span>
-                            <span style={{ fontSize: '11px', color: '#2D5016', display: 'block' }}>Sell: {formatPrice(item.price)}</span>
-                            <strong style={{ fontSize: '12px', color: '#111827' }}>Val: {formatPrice(item.stockValuation)}</strong>
-                          </td>
-
-                          {/* Reorder Level */}
-                          <td>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                              <span style={{ fontSize: '12px', fontWeight: '700' }}>{item.reorderLevel} units</span>
-                              {item.isLowStock && (
-                                <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '800' }}>⚠️ Reorder Now</span>
-                              )}
-                            </div>
-                          </td>
-
-                          {/* Expiry Date */}
-                          <td>
-                            {item.expiryDate ? (
-                              <div>
-                                <span style={{ fontSize: '11.5px', fontWeight: '600' }}>{item.expiryDate}</span>
-                                {item.isExpired ? (
-                                  <span style={{ display: 'block', fontSize: '10px', color: '#DC2626', fontWeight: '800' }}>⛔ Expired</span>
-                                ) : item.isNearExpiry ? (
-                                  <span style={{ display: 'block', fontSize: '10px', color: '#EA580C', fontWeight: '800' }}>
-                                    ⏳ {item.daysUntilExpiry}d left
-                                  </span>
-                                ) : (
-                                  <span style={{ display: 'block', fontSize: '10px', color: '#16A34A', fontWeight: '700' }}>Good</span>
-                                )}
-                              </div>
-                            ) : (
-                              <span style={{ color: '#9CA3AF', fontSize: '11px' }}>Not Set</span>
-                            )}
-                          </td>
-
-                          {/* Action Buttons */}
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                              <button
-                                className="admin__primary"
-                                style={{ height: '32px', padding: '0 10px', fontSize: '11px', borderRadius: '6px' }}
-                                title="Adjust product stock count"
-                                onClick={() => {
-                                  setAdjustModalItem(item);
-                                  setAdjustForm({
-                                    changeType: 'ADD',
-                                    quantity: '',
-                                    targetField: 'availableStock',
-                                    reason: 'Purchase / New Stock Received',
-                                    notes: ''
-                                  });
-                                }}
-                              >
-                                Adjust
-                              </button>
-
-                              <button
-                                className="admin__ghost"
-                                style={{ height: '32px', padding: '0 8px', fontSize: '11px', borderRadius: '6px' }}
-                                title="Configure reorder threshold, expiry date and batch number"
-                                onClick={() => {
-                                  setReorderModalItem(item);
-                                  setReorderForm({
-                                    reorderLevel: item.reorderLevel,
-                                    costPrice: item.costPrice,
-                                    expiryDate: item.expiryDate || '',
-                                    batchNumber: item.batchNumber || '',
-                                    location: item.location || 'Main Shelf',
-                                    incomingStock: item.incomingStock || 0
-                                  });
-                                }}
-                              >
-                                <FiSliders size={13} />
-                              </button>
-
-                              <button
-                                className="admin__ghost"
-                                style={{ height: '32px', padding: '0 8px', fontSize: '11px', borderRadius: '6px' }}
-                                title="View stock movement & transaction history"
-                                onClick={() => openProductHistory(item)}
-                              >
-                                <FiActivity size={13} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                /* Inventory Movement & Adjustment Logs Tab */
-                <div className="admin-card admin-card--wide">
-                  <div className="admin-card__toolbar">
-                    <div>
-                      <h2 style={{ margin: 0 }}>Stock Movement & Adjustment History</h2>
-                      <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
-                        Complete audit trail of all manual adjustments, purchase deliveries, and status changes.
-                      </p>
-                    </div>
-                    <button className="admin__ghost" onClick={loadInventoryLogs}>
-                      <FiRefreshCw size={13} /> Refresh Logs
-                    </button>
-                  </div>
-
-                  {logsLoading ? (
-                    <p style={{ color: '#687466', padding: '24px 0', textAlign: 'center' }}>Loading audit logs...</p>
-                  ) : inventoryLogs.length === 0 ? (
-                    <p style={{ color: '#687466', padding: '24px 0', textAlign: 'center' }}>No stock movement logs recorded yet.</p>
-                  ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="inventory-table">
-                        <thead>
-                          <tr>
-                            <th>DATE & TIME</th>
-                            <th>PRODUCT</th>
-                            <th>ACTION / EVENT</th>
-                            <th>QTY</th>
-                            <th>STOCK BEFORE ➔ AFTER</th>
-                            <th>REASON</th>
-                            <th>NOTES</th>
-                            <th>ADMIN USER</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {inventoryLogs.map(log => (
-                            <tr key={log.id}>
-                              <td style={{ fontSize: '11.5px', color: '#687466', whiteSpace: 'nowrap' }}>
-                                {new Date(log.createdAt).toLocaleString('en-IN')}
-                              </td>
-                              <td>
-                                <strong>{log.productName}</strong>
-                                <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>ID #{log.productId}</span>
-                              </td>
-                              <td>
-                                <span style={{
-                                  padding: '2px 8px',
-                                  borderRadius: '6px',
-                                  fontSize: '10.5px',
-                                  fontWeight: '800',
-                                  background: log.changeType === 'ADD' ? '#ECFDF5' : (log.changeType === 'DAMAGE' || log.changeType === 'EXPIRED' ? '#FEF2F2' : '#F3F4F6'),
-                                  color: log.changeType === 'ADD' ? '#065F46' : (log.changeType === 'DAMAGE' || log.changeType === 'EXPIRED' ? '#991B1B' : '#374151')
-                                }}>
-                                  {log.changeType}
-                                </span>
-                              </td>
-                              <td style={{ fontWeight: '800', fontSize: '13px', color: '#111827' }}>
-                                {log.quantity > 0 ? `+${log.quantity}` : log.quantity}
-                              </td>
-                              <td>
-                                <span style={{ fontSize: '12px', fontWeight: '700', color: '#2D5016' }}>
-                                  {log.stockBefore} ➔ {log.stockAfter}
-                                </span>
-                              </td>
-                              <td style={{ fontSize: '12px' }}>{log.reason}</td>
-                              <td style={{ fontSize: '11px', color: '#687466' }}>{log.notes || '—'}</td>
-                              <td style={{ fontSize: '12px', fontWeight: '600' }}>{log.adminName}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* =========================================================
-                 MODAL 1: STOCK ADJUSTMENT
-                 ========================================================= */}
-              {adjustModalItem && (
-                <div className="inventory-modal-backdrop" onClick={() => setAdjustModalItem(null)}>
-                  <div className="inventory-modal" onClick={e => e.stopPropagation()}>
-                    <div className="inventory-modal__header">
-                      <h2>Adjust Stock — {adjustModalItem.name}</h2>
-                      <button className="inventory-modal__close" onClick={() => setAdjustModalItem(null)}>✕</button>
-                    </div>
-
-                    <form onSubmit={handleStockAdjustment}>
-                      <div className="inventory-modal__body">
-                        {/* Current info pill */}
-                        <div style={{ display: 'flex', gap: '10px', background: '#FAFFF6', padding: '12px', borderRadius: '10px', border: '1px solid #DCE3D8' }}>
-                          <img src={toWebpImage(adjustModalItem.image)} alt={adjustModalItem.name} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />
-                          <div>
-                            <strong style={{ fontSize: '13px', color: '#111827' }}>{adjustModalItem.name}</strong>
-                            <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '12px', color: '#687466' }}>
-                              <span>Available Stock: <strong style={{ color: '#2D5016' }}>{adjustModalItem.availableStock}</strong></span>
-                              <span>Reserved: <strong>{adjustModalItem.reservedStock}</strong></span>
-                              <span>Reorder Level: <strong>{adjustModalItem.reorderLevel}</strong></span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Adjustment Type / Reason */}
-                        <div>
-                          <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>
-                            Adjustment Reason & Type
-                          </label>
-                          <select
-                            className="admin-input-box"
-                            value={adjustForm.reason}
-                            onChange={(e) => {
-                              const r = e.target.value;
-                              let cType = 'ADD';
-                              let tField = 'availableStock';
-
-                              if (r.includes('Purchase') || r.includes('New Stock') || r.includes('Supplier')) {
-                                cType = 'ADD';
-                                tField = 'availableStock';
-                              } else if (r.includes('Damaged')) {
-                                cType = 'DAMAGE';
-                                tField = 'damagedStock';
-                              } else if (r.includes('Return')) {
-                                cType = 'RETURN';
-                                tField = 'returnedStock';
-                              } else if (r.includes('Expired')) {
-                                cType = 'EXPIRED';
-                                tField = 'expiredStock';
-                              } else if (r.includes('Audit') || r.includes('Physical Count')) {
-                                cType = 'SET';
-                                tField = 'availableStock';
-                              } else if (r.includes('Deduction') || r.includes('Loss')) {
-                                cType = 'SUBTRACT';
-                                tField = 'availableStock';
-                              }
-
-                              setAdjustForm(prev => ({
-                                ...prev,
-                                reason: r,
-                                changeType: cType,
-                                targetField: tField
-                              }));
-                            }}
-                          >
-                            <option value="Purchase / New Stock Received">Purchase / New Stock Received (+ Available Stock)</option>
-                            <option value="Damaged in Store / Warehouse">Damaged in Store / Warehouse (- Available, + Damaged)</option>
-                            <option value="Customer Return">Customer Return (+ Returned, + Available)</option>
-                            <option value="Expired Stock Removal">Expired Stock Removal (- Available, + Expired)</option>
-                            <option value="Physical Inventory Count Audit">Physical Inventory Count Audit (Set Exact Count)</option>
-                            <option value="Supplier Shipment Received">Supplier Shipment Received (Convert Incoming to Available)</option>
-                            <option value="Internal Stock Correction / Write-off">Internal Stock Deduction / Write-off (- Available)</option>
-                          </select>
-                        </div>
-
-                        {/* Quantity input */}
-                        <div>
-                          <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>
-                            {adjustForm.changeType === 'SET' ? 'New Total Stock Count' : 'Quantity to Change (Units)'}
-                          </label>
-                          <input
-                            type="number"
-                            className="admin-input-box"
-                            placeholder="e.g. 25"
-                            required
-                            min="1"
-                            value={adjustForm.quantity}
-                            onChange={(e) => setAdjustForm(prev => ({ ...prev, quantity: e.target.value }))}
-                          />
-                        </div>
-
-                        {/* Live calculation preview */}
-                        {adjustForm.quantity && (
-                          <div style={{ padding: '10px 14px', background: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0', fontSize: '12.5px' }}>
-                            <span>Preview: Current Available Stock (<strong>{adjustModalItem.availableStock}</strong>) ➔ New Available Stock (
-                              <strong style={{ color: '#15803D' }}>
-                                {(() => {
-                                  const q = parseInt(adjustForm.quantity, 10) || 0;
-                                  if (adjustForm.changeType === 'SET') return q;
-                                  if (adjustForm.changeType === 'ADD' || adjustForm.changeType === 'RETURN' || adjustForm.changeType === 'RECEIVE_INCOMING') {
-                                    return adjustModalItem.availableStock + q;
-                                  }
-                                  return Math.max(0, adjustModalItem.availableStock - q);
-                                })()}
-                              </strong> units)
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Notes */}
-                        <div>
-                          <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>
-                            Notes / Reference (Optional)
-                          </label>
-                          <textarea
-                            rows={2}
-                            className="admin-input-box"
-                            style={{ height: 'auto', padding: '8px 12px' }}
-                            placeholder="e.g., Invoice #INV-8492 from supplier, or audit verification notes"
-                            value={adjustForm.notes}
-                            onChange={(e) => setAdjustForm(prev => ({ ...prev, notes: e.target.value }))}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="inventory-modal__footer">
-                        <button type="button" className="admin__ghost" onClick={() => setAdjustModalItem(null)}>
-                          Cancel
-                        </button>
-                        <button type="submit" className="admin__primary" disabled={adjustLoading}>
-                          {adjustLoading ? 'Updating Stock...' : 'Confirm Stock Adjustment'}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
-
-              {/* =========================================================
-                 MODAL 2: REORDER LEVEL & BATCH CONFIGURATION
-                 ========================================================= */}
-              {reorderModalItem && (
-                <div className="inventory-modal-backdrop" onClick={() => setReorderModalItem(null)}>
-                  <div className="inventory-modal" onClick={e => e.stopPropagation()}>
-                    <div className="inventory-modal__header">
-                      <h2>Inventory & Reorder Settings — {reorderModalItem.name}</h2>
-                      <button className="inventory-modal__close" onClick={() => setReorderModalItem(null)}>✕</button>
-                    </div>
-
-                    <form onSubmit={handleReorderConfigSave}>
-                      <div className="inventory-modal__body">
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
-                              Reorder Threshold (Min Units)
-                            </label>
-                            <input
-                              type="number"
-                              className="admin-input-box"
-                              placeholder="e.g. 10"
-                              value={reorderForm.reorderLevel}
-                              onChange={(e) => setReorderForm(prev => ({ ...prev, reorderLevel: e.target.value }))}
-                            />
-                            <span style={{ fontSize: '11px', color: '#687466' }}>Triggers Low Stock warning when stock is below this.</span>
-                          </div>
-
-                          <div>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
-                              Cost Price (₹ per unit)
-                            </label>
-                            <input
-                              type="number"
-                              className="admin-input-box"
-                              placeholder="e.g. 85"
-                              value={reorderForm.costPrice}
-                              onChange={(e) => setReorderForm(prev => ({ ...prev, costPrice: e.target.value }))}
-                            />
-                            <span style={{ fontSize: '11px', color: '#687466' }}>Used for total stock valuation calculation.</span>
-                          </div>
-
-                          <div>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
-                              Batch / Lot Number
-                            </label>
-                            <input
-                              type="text"
-                              className="admin-input-box"
-                              placeholder="e.g. BAT-2026-09"
-                              value={reorderForm.batchNumber}
-                              onChange={(e) => setReorderForm(prev => ({ ...prev, batchNumber: e.target.value }))}
-                            />
-                          </div>
-
-                          <div>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
-                              Expiry Date
-                            </label>
-                            <input
-                              type="date"
-                              className="admin-input-box"
-                              value={reorderForm.expiryDate}
-                              onChange={(e) => setReorderForm(prev => ({ ...prev, expiryDate: e.target.value }))}
-                            />
-                          </div>
-
-                          <div>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
-                              Storage Location
-                            </label>
-                            <input
-                              type="text"
-                              className="admin-input-box"
-                              placeholder="e.g. Aisle 2, Rack C"
-                              value={reorderForm.location}
-                              onChange={(e) => setReorderForm(prev => ({ ...prev, location: e.target.value }))}
-                            />
-                          </div>
-
-                          <div>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
-                              Incoming Expected Stock (Units)
-                            </label>
-                            <input
-                              type="number"
-                              className="admin-input-box"
-                              placeholder="e.g. 50"
-                              value={reorderForm.incomingStock}
-                              onChange={(e) => setReorderForm(prev => ({ ...prev, incomingStock: e.target.value }))}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="inventory-modal__footer">
-                        <button type="button" className="admin__ghost" onClick={() => setReorderModalItem(null)}>
-                          Cancel
-                        </button>
-                        <button type="submit" className="admin__primary" disabled={reorderLoading}>
-                          {reorderLoading ? 'Saving...' : 'Save Settings'}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
-
-              {/* =========================================================
-                 MODAL 3: PRODUCT STOCK MOVEMENT HISTORY
-                 ========================================================= */}
-              {historyModalItem && (
-                <div className="inventory-modal-backdrop" onClick={() => setHistoryModalItem(null)}>
-                  <div className="inventory-modal" onClick={e => e.stopPropagation()}>
-                    <div className="inventory-modal__header">
-                      <h2>Movement History — {historyModalItem.name}</h2>
-                      <button className="inventory-modal__close" onClick={() => setHistoryModalItem(null)}>✕</button>
-                    </div>
-
-                    <div className="inventory-modal__body">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: '#FAF9F6', borderRadius: '8px', fontSize: '12px' }}>
-                        <span>Current Available: <strong style={{ color: '#2D5016' }}>{historyModalItem.availableStock}</strong> units</span>
-                        <span>Reserved in Orders: <strong>{historyModalItem.reservedStock}</strong> units</span>
-                        <span>Reorder Level: <strong>{historyModalItem.reorderLevel}</strong></span>
-                      </div>
-
-                      {historyLoading ? (
-                        <p style={{ textAlign: 'center', padding: '24px 0', color: '#687466' }}>Loading transaction history...</p>
-                      ) : historyLogs.length === 0 ? (
-                        <p style={{ textAlign: 'center', padding: '24px 0', color: '#687466' }}>No adjustment transactions recorded yet for this product.</p>
-                      ) : (
-                        <div className="inventory-timeline">
-                          {historyLogs.map(log => (
-                            <div key={log.id} className="inventory-timeline-item">
-                              <div className="inventory-timeline-item__header">
-                                <span style={{ fontSize: '12px', fontWeight: '800', color: '#1C4B12' }}>
-                                  {log.reason} ({log.changeType})
-                                </span>
-                                <span style={{ fontSize: '11px', color: '#687466' }}>
-                                  {new Date(log.createdAt).toLocaleString('en-IN')}
-                                </span>
-                              </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: '2px' }}>
-                                <span>Quantity: <strong>{log.quantity > 0 ? `+${log.quantity}` : log.quantity}</strong></span>
-                                <span>Stock Transition: <strong>{log.stockBefore} ➔ {log.stockAfter}</strong></span>
-                              </div>
-                              {log.notes && (
-                                <span style={{ fontSize: '11px', color: '#4B5563', marginTop: '2px', fontStyle: 'italic' }}>
-                                  Note: {log.notes}
-                                </span>
-                              )}
-                              <span style={{ fontSize: '10.5px', color: '#9CA3AF' }}>By: {log.adminName}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="inventory-modal__footer">
-                      <button className="admin__primary" onClick={() => setHistoryModalItem(null)}>
-                        Close
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Store links banner */}
           {(activeTab === 'retail-products' || activeTab === 'retail-content') && (
             <div className="admin__mode-bar" style={{ marginBottom: '20px' }}>
-              <span className="admin__mode-label">🛍️ Retail</span>
-              <span className="admin__mode-desc">Products visible to retail customers in Retail mode</span>
+              <span className="admin__mode-label">🛍️ Retail Grocery Store</span>
+              <span className="admin__mode-desc">Manage item variants, barcodes, brands, profit margins, and GST rates for retail shoppers.</span>
               <a href="/home" target="_blank" rel="noopener noreferrer" className="admin__store-link">
                 View Retail Store →
               </a>
@@ -1906,180 +1340,504 @@ const Admin = () => {
           )}
           {(activeTab === 'wholesale-products' || activeTab === 'wholesale-content') && (
             <div className="admin__mode-bar" style={{ marginBottom: '20px' }}>
-              <span className="admin__mode-label">📦 Wholesale</span>
-              <span className="admin__mode-desc">Products visible to wholesale customers in Wholesale mode</span>
+              <span className="admin__mode-label">📦 Wholesale & Bulk Packs</span>
+              <span className="admin__mode-desc">Manage bulk pack variants, case quantities, wholesale pricing, and tax settings for business accounts.</span>
               <a href="/home" target="_blank" rel="noopener noreferrer" className="admin__store-link">
                 View Wholesale Store →
               </a>
             </div>
           )}
 
-          {activeTab === 'dashboard' && (
-            <section className="admin-grid">
-              <div className="admin-card">
-                <h2>Inventory health</h2>
-                <div className="admin-scroll-list">
-                  {allProducts.map(product => (
-                    <button key={product.id} className="admin-row" onClick={() => editProduct(product)}>
-                      <img src={toWebpImage(product.image)} alt={product.name} />
-                      <span>{product.name}</span>
-                      <strong>{product.stockNote}</strong>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="admin-card">
-                <h2>Active campaigns</h2>
-                <div className="admin-campaign-grid">
-                  {offers.filter(offer => offer.active).map(offer => (
-                    <div key={offer.id} className="admin-campaign">
-                      {offer.image ? <img src={toWebpImage(offer.image)} alt={offer.title} /> : <FiGift />}
-                      <div>
-                        <span>{offer.group === 'festival' ? 'Festive offer' : 'Daily offer'}</span>
-                        <strong>{offer.title}</strong>
-                        <small>{offer.subtitle || offer.badge}</small>
-                      </div>
-                    </div>
-                  ))}
-                  {coupons.filter(coupon => coupon.active).map(coupon => (
-                    <div key={coupon.id} className="admin-campaign">
-                      <FiTag />
-                      <div>
-                        <span>Coupon</span>
-                        <strong>{coupon.code}</strong>
-                        <small>{coupon.discount}</small>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-          )}
-
+          {/* =========================================================================
+             GROCERY PRODUCT MANAGEMENT (RETAIL & WHOLESALE)
+             ========================================================================= */}
           {(activeTab === 'retail-products' || activeTab === 'wholesale-products') && (
             <section className="admin-workspace">
+              {/* Product Editor Form */}
               <form className="admin-form" onSubmit={saveProduct}>
-                <h2>{productDraft.id ? 'Edit item' : `Add ${activeTab === 'wholesale-products' ? 'Wholesale' : 'Retail'} Item`}</h2>
-                <div className="admin-form__grid">
-                  <input value={productDraft.name} onChange={(e) => setProductDraft(prev => ({ ...prev, name: e.target.value }))} placeholder="Product name" required />
-                  <input value={productDraft.brand} onChange={(e) => setProductDraft(prev => ({ ...prev, brand: e.target.value }))} placeholder="Brand" required />
-                  <select value={productDraft.category} onChange={(e) => setProductDraft(prev => ({ ...prev, category: e.target.value }))}>
-                    {(dbCategories.length ? dbCategories : categories).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
-                  </select>
-                  <select value={productDraft.stockNote} onChange={(e) => setProductDraft(prev => ({ ...prev, stockNote: e.target.value }))}>
-                    <option>In stock</option>
-                    <option>Only few left</option>
-                    <option>Only 10 left</option>
-                    <option>Out of stock</option>
-                  </select>
-                  <input value={productDraft.price} onChange={(e) => setProductDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="Price" type="number" required />
-                  <input value={productDraft.mrp} onChange={(e) => setProductDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="MRP" type="number" />
-                  <input value={productDraft.discount} onChange={(e) => setProductDraft(prev => ({ ...prev, discount: e.target.value }))} placeholder="Discount %" type="number" />
-                  <label className="admin-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#2D5016', fontWeight: 600, cursor: 'pointer' }}>
-                    <input type="checkbox" checked={Boolean(productDraft.isBestseller)} onChange={(e) => setProductDraft(prev => ({ ...prev, isBestseller: e.target.checked }))} style={{ width: 'auto', margin: 0 }} />
-                    <span>Best Seller</span>
-                  </label>
-                  <label className="admin-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#2D5016', fontWeight: 600, cursor: 'pointer' }}>
-                    <input type="checkbox" checked={Boolean(productDraft.isTodaysDeal)} onChange={(e) => setProductDraft(prev => ({ ...prev, isTodaysDeal: e.target.checked }))} style={{ width: 'auto', margin: 0 }} />
-                    <span>Today's Deal</span>
-                  </label>
-                  {activeTab === 'wholesale-products' && (
-                    <>
-                      <input value={productDraft.wholesalePrice || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, wholesalePrice: e.target.value }))} placeholder="Wholesale price" type="number" />
-                      <input value={productDraft.bulkPackLabel || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, bulkPackLabel: e.target.value }))} placeholder="Bulk pack label e.g. 10 kg bulk" />
-                      <input value={productDraft.bulkPackPrice || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, bulkPackPrice: e.target.value }))} placeholder="Bulk pack price" type="number" />
-                      <input value={productDraft.wholesaleCaseLabel || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, wholesaleCaseLabel: e.target.value }))} placeholder="Wholesale case label e.g. 25 kg case" />
-                      <input value={productDraft.wholesaleCasePrice || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, wholesaleCasePrice: e.target.value }))} placeholder="Wholesale case price" type="number" />
-                      <select value={productDraft.deliveryTime || 'Same day'} onChange={(e) => setProductDraft(prev => ({ ...prev, deliveryTime: e.target.value }))}>
-                        <option>Same day</option>
-                        <option>Next day</option>
-                        <option>10 mins</option>
-                        <option>15 mins</option>
-                      </select>
-                    </>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h2>{productDraft.id ? 'Edit Grocery Item' : `Add New ${activeTab === 'wholesale-products' ? 'Wholesale' : 'Retail'} Item`}</h2>
+                  {productDraft.id && (
+                    <span style={{ fontSize: '11px', background: '#F3F4F6', padding: '2px 8px', borderRadius: '6px', fontWeight: 'bold' }}>
+                      Editing ID #{productDraft.id}
+                    </span>
                   )}
-                  <input value={productDraft.image} onChange={(e) => setProductDraft(prev => ({ ...prev, image: e.target.value }))} placeholder="Image URL" />
-                  <label className="admin-file-input">
-                    <span>Or upload image from device</span>
-                    <input type="file" accept="image/*" onChange={handleImageUpload} />
-                  </label>
-                  <textarea value={productDraft.description} onChange={(e) => setProductDraft(prev => ({ ...prev, description: e.target.value }))} placeholder="Description" rows="3" />
                 </div>
 
-                <div className="admin-variants-section">
-                  <h3>Quantities / Variants</h3>
-                  <div className="admin-variants-grid">
-                    {defaultVariantOptions.map(opt => (
-                      <label key={opt} className={`admin-variant-check ${checkedVariants.includes(opt) ? 'admin-variant-check--active' : ''}`}>
-                        <input
-                          type="checkbox"
-                          checked={checkedVariants.includes(opt)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setCheckedVariants(prev => [...prev, opt]);
-                            } else {
-                              setCheckedVariants(prev => prev.filter(v => v !== opt));
-                              setVariantPrices(prev => { const n = {...prev}; delete n[opt]; return n; });
-                            }
-                          }}
-                        />
-                        <span>{opt}</span>
-                        {checkedVariants.includes(opt) && (
-                          <input
-                            type="number"
-                            className="admin-variant-price"
-                            placeholder="₹ price"
-                            value={variantPrices[opt] || ''}
-                            onChange={(e) => setVariantPrices(prev => ({ ...prev, [opt]: e.target.value }))}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        )}
-                      </label>
-                    ))}
+                {/* ── Section 1: General Product Details ── */}
+                <div className="admin-form-section">
+                  <h3 className="admin-form-section__title"><FiPackage /> 1. General Product Information</h3>
+                  <div className="admin-form__grid">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Product Name *</label>
+                      <input value={productDraft.name} onChange={(e) => setProductDraft(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g. Dawat Lovely Gold Biryani Rice" required />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Category *</label>
+                      <select value={productDraft.category} onChange={(e) => setProductDraft(prev => ({ ...prev, category: e.target.value }))}>
+                        {(dbCategories.length ? dbCategories : categories).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Subcategory</label>
+                      <input value={productDraft.subcategory || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, subcategory: e.target.value }))} placeholder="e.g. Basmati Rice, Sunflower Oil, Toor Dal" />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Brand</label>
+                      <input value={productDraft.brand || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, brand: e.target.value }))} placeholder="e.g. Daawat, Fortune, Siri Select" required />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Pack Size / Weight</label>
+                      <input value={productDraft.weight || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, weight: e.target.value }))} placeholder="e.g. 500, 1, 5" />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Unit of Measure</label>
+                      <select value={productDraft.unit || 'g'} onChange={(e) => setProductDraft(prev => ({ ...prev, unit: e.target.value }))}>
+                        <option value="g">Grams (g)</option>
+                        <option value="kg">Kilograms (kg)</option>
+                        <option value="ml">Millilitres (ml)</option>
+                        <option value="L">Litres (L)</option>
+                        <option value="pcs">Pieces (pcs)</option>
+                        <option value="pack">Pack</option>
+                        <option value="box">Box</option>
+                        <option value="bottle">Bottle</option>
+                        <option value="can">Can</option>
+                      </select>
+                    </div>
+
+                    {/* SKU with Auto-generate */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#111827' }}>SKU Code</label>
+                        <button
+                          type="button"
+                          style={{ background: 'transparent', border: 'none', color: '#2D5016', fontSize: '11px', fontWeight: '800', cursor: 'pointer', padding: 0 }}
+                          onClick={() => setProductDraft(prev => ({ ...prev, sku: genSku(prev.category) }))}
+                        >
+                          ⚡ Auto-Gen
+                        </button>
+                      </div>
+                      <input value={productDraft.sku || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, sku: e.target.value }))} placeholder="e.g. SIRI-RIC-0021" />
+                    </div>
+
+                    {/* Barcode with Auto-generate */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#111827' }}>Barcode (EAN/UPC)</label>
+                        <button
+                          type="button"
+                          style={{ background: 'transparent', border: 'none', color: '#2D5016', fontSize: '11px', fontWeight: '800', cursor: 'pointer', padding: 0 }}
+                          onClick={() => setProductDraft(prev => ({ ...prev, barcode: genBarcode() }))}
+                        >
+                          ⚡ Auto-Gen
+                        </button>
+                      </div>
+                      <input value={productDraft.barcode || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, barcode: e.target.value }))} placeholder="e.g. 8901234567890" />
+                    </div>
                   </div>
 
-                  <div className="admin-custom-variants">
-                    <strong>Custom quantities</strong>
-                    {customVariants.map((cv, i) => (
-                      <div key={i} className="admin-custom-variant-row">
-                        <input
-                          placeholder="Label e.g. 750 g"
-                          value={cv.label}
-                          onChange={(e) => {
-                            const next = [...customVariants];
-                            next[i] = { ...next[i], label: e.target.value };
-                            setCustomVariants(next);
-                          }}
-                        />
-                        <input
-                          type="number"
-                          placeholder="₹ price"
-                          value={cv.price}
-                          onChange={(e) => {
-                            const next = [...customVariants];
-                            next[i] = { ...next[i], price: e.target.value };
-                            setCustomVariants(next);
-                          }}
-                        />
-                        {customVariants.length > 1 && (
-                          <button type="button" className="admin-danger admin-icon-btn" onClick={() => setCustomVariants(prev => prev.filter((_, idx) => idx !== i))}>
-                            <FiTrash2 />
-                          </button>
-                        )}
+                  <div style={{ marginTop: '8px' }}>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Product Image URL</label>
+                    <input value={productDraft.image || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, image: e.target.value }))} placeholder="https://images.unsplash.com/..." />
+                    <label className="admin-file-input" style={{ marginTop: '6px' }}>
+                      <span>Or choose image from device</span>
+                      <input type="file" accept="image/*" onChange={handleImageUpload} />
+                    </label>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Description</label>
+                    <textarea value={productDraft.description || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, description: e.target.value }))} placeholder="Fresh, high-grade basmati rice, suitable for biryani and daily cooking." rows="2" />
+                  </div>
+                </div>
+
+                {/* ── Section 2: Pricing, Cost & Profit Margin ── */}
+                <div className="admin-form-section">
+                  <h3 className="admin-form-section__title"><FiDollarSign /> 2. Pricing, Cost & Profit Margin Tracking</h3>
+                  <div className="admin-form__grid">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Selling Price (₹) *</label>
+                      <input value={productDraft.price} onChange={(e) => setProductDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="e.g. 420" type="number" required />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>MRP / Market Price (₹)</label>
+                      <input value={productDraft.mrp} onChange={(e) => setProductDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="e.g. 490" type="number" />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Cost Price / Purchase Price (₹)</label>
+                      <input value={productDraft.costPrice} onChange={(e) => setProductDraft(prev => ({ ...prev, costPrice: e.target.value }))} placeholder="e.g. 330" type="number" />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>GST / Tax Rate</label>
+                      <select value={productDraft.gstRate || '0'} onChange={(e) => setProductDraft(prev => ({ ...prev, gstRate: e.target.value }))}>
+                        <option value="0">0% — Exempt / Fresh Produce</option>
+                        <option value="5">5% — Essential Packaged Foods</option>
+                        <option value="12">12% — Processed Grocery / Butter / Ghee</option>
+                        <option value="18">18% — Packaged Snacks / Branded Goods</option>
+                        <option value="28">28% — Luxury / Aerated Goods</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>HSN Code</label>
+                      <input value={productDraft.hsnCode || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, hsnCode: e.target.value }))} placeholder="e.g. 1006 (Rice), 1512 (Oil), 0713 (Pulses)" />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Discount % (Calculated or Custom)</label>
+                      <input value={productDraft.discount} onChange={(e) => setProductDraft(prev => ({ ...prev, discount: e.target.value }))} placeholder="e.g. 14" type="number" />
+                    </div>
+
+                    {activeTab === 'wholesale-products' && (
+                      <>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Wholesale Price (₹)</label>
+                          <input value={productDraft.wholesalePrice || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, wholesalePrice: e.target.value }))} placeholder="e.g. 380" type="number" />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Bulk Pack Label & Price (₹)</label>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <input value={productDraft.bulkPackLabel || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, bulkPackLabel: e.target.value }))} placeholder="e.g. 10 kg bag" />
+                            <input value={productDraft.bulkPackPrice || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, bulkPackPrice: e.target.value }))} placeholder="₹ Price" type="number" style={{ width: '100px' }} />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Real-time Profit Margin Card */}
+                  {currSellPrice > 0 && currCostPrice > 0 && (
+                    <div className="admin-profit-card" style={{ marginTop: '8px' }}>
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Profit per Unit</span>
+                        <strong style={{ display: 'block', fontSize: '16px', color: currProfitAmount >= 0 ? '#15803D' : '#DC2626' }}>
+                          {formatPrice(currProfitAmount)}
+                        </strong>
                       </div>
-                    ))}
-                    <button type="button" className="admin__ghost admin-add-variant-btn" onClick={() => setCustomVariants(prev => [...prev, { label: '', price: '' }])}>
-                      <FiPlus /> Add row
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Profit Margin</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <strong style={{ fontSize: '16px', color: '#111827' }}>{currProfitMarginPct}%</strong>
+                          <span className={`admin-profit-pill ${currProfitMarginPct >= 20 ? 'admin-profit-pill--high' : (currProfitMarginPct >= 10 ? 'admin-profit-pill--med' : 'admin-profit-pill--low')}`}>
+                            {currProfitMarginPct >= 20 ? '🔥 High Margin' : (currProfitMarginPct >= 10 ? '⚖️ Balanced' : '⚠️ Low Margin')}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Markup on Cost</span>
+                        <strong style={{ display: 'block', fontSize: '14px', color: '#4B5563' }}>
+                          {Math.round(((currSellPrice - currCostPrice) / currCostPrice) * 100)}%
+                        </strong>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Section 3: Pack-Size & Unit Variants ── */}
+                <div className="admin-form-section">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <h3 className="admin-form-section__title" style={{ border: 'none', padding: 0 }}><FiGrid /> 3. Pack-Size & Unit Variants</h3>
+                    <button
+                      type="button"
+                      className="admin__ghost"
+                      style={{ height: '30px', fontSize: '11.5px', padding: '0 10px' }}
+                      onClick={() => setDetailedVariants(prev => [
+                        ...prev,
+                        {
+                          id: `var-${Date.now()}`,
+                          label: '',
+                          packSize: '',
+                          unit: productDraft.unit || 'g',
+                          price: '',
+                          mrp: '',
+                          costPrice: '',
+                          stock: 50,
+                          sku: genSku(productDraft.category),
+                          barcode: genBarcode(),
+                          inStock: true
+                        }
+                      ])}
+                    >
+                      <FiPlus /> Add Variant
                     </button>
                   </div>
+
+                  {/* Quick Preset Chips */}
+                  <div>
+                    <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#687466', marginBottom: '6px' }}>Quick Add Preset Pack Sizes:</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {groceryUnitPresets.map(preset => {
+                        const isAdded = detailedVariants.some(v => v.label === preset);
+                        return (
+                          <button
+                            key={preset}
+                            type="button"
+                            style={{
+                              padding: '3px 9px',
+                              borderRadius: '16px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              border: isAdded ? '1px solid #2D5016' : '1px solid #DCE3D8',
+                              background: isAdded ? '#E8F5E9' : '#FFFFFF',
+                              color: isAdded ? '#2D5016' : '#4B5563'
+                            }}
+                            onClick={() => {
+                              if (isAdded) {
+                                setDetailedVariants(prev => prev.filter(v => v.label !== preset));
+                              } else {
+                                setDetailedVariants(prev => [
+                                  ...prev,
+                                  {
+                                    id: `var-${Date.now()}-${preset}`,
+                                    label: preset,
+                                    packSize: preset.split(' ')[0] || '',
+                                    unit: preset.split(' ')[1] || 'g',
+                                    price: '',
+                                    mrp: '',
+                                    costPrice: '',
+                                    stock: 50,
+                                    sku: `${genSku(productDraft.category)}-${preset.replace(/\s+/g, '')}`,
+                                    barcode: genBarcode(),
+                                    inStock: true
+                                  }
+                                ]);
+                              }
+                            }}
+                          >
+                            {isAdded ? `✓ ${preset}` : `+ ${preset}`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Variant Table */}
+                  {detailedVariants.length > 0 && (
+                    <div className="admin-variant-table-wrap" style={{ marginTop: '8px' }}>
+                      <table className="admin-variant-table">
+                        <thead>
+                          <tr>
+                            <th>VARIANT SIZE</th>
+                            <th>PRICE (₹)</th>
+                            <th>MRP (₹)</th>
+                            <th>COST (₹)</th>
+                            <th>STOCK</th>
+                            <th>SKU</th>
+                            <th>MARGIN %</th>
+                            <th>STATUS</th>
+                            <th>ACTION</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {detailedVariants.map((variant, idx) => {
+                            const vPrice = Number(variant.price) || 0;
+                            const vCost = Number(variant.costPrice) || 0;
+                            const vMargin = vPrice > 0 ? Math.round(((vPrice - vCost) / vPrice) * 100) : 0;
+
+                            return (
+                              <tr key={variant.id || idx}>
+                                <td>
+                                  <input
+                                    placeholder="e.g. 1 kg"
+                                    value={variant.label}
+                                    style={{ width: '90px' }}
+                                    onChange={(e) => {
+                                      const next = [...detailedVariants];
+                                      next[idx] = { ...next[idx], label: e.target.value };
+                                      setDetailedVariants(next);
+                                    }}
+                                  />
+                                </td>
+                                <td>
+                                  <input
+                                    type="number"
+                                    placeholder="Price"
+                                    value={variant.price}
+                                    style={{ width: '70px' }}
+                                    onChange={(e) => {
+                                      const next = [...detailedVariants];
+                                      next[idx] = { ...next[idx], price: e.target.value };
+                                      setDetailedVariants(next);
+                                    }}
+                                  />
+                                </td>
+                                <td>
+                                  <input
+                                    type="number"
+                                    placeholder="MRP"
+                                    value={variant.mrp}
+                                    style={{ width: '70px' }}
+                                    onChange={(e) => {
+                                      const next = [...detailedVariants];
+                                      next[idx] = { ...next[idx], mrp: e.target.value };
+                                      setDetailedVariants(next);
+                                    }}
+                                  />
+                                </td>
+                                <td>
+                                  <input
+                                    type="number"
+                                    placeholder="Cost"
+                                    value={variant.costPrice}
+                                    style={{ width: '70px' }}
+                                    onChange={(e) => {
+                                      const next = [...detailedVariants];
+                                      next[idx] = { ...next[idx], costPrice: e.target.value };
+                                      setDetailedVariants(next);
+                                    }}
+                                  />
+                                </td>
+                                <td>
+                                  <input
+                                    type="number"
+                                    placeholder="Stock"
+                                    value={variant.stock}
+                                    style={{ width: '60px' }}
+                                    onChange={(e) => {
+                                      const next = [...detailedVariants];
+                                      next[idx] = { ...next[idx], stock: e.target.value };
+                                      setDetailedVariants(next);
+                                    }}
+                                  />
+                                </td>
+                                <td>
+                                  <input
+                                    placeholder="SKU"
+                                    value={variant.sku || ''}
+                                    style={{ width: '100px' }}
+                                    onChange={(e) => {
+                                      const next = [...detailedVariants];
+                                      next[idx] = { ...next[idx], sku: e.target.value };
+                                      setDetailedVariants(next);
+                                    }}
+                                  />
+                                </td>
+                                <td>
+                                  <span style={{ fontWeight: 800, fontSize: '11px', color: vMargin >= 20 ? '#166534' : (vMargin >= 10 ? '#92400E' : '#991B1B') }}>
+                                    {vMargin}%
+                                  </span>
+                                </td>
+                                <td>
+                                  <label style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={variant.inStock !== false}
+                                      onChange={(e) => {
+                                        const next = [...detailedVariants];
+                                        next[idx] = { ...next[idx], inStock: e.target.checked };
+                                        setDetailedVariants(next);
+                                      }}
+                                    />
+                                    <span>{variant.inStock !== false ? 'In Stock' : 'Out'}</span>
+                                  </label>
+                                </td>
+                                <td>
+                                  <button
+                                    type="button"
+                                    className="admin-danger"
+                                    style={{ width: '28px', height: '28px', borderRadius: '6px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                    onClick={() => setDetailedVariants(prev => prev.filter((_, i) => i !== idx))}
+                                  >
+                                    <FiTrash2 size={12} />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
 
-                <div className="admin-form__actions" style={{ alignItems: 'center' }}>
+                {/* ── Section 4: Batch, Expiry & Visibility ── */}
+                <div className="admin-form-section">
+                  <h3 className="admin-form-section__title"><FiClock /> 4. Batch, Expiry & Storefront Visibility</h3>
+                  <div className="admin-form__grid">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Batch / Lot Number</label>
+                      <input value={productDraft.batchNumber || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, batchNumber: e.target.value }))} placeholder="e.g. BAT-2026-09" />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Mfg Date</label>
+                      <input type="date" value={productDraft.mfgDate || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, mfgDate: e.target.value }))} />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Expiry Date</label>
+                      <input type="date" value={productDraft.expiryDate || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, expiryDate: e.target.value }))} />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Stock Status Note</label>
+                      <select value={productDraft.stockNote} onChange={(e) => setProductDraft(prev => ({ ...prev, stockNote: e.target.value }))}>
+                        <option>In stock</option>
+                        <option>Only few left</option>
+                        <option>Only 10 left</option>
+                        <option>Out of stock</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Delivery Time Estimate</label>
+                      <select value={productDraft.deliveryTime || '15 mins'} onChange={(e) => setProductDraft(prev => ({ ...prev, deliveryTime: e.target.value }))}>
+                        <option>10 mins</option>
+                        <option>15 mins</option>
+                        <option>20 mins</option>
+                        <option>30 mins</option>
+                        <option>Same day</option>
+                        <option>Next day</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Checkbox Controls */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '18px', paddingTop: '6px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#2D5016', fontWeight: '700', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={productDraft.isPublished !== false} onChange={(e) => setProductDraft(prev => ({ ...prev, isPublished: e.target.checked }))} style={{ width: 'auto', margin: 0 }} />
+                      <span>🟢 Published on Storefront</span>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#2D5016', fontWeight: '700', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={Boolean(productDraft.isBestseller)} onChange={(e) => setProductDraft(prev => ({ ...prev, isBestseller: e.target.checked }))} style={{ width: 'auto', margin: 0 }} />
+                      <span>⭐ Best Seller Item</span>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#2D5016', fontWeight: '700', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={Boolean(productDraft.isTodaysDeal)} onChange={(e) => setProductDraft(prev => ({ ...prev, isTodaysDeal: e.target.checked }))} style={{ width: 'auto', margin: 0 }} />
+                      <span>🏷️ Today's Deal</span>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#B91C1C', fontWeight: '700', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={Boolean(productDraft.isArchived)} onChange={(e) => setProductDraft(prev => ({ ...prev, isArchived: e.target.checked }))} style={{ width: 'auto', margin: 0 }} />
+                      <span>📁 Archived Product</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="admin-form__actions" style={{ alignItems: 'center', marginTop: '10px' }}>
                   <button type="submit" className="admin__primary" disabled={apiLoading}>
                     {apiLoading ? 'Saving...' : <><FiSave /> Save item</>}
                   </button>
                   {productDraft.id && (
-                    <button type="button" className="admin__ghost" onClick={() => { setProductDraft(activeTab === 'wholesale-products' ? blankWholesaleProduct : blankProduct); setCheckedVariants([]); setVariantPrices({}); setCustomVariants([{ label: '', price: '' }]); }}>
+                    <button
+                      type="button"
+                      className="admin__ghost"
+                      onClick={() => {
+                        setProductDraft(activeTab === 'wholesale-products' ? blankWholesaleProduct : blankProduct);
+                        setDetailedVariants([]);
+                      }}
+                    >
                       <FiX /> Clear
                     </button>
                   )}
@@ -2131,31 +1889,270 @@ const Admin = () => {
                 </button>
               </div>
 
+              {/* Enhanced Products Listing */}
               <div className="admin-card admin-card--wide">
-                <div className="admin-card__toolbar">
-                  <h2>Items</h2>
-                  <div className="admin-card__actions">
-                    <label><FiSearch /><input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search items" /></label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Status filter tabs */}
+                  <div className="inventory-filters-tabs">
+                    <button
+                      type="button"
+                      className={`inventory-filter-btn ${productStatusFilter === 'all' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setProductStatusFilter('all')}
+                    >
+                      All Items <span className="inventory-badge-count">{activeTab === 'wholesale-products' ? wholesaleProducts.length : retailProducts.length}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`inventory-filter-btn ${productStatusFilter === 'published' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setProductStatusFilter('published')}
+                    >
+                      🟢 Published <span className="inventory-badge-count">{(activeTab === 'wholesale-products' ? wholesaleProducts : retailProducts).filter(p => p.isPublished !== false && !p.isArchived).length}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`inventory-filter-btn ${productStatusFilter === 'draft' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setProductStatusFilter('draft')}
+                    >
+                      🟡 Draft / Hidden <span className="inventory-badge-count">{(activeTab === 'wholesale-products' ? wholesaleProducts : retailProducts).filter(p => p.isPublished === false && !p.isArchived).length}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`inventory-filter-btn ${productStatusFilter === 'archived' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setProductStatusFilter('archived')}
+                    >
+                      📁 Archived <span className="inventory-badge-count">{(activeTab === 'wholesale-products' ? wholesaleProducts : retailProducts).filter(p => p.isArchived).length}</span>
+                    </button>
+                  </div>
+
+                  {/* Toolbar & Search Bar */}
+                  <div className="admin-card__toolbar" style={{ margin: 0, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '10px', flex: 1, minWidth: '280px' }}>
+                      <label className="admin-search-label" style={{ flex: 1 }}>
+                        <FiSearch />
+                        <input
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Search by name, brand, subcategory, SKU or barcode..."
+                          style={{ width: '100%' }}
+                        />
+                      </label>
+                      <select
+                        className="admin-input-box"
+                        style={{ width: '160px', height: '38px', borderRadius: '9px' }}
+                        value={productCategoryFilter}
+                        onChange={(e) => setProductCategoryFilter(e.target.value)}
+                      >
+                        <option value="all">All Categories</option>
+                        {(dbCategories.length ? dbCategories : categories).map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      className="admin__ghost"
+                      onClick={() => adminApi.fetchProducts(true).then(dbProducts => {
+                        const retail = dbProducts.filter(p => !p.wholesalePrice);
+                        const ws = dbProducts.filter(p => p.wholesalePrice);
+                        if (retail.length) persistRetailProducts(retail);
+                        if (ws.length) persistWholesaleProducts(ws);
+                      })}
+                    >
+                      ↻ Refresh
+                    </button>
                   </div>
                 </div>
-                <div className="admin-table">
-                  {filteredProducts.map(product => (
-                    <div key={product.id} className="admin-product">
-                      <img src={toWebpImage(product.image)} alt={product.name} />
-                      <div>
-                        <strong>{product.name}</strong>
-                        <span>{product.brand} / {product.weight}{product.unit} / {formatPrice(product.price)}</span>
-                      </div>
-                      <select value={product.stockNote} onChange={(e) => updateProductStock(product.id, e.target.value, adminMode === 'wholesale')}>
-                        <option>In stock</option>
-                        <option>Only few left</option>
-                        <option>Only 10 left</option>
-                        <option>Out of stock</option>
-                      </select>
-                      <button onClick={() => editProduct(product)}><FiEdit2 /></button>
-                      <button className="admin-danger" onClick={() => removeProduct(product.id)}><FiTrash2 /></button>
+
+                {/* Enhanced Product Cards List */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '14px' }}>
+                  {filteredProducts.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '36px', color: '#687466' }}>
+                      No products found matching your search and filter criteria.
                     </div>
-                  ))}
+                  ) : filteredProducts.map(product => {
+                    const price = Number(product.price) || 0;
+                    const mrp = Number(product.mrp) || price;
+                    const cost = Number(product.costPrice) || Math.round(price * 0.78);
+                    const profit = price - cost;
+                    const margin = price > 0 ? Math.round((profit / price) * 100) : 0;
+                    const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
+                    const isExpanded = expandedVariantId === product.id;
+
+                    return (
+                      <div
+                        key={product.id}
+                        className={`admin-product-card-enhanced ${product.isArchived ? 'admin-product-card-enhanced--archived' : ''}`}
+                      >
+                        <div className="admin-product-top-row">
+                          {/* Left: Image & Info */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '260px' }}>
+                            <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover', background: '#F7F4EE' }} />
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <strong style={{ fontSize: '14px', color: '#111827' }}>{product.name}</strong>
+                                {product.isArchived ? (
+                                  <span className="admin-status-badge admin-status-badge--archived">📁 Archived</span>
+                                ) : product.isPublished === false ? (
+                                  <span className="admin-status-badge admin-status-badge--draft">🟡 Hidden (Draft)</span>
+                                ) : (
+                                  <span className="admin-status-badge admin-status-badge--published">🟢 Active</span>
+                                )}
+                              </div>
+                              <span style={{ fontSize: '12px', color: '#687466', display: 'block', marginTop: '2px' }}>
+                                {product.brand ? <strong>{product.brand}</strong> : 'Unbranded'} · {product.category} {product.subcategory ? `(${product.subcategory})` : ''} · {product.weight}{product.unit}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Middle: Badges Strip */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            {product.sku && <span className="admin-tag-pill admin-tag-pill--sku">SKU: {product.sku}</span>}
+                            {product.barcode && <span className="admin-tag-pill admin-tag-pill--barcode">Barcode: {product.barcode}</span>}
+                            <span className="admin-tag-pill admin-tag-pill--gst">GST: {product.gstRate || 0}%</span>
+                            {product.batchNumber && <span className="admin-tag-pill admin-tag-pill--batch">Batch: {product.batchNumber}</span>}
+                          </div>
+
+                          {/* Right: Pricing, Margin & Actions */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                            <div style={{ textAlign: 'right' }}>
+                              <strong style={{ fontSize: '15px', color: '#111827', display: 'block' }}>{formatPrice(price)}</strong>
+                              <span style={{ fontSize: '11px', color: '#687466' }}>
+                                Cost: {formatPrice(cost)} · MRP: {formatPrice(mrp)}
+                              </span>
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2px' }}>
+                                <span className={`admin-profit-pill ${margin >= 20 ? 'admin-profit-pill--high' : (margin >= 10 ? 'admin-profit-pill--med' : 'admin-profit-pill--low')}`}>
+                                  {formatPrice(profit)} ({margin}%)
+                                </span>
+                              </div>
+                            </div>
+
+                            <select
+                              value={product.stockNote || (product.inStock ? 'In stock' : 'Out of stock')}
+                              onChange={(e) => updateProductStock(product.id, e.target.value, adminMode === 'wholesale')}
+                              className="admin-status-select"
+                              style={{ height: '34px', fontSize: '12px' }}
+                            >
+                              <option>In stock</option>
+                              <option>Only few left</option>
+                              <option>Only 10 left</option>
+                              <option>Out of stock</option>
+                            </select>
+
+                            {/* Action Buttons */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <button
+                                className="admin__ghost"
+                                style={{ width: '34px', height: '34px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
+                                title="Edit Product"
+                                onClick={() => editProduct(product)}
+                              >
+                                <FiEdit2 size={13} />
+                              </button>
+
+                              <button
+                                className="admin__ghost"
+                                style={{ width: '34px', height: '34px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
+                                title="Duplicate / Clone Product"
+                                onClick={() => duplicateProduct(product)}
+                              >
+                                <FiCopy size={13} />
+                              </button>
+
+                              <button
+                                className="admin__ghost"
+                                style={{ width: '34px', height: '34px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
+                                title={product.isPublished === false ? 'Publish to Store' : 'Hide from Store (Make Draft)'}
+                                onClick={() => togglePublishProduct(product)}
+                              >
+                                {product.isPublished === false ? <FiEyeOff size={13} style={{ color: '#F59E0B' }} /> : <FiEye size={13} style={{ color: '#16A34A' }} />}
+                              </button>
+
+                              <button
+                                className="admin__ghost"
+                                style={{ width: '34px', height: '34px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
+                                title={product.isArchived ? 'Restore from Archive' : 'Archive Product'}
+                                onClick={() => toggleArchiveProduct(product)}
+                              >
+                                <FiArchive size={13} style={{ color: product.isArchived ? '#2D5016' : '#6B7280' }} />
+                              </button>
+
+                              <button
+                                className="admin-danger"
+                                style={{ width: '34px', height: '34px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
+                                title="Delete Permanently"
+                                onClick={() => removeProduct(product.id)}
+                              >
+                                <FiTrash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Expandable Variants Strip */}
+                        {hasVariants && (
+                          <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: '8px', marginTop: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <button
+                                type="button"
+                                style={{ background: 'transparent', border: 'none', color: '#2D5016', fontSize: '11.5px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}
+                                onClick={() => setExpandedVariantId(isExpanded ? null : product.id)}
+                              >
+                                <span>{isExpanded ? '▲ Hide' : '▼ View'} {product.variants.length} Pack Variants</span>
+                              </button>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                {product.variants.slice(0, 4).map(v => (
+                                  <span key={v.label} style={{ fontSize: '10.5px', background: '#F9FAFB', border: '1px solid #E5E7EB', padding: '1px 6px', borderRadius: '4px' }}>
+                                    {v.label}: {formatPrice(v.price)}
+                                  </span>
+                                ))}
+                                {product.variants.length > 4 && <span style={{ fontSize: '10px', color: '#687466' }}>+{product.variants.length - 4} more</span>}
+                              </div>
+                            </div>
+
+                            {isExpanded && (
+                              <div className="admin-variant-table-wrap" style={{ marginTop: '8px' }}>
+                                <table className="admin-variant-table">
+                                  <thead>
+                                    <tr>
+                                      <th>VARIANT</th>
+                                      <th>PRICE</th>
+                                      <th>MRP</th>
+                                      <th>COST</th>
+                                      <th>PROFIT MARGIN</th>
+                                      <th>STOCK</th>
+                                      <th>SKU / BARCODE</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {product.variants.map((v, i) => {
+                                      const vp = Number(v.price) || 0;
+                                      const vc = Number(v.costPrice) || Math.round(vp * 0.78);
+                                      const vm = vp > 0 ? Math.round(((vp - vc) / vp) * 100) : 0;
+                                      return (
+                                        <tr key={i}>
+                                          <td style={{ fontWeight: '700' }}>{v.label}</td>
+                                          <td style={{ fontWeight: '800', color: '#2D5016' }}>{formatPrice(vp)}</td>
+                                          <td style={{ color: '#687466' }}>{formatPrice(v.mrp || vp)}</td>
+                                          <td style={{ color: '#4B5563' }}>{formatPrice(vc)}</td>
+                                          <td>
+                                            <span className={`admin-profit-pill ${vm >= 20 ? 'admin-profit-pill--high' : (vm >= 10 ? 'admin-profit-pill--med' : 'admin-profit-pill--low')}`}>
+                                              {formatPrice(vp - vc)} ({vm}%)
+                                            </span>
+                                          </td>
+                                          <td>{v.stock || 50} units</td>
+                                          <td style={{ fontSize: '10.5px', color: '#687466' }}>{v.sku || '—'} {v.barcode ? `· ${v.barcode}` : ''}</td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </section>
@@ -2371,7 +2368,7 @@ const Admin = () => {
                               try {
                                 await adminApi.updateOrderStatus(order.id, newStatus);
                                 setLiveOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: newStatus } : o));
-                                loadInventory(); // update reserved stock calculations
+                                loadInventory();
                               } catch (err) {
                                 alert('Failed to update status: ' + err.message);
                               }

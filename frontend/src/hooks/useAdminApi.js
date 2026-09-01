@@ -56,8 +56,8 @@ export async function apiCreateAdminUser(data) {
 
 // ── Products ─────────────────────────────────────────────────────────────
 
-export async function apiFetchProducts() {
-  const res = await fetch('/api/products?limit=500');
+export async function apiFetchProducts(includeArchived = true) {
+  const res = await fetch(`/api/products?limit=1000&includeArchived=${includeArchived}`);
   if (!res.ok) throw new Error('Failed to load products');
   return res.json();
 }
