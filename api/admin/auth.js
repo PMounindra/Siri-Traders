@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { eq } from 'drizzle-orm';
-import { db, adminUsers } from '../../db/index.js';
+import { eq, desc } from 'drizzle-orm';
+import { db, adminUsers, reviews } from '../../db/index.js';
 import { setCorsHeaders } from '../_cors.js';
 import { isAdminRequest } from '../_adminAuth.js';
 import { signAdminSession, setSessionCookie, clearSessionCookie, getSessionFromRequest } from '../_adminSession.js';
@@ -91,6 +91,58 @@ async function handleAdminUsers(req, res) {
   return res.status(405).json({ error: 'Method not allowed' });
 }
 
+async function handleReviews(req, res) {
+  if (req.method === 'GET') {
+    const allReviews = await db.select().from(reviews).orderBy(desc(reviews.createdAt));
+    return res.status(200).json(allReviews);
+  }
+
+  if (req.method === 'POST') {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const { productId, productName, userId, userName, rating, title, comment } = body;
+    if (!productId || !rating) return res.status(400).json({ error: 'productId and rating are required' });
+
+    const inserted = await db.insert(reviews).values({
+      productId: Number(productId),
+      productName: productName || `Product #${productId}`,
+      userId: userId || 'anonymous',
+      userName: userName || 'Customer',
+      rating: Number(rating),
+      title: title || '',
+      comment: comment || '',
+      status: 'Approved'
+    }).returning();
+
+    return res.status(201).json(inserted[0]);
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
+}
+
+async function handleReviewUpdate(req, res) {
+  const adminOk = await isAdminRequest(req);
+  if (!adminOk) return res.status(403).json({ error: 'Forbidden: admin access required' });
+
+  const { id } = req.query;
+  if (!id) return res.status(400).json({ error: 'Review ID is required' });
+
+  if (req.method === 'PATCH' || req.method === 'PUT') {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const updated = await db.update(reviews).set({
+      status: body.status || 'Approved'
+    }).where(eq(reviews.id, Number(id))).returning();
+
+    return res.status(200).json(updated[0]);
+  }
+
+  if (req.method === 'DELETE') {
+    await db.delete(reviews).where(eq(reviews.id, Number(id)));
+    return res.status(200).json({ success: true, id });
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
+}
+
 export default async function handler(req, res) {
   setCorsHeaders(req, res);
 
@@ -105,6 +157,8 @@ export default async function handler(req, res) {
     if (action === 'logout') return await handleLogout(req, res);
     if (action === 'me') return await handleMe(req, res);
     if (action === 'admin-users') return await handleAdminUsers(req, res);
+    if (action === 'reviews') return await handleReviews(req, res);
+    if (action === 'review-status' || action === 'update-review') return await handleReviewUpdate(req, res);
     return res.status(404).json({ error: 'Not found' });
   } catch (error) {
     if (error?.code === '23505') {

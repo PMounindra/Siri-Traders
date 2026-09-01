@@ -14,6 +14,7 @@ import { adminUsers } from './schema/admin_users.js';
 import { settings } from './schema/settings.js';
 import { inventory } from './schema/inventory.js';
 import { inventoryLogs } from './schema/inventory_logs.js';
+import { reviews } from './schema/reviews.js';
 
 // Load .env.local first (local dev), fall back to .env
 dotenv.config({ path: '.env.local' });
@@ -35,7 +36,8 @@ const schema = {
   adminUsers,
   settings,
   inventory,
-  inventoryLogs
+  inventoryLogs,
+  reviews
 };
 
 const sql = neon(process.env.DATABASE_URL);
@@ -54,3 +56,5 @@ export { adminUsers } from './schema/admin_users.js';
 export { settings } from './schema/settings.js';
 export { inventory } from './schema/inventory.js';
 export { inventoryLogs } from './schema/inventory_logs.js';
+export { reviews } from './schema/reviews.js';
+

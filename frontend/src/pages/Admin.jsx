@@ -46,7 +46,11 @@ import {
   FiPhone,
   FiMessageCircle,
   FiCalendar,
-  FiXCircle
+  FiXCircle,
+  FiThumbsUp,
+  FiThumbsDown,
+  FiPieChart,
+  FiCompass
 } from 'react-icons/fi';
 import { useAdminApi } from '../hooks/useAdminApi';
 import { products as baseProducts, getProducts as getAllProducts } from '../data/products';
@@ -164,6 +168,13 @@ const blankOffer = {
   image: '',
   group: 'daily',
   type: 'Sale offer',
+  buyQty: 1,
+  getQty: 1,
+  targetCategory: '',
+  targetProductId: '',
+  startDate: '',
+  endDate: '',
+  usageLimit: '',
   link: '/categories',
   active: true
 };
@@ -171,10 +182,20 @@ const blankOffer = {
 const blankCoupon = {
   id: '',
   code: '',
-  type: 'flat',
+  type: 'flat', // 'flat' | 'percent' | 'bogo' | 'buyXgetY' | 'freeDelivery'
   value: '',
   minOrder: '',
   maxDiscount: '',
+  buyQuantity: 1,
+  getQuantity: 1,
+  targetType: 'all', // 'all' | 'category' | 'product' | 'customer'
+  targetCategory: '',
+  targetProductId: '',
+  targetCustomerEmail: '',
+  usageLimit: 500,
+  perUserLimit: 1,
+  startDate: '',
+  endDate: '',
   title: '',
   description: '',
   customerType: 'retail',
@@ -202,13 +223,13 @@ const downloadCsv = (filename, rows) => {
 };
 
 const ADMIN_ROLE_PERMISSIONS = {
-  Owner: ['dashboard','inventory','sales-stats','orders','customers','retail-products','wholesale-products','offers','bestsellers','todays-deals','retail-content','wholesale-content','delivery-zones','broadcast','admins'],
-  'Super Admin': ['dashboard','inventory','sales-stats','orders','customers','retail-products','wholesale-products','offers','bestsellers','todays-deals','retail-content','wholesale-content','delivery-zones','broadcast'],
-  'Product Manager': ['dashboard','inventory','retail-products','wholesale-products','bestsellers','todays-deals'],
+  Owner: ['dashboard','inventory','sales-stats','orders','customers','reviews','retail-products','wholesale-products','offers','bestsellers','todays-deals','retail-content','wholesale-content','delivery-zones','broadcast','admins'],
+  'Super Admin': ['dashboard','inventory','sales-stats','orders','customers','reviews','retail-products','wholesale-products','offers','bestsellers','todays-deals','retail-content','wholesale-content','delivery-zones','broadcast'],
+  'Product Manager': ['dashboard','inventory','retail-products','wholesale-products','reviews','bestsellers','todays-deals'],
   'Order Manager': ['dashboard','inventory','orders','customers','delivery-zones'],
-  'Marketing Manager': ['dashboard','offers','bestsellers','todays-deals','broadcast'],
-  'Content Manager': ['dashboard','retail-content','wholesale-content'],
-  'Customer Support': ['dashboard','inventory','customers','orders','delivery-zones'],
+  'Marketing Manager': ['dashboard','offers','bestsellers','todays-deals','broadcast','reviews'],
+  'Content Manager': ['dashboard','retail-content','wholesale-content','reviews'],
+  'Customer Support': ['dashboard','inventory','customers','orders','reviews','delivery-zones'],
   Viewer: ['dashboard','inventory','sales-stats']
 };
 
@@ -217,7 +238,7 @@ const ADMIN_NAV_SECTIONS = [
     title: 'SALES & ORDERS',
     items: [
       ['dashboard', 'Overview', FiBarChart2],
-      ['sales-stats', 'Product Sales', FiTrendingUp],
+      ['sales-stats', 'Sales Analytics', FiTrendingUp],
       ['orders', 'Orders & Payments', FiShoppingBag],
       ['customers', 'Customer Hub', FiUsers]
     ]
@@ -231,11 +252,17 @@ const ADMIN_NAV_SECTIONS = [
     ]
   },
   {
-    title: 'PRODUCT MANAGEMENT',
+    title: 'PROMOTIONS & REVIEWS',
+    items: [
+      ['offers', 'Promos & Coupons', FiGift],
+      ['reviews', 'Customer Reviews', FiStar]
+    ]
+  },
+  {
+    title: 'PRODUCT CATALOG',
     items: [
       ['retail-products', 'Retail Items', FiPackage],
       ['wholesale-products', 'Wholesale Items', FiPackage],
-      ['offers', 'Offers & Coupons', FiGift],
       ['bestsellers', 'Bestsellers', FiStar],
       ['todays-deals', "Today's Deals", FiTag],
       ['retail-content', 'Retail Content', FiEdit2],
@@ -299,9 +326,18 @@ const Admin = () => {
   const [broadcastStatus, setBroadcastStatus] = useState(null);
   const [selectedBroadcastEmails, setSelectedBroadcastEmails] = useState([]);
 
+  // ── Reviews & Ratings Management State ──
+  const [reviewsList, setReviewsList] = useState([]);
+  const [reviewFilter, setReviewFilter] = useState('all'); // 'all'|'5'|'4'|'3'|'low'|'pending'
+  const [reviewSearchQuery, setReviewSearchQuery] = useState('');
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+
+  // ── Deep Analytics State ──
+  const [analyticsTimeRange, setAnalyticsTimeRange] = useState('30'); // '1'|'7'|'30'|'90'|'365'
+
   // ── Orders & Payments Management State ──
-  const [orderStatusFilter, setOrderStatusFilter] = useState('all'); // 'all'|'pending'|'preparing'|'in-transit'|'delivered'|'cancelled'|'returns'
-  const [orderPaymentFilter, setOrderPaymentFilter] = useState('all'); // 'all'|'paid'|'pending'|'refunded'
+  const [orderStatusFilter, setOrderStatusFilter] = useState('all');
+  const [orderPaymentFilter, setOrderPaymentFilter] = useState('all');
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
   const [selectedOrderModal, setSelectedOrderModal] = useState(null);
   const [invoiceModalOrder, setInvoiceModalOrder] = useState(null);
@@ -333,7 +369,7 @@ const Admin = () => {
   ]);
 
   // ── Customer Management State ──
-  const [customerSegmentFilter, setCustomerSegmentFilter] = useState('all'); // 'all'|'VIP'|'Returning'|'New'|'Inactive'
+  const [customerSegmentFilter, setCustomerSegmentFilter] = useState('all');
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
   const [selectedCustomerModal, setSelectedCustomerModal] = useState(null);
 
@@ -388,12 +424,6 @@ const Admin = () => {
     '100 ml', '200 ml', '500 ml', '1 L', '2 L', '5 L', '15 L',
     '1 pc', 'Pack of 2', 'Pack of 4', 'Pack of 6', 'Pack of 12', 'Box (10 pcs)'
   ];
-
-  const getCustomerName = (userId) => {
-    if (!liveCustomers) return 'Customer';
-    const c = liveCustomers.find(u => u.id === userId);
-    return c ? (c.name || c.email || 'Customer') : 'Customer';
-  };
 
   const playChime = () => {
     try {
@@ -459,6 +489,19 @@ const Admin = () => {
       }
     } catch (err) {
       console.error('Failed to load customers:', err);
+    }
+  };
+
+  // ── Load Reviews ──
+  const loadReviews = async () => {
+    setReviewsLoading(true);
+    try {
+      const revs = await adminApi.fetchReviews();
+      setReviewsList(revs);
+    } catch (err) {
+      console.error('Failed to load reviews:', err);
+    } finally {
+      setReviewsLoading(false);
     }
   };
 
@@ -536,6 +579,7 @@ const Admin = () => {
   useEffect(() => {
     loadOrders();
     loadCustomers();
+    loadReviews();
     adminApi.fetchOffers().then(data => setOffers(data.map(normalizeOffer))).catch(() => {});
     adminApi.fetchCoupons().then(setCoupons).catch(() => {});
     adminApi.fetchDeliveryZones().then(setDeliveryZones).catch(() => {});
@@ -545,17 +589,16 @@ const Admin = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch inventory whenever active tab is inventory
   useEffect(() => {
     if (activeTab === 'inventory') {
       loadInventory();
-      if (inventoryFilter === 'logs') {
-        loadInventoryLogs();
-      }
+      if (inventoryFilter === 'logs') loadInventoryLogs();
     } else if (activeTab === 'orders') {
       loadOrders();
     } else if (activeTab === 'customers') {
       loadCustomers();
+    } else if (activeTab === 'reviews') {
+      loadReviews();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, inventoryFilter]);
@@ -596,6 +639,41 @@ const Admin = () => {
 
   const allProducts = useMemo(() => [...retailProducts, ...wholesaleProducts], [retailProducts, wholesaleProducts]);
 
+  // ── Filtered Reviews ──
+  const filteredReviews = useMemo(() => {
+    return reviewsList.filter(rev => {
+      if (reviewFilter === '5' && rev.rating !== 5) return false;
+      if (reviewFilter === '4' && rev.rating !== 4) return false;
+      if (reviewFilter === '3' && rev.rating !== 3) return false;
+      if (reviewFilter === 'low' && rev.rating > 2) return false;
+      if (reviewFilter === 'pending' && rev.status !== 'Pending') return false;
+
+      if (reviewSearchQuery.trim()) {
+        const q = reviewSearchQuery.toLowerCase();
+        const matchProd = (rev.productName || '').toLowerCase().includes(q);
+        const matchUser = (rev.userName || '').toLowerCase().includes(q);
+        const matchTitle = (rev.title || '').toLowerCase().includes(q);
+        const matchComment = (rev.comment || '').toLowerCase().includes(q);
+        if (!matchProd && !matchUser && !matchTitle && !matchComment) return false;
+      }
+      return true;
+    });
+  }, [reviewsList, reviewFilter, reviewSearchQuery]);
+
+  // Review statistics
+  const reviewStats = useMemo(() => {
+    const total = reviewsList.length;
+    if (total === 0) return { avg: 5.0, total: 0, counts: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }, lowCount: 0 };
+    const sum = reviewsList.reduce((acc, r) => acc + r.rating, 0);
+    const avg = Number((sum / total).toFixed(1));
+    const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    reviewsList.forEach(r => {
+      if (counts[r.rating] !== undefined) counts[r.rating] += 1;
+    });
+    const lowCount = reviewsList.filter(r => r.rating <= 2).length;
+    return { avg, total, counts, lowCount };
+  }, [reviewsList]);
+
   // ── Product filtering ──
   const filterProductList = (productsList) => {
     return productsList.filter(p => {
@@ -628,19 +706,16 @@ const Admin = () => {
   const filteredOrders = useMemo(() => {
     if (!liveOrders) return [];
     return liveOrders.filter(order => {
-      // Status tab filter
       if (orderStatusFilter === 'pending' && !['Pending', 'Preparing'].includes(order.status)) return false;
       if (orderStatusFilter === 'in-transit' && order.status !== 'In Transit') return false;
       if (orderStatusFilter === 'delivered' && !['Delivered', 'Paid'].includes(order.status)) return false;
       if (orderStatusFilter === 'cancelled' && order.status !== 'Cancelled') return false;
       if (orderStatusFilter === 'returns' && (!order.returnStatus || order.returnStatus === 'None')) return false;
 
-      // Payment status filter
       if (orderPaymentFilter === 'paid' && order.paymentStatus !== 'Paid') return false;
       if (orderPaymentFilter === 'pending' && order.paymentStatus !== 'Pending') return false;
       if (orderPaymentFilter === 'refunded' && !['Refunded', 'Partially Refunded'].includes(order.paymentStatus)) return false;
 
-      // Search query
       if (orderSearchQuery.trim()) {
         const q = orderSearchQuery.toLowerCase();
         const matchId = String(order.id).includes(q);
@@ -714,8 +789,8 @@ const Admin = () => {
     { label: 'Wholesale products', value: wholesaleProducts.length, icon: FiPackage },
     { label: 'Total Orders', value: liveOrders ? liveOrders.length : 0, icon: FiShoppingBag },
     { label: 'Registered Customers', value: liveCustomers ? liveCustomers.length : 0, icon: FiUsers },
-    { label: 'Inventory Items', value: inventoryData?.items?.length || allProducts.length, icon: FiLayers },
-    { label: 'Delivery Zones', value: deliveryZones.length, icon: FiTruck },
+    { label: 'Customer Reviews', value: reviewsList.length, icon: FiStar },
+    { label: 'Active Coupons', value: coupons.filter(c => c.active !== false).length, icon: FiGift },
   ];
 
   // ── Export Inventory CSV ──
@@ -884,58 +959,104 @@ const Admin = () => {
     return (order.items || []).reduce((sum, item) => sum + (Number(item.price) || 0) * (parseInt(item.quantity || 1, 10)), 0);
   };
 
-  const getRangeSummary = (days) => {
+  // ── Comprehensive Analytics Engine ──
+  const analyticsSummary = useMemo(() => {
+    const days = parseInt(analyticsTimeRange, 10) || 30;
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1), 0, 0, 0, 0);
     const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    const orders = (liveOrders || []).filter(order => {
-      const date = parseOrderDate(order.createdAt);
-      return date && date >= start && date <= end;
+
+    const periodOrders = (liveOrders || []).filter(order => {
+      const d = parseOrderDate(order.createdAt);
+      return d && d >= start && d <= end;
     });
-    const revenue = orders.reduce((sum, order) => sum + getOrderRevenue(order), 0);
-    const units = orders.reduce((sum, order) => sum + (order.items || []).reduce((itemSum, item) => itemSum + parseInt(item.quantity || 1, 10), 0), 0);
-    return { revenue, orders: orders.length, units };
-  };
 
-  const salesToday = getRangeSummary(1);
-  const salesLast7 = getRangeSummary(7);
-  const salesLast30 = getRangeSummary(30);
-  const averageOrderValue = salesLast30.orders ? salesLast30.revenue / salesLast30.orders : 0;
+    const grossRevenue = periodOrders.filter(o => o.status !== 'Cancelled').reduce((sum, o) => sum + Number(o.total || 0), 0);
+    const totalRefunds = periodOrders.reduce((sum, o) => sum + Number(o.refundAmount || 0), 0);
+    const netRevenue = grossRevenue - totalRefunds;
+    const validOrdersCount = periodOrders.filter(o => o.status !== 'Cancelled').length;
+    const aov = validOrdersCount > 0 ? Math.round(netRevenue / validOrdersCount) : 0;
+    const totalUnitsSold = periodOrders.filter(o => o.status !== 'Cancelled').reduce((sum, o) => sum + (o.items || []).reduce((is, it) => is + parseInt(it.quantity || 1, 10), 0), 0);
 
-  const revenueLast30Days = Array.from({ length: 30 }, (_, index) => {
-    const now = new Date();
-    const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (29 - index), 0, 0, 0, 0);
-    const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
-    const revenue = (liveOrders || []).reduce((sum, order) => {
-      const date = parseOrderDate(order.createdAt);
-      if (!date || date < day || date > dayEnd) return sum;
-      return sum + getOrderRevenue(order);
-    }, 0);
-    return {
-      date: day,
-      label: day.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
-      revenue
-    };
-  });
+    // Category breakdown
+    const categorySales = {};
+    // Brand breakdown
+    const brandSales = {};
+    // Product sales
+    const prodSales = {};
+    // Area breakdown
+    const areaSales = {};
 
-  const topProductStats = useMemo(() => {
-    const sales = {};
-    (liveOrders || []).forEach(order => {
-      if (order.status === 'Cancelled') return;
-      (order.items || []).forEach(item => {
-        const pId = item.productId || item.id;
-        if (!pId) return;
-        if (!sales[pId]) {
-          sales[pId] = { id: pId, name: item.name, quantitySold: 0, ordersCount: 0, totalRevenue: 0 };
-        }
-        const q = parseInt(item.quantity || 1, 10);
-        sales[pId].quantitySold += q;
-        sales[pId].ordersCount += 1;
-        sales[pId].totalRevenue += (item.price || 0) * q;
+    periodOrders.filter(o => o.status !== 'Cancelled').forEach(o => {
+      const area = (o.deliveryAddress || '').split(',').slice(-2)[0]?.trim() || 'Kukatpally';
+      if (!areaSales[area]) areaSales[area] = { orders: 0, revenue: 0 };
+      areaSales[area].orders += 1;
+      areaSales[area].revenue += getOrderRevenue(o);
+
+      (o.items || []).forEach(it => {
+        const prod = allProducts.find(p => p.id === it.productId || p.name === it.name) || {};
+        const cat = prod.category || 'Grocery';
+        const brand = prod.brand || 'Siri Select';
+        const q = parseInt(it.quantity || 1, 10);
+        const rev = (it.price || 0) * q;
+
+        categorySales[cat] = (categorySales[cat] || 0) + rev;
+        brandSales[brand] = (brandSales[brand] || 0) + rev;
+
+        const pId = it.productId || it.name;
+        if (!prodSales[pId]) prodSales[pId] = { name: it.name, brand, category: cat, units: 0, revenue: 0 };
+        prodSales[pId].units += q;
+        prodSales[pId].revenue += rev;
       });
     });
-    return Object.values(sales).sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, 5);
-  }, [liveOrders]);
+
+    const fastMoving = Object.values(prodSales).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+    const slowMoving = allProducts.filter(p => !prodSales[p.id] && p.inStock).slice(0, 5);
+
+    // Wastage & Expired losses from inventory
+    const wastageLoss = (inventoryData?.items || []).reduce((sum, it) => sum + ((it.damagedStock || 0) + (it.expiredStock || 0)) * (it.costPrice || Math.round(it.price * 0.78)), 0);
+
+    // Customer repeat rate
+    const totalCust = liveCustomers?.length || 1;
+    const returningCust = (liveCustomers || []).filter(c => (c.ordersCount || 0) >= 2).length;
+    const repeatRate = Math.round((returningCust / totalCust) * 100);
+
+    return {
+      grossRevenue,
+      netRevenue,
+      totalRefunds,
+      ordersCount: validOrdersCount,
+      totalUnitsSold,
+      aov,
+      repeatRate,
+      wastageLoss,
+      categorySales: Object.entries(categorySales).sort((a, b) => b[1] - a[1]),
+      brandSales: Object.entries(brandSales).sort((a, b) => b[1] - a[1]),
+      fastMoving,
+      slowMoving,
+      areaSales: Object.entries(areaSales).sort((a, b) => b[1].revenue - a[1].revenue)
+    };
+  }, [liveOrders, liveCustomers, inventoryData, allProducts, analyticsTimeRange]);
+
+  const salesTrendData = useMemo(() => {
+    const days = parseInt(analyticsTimeRange, 10) || 30;
+    const now = new Date();
+    return Array.from({ length: Math.min(days, 30) }, (_, index) => {
+      const step = Math.min(days, 30);
+      const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (step - 1 - index), 0, 0, 0, 0);
+      const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
+      const revenue = (liveOrders || []).reduce((sum, order) => {
+        const date = parseOrderDate(order.createdAt);
+        if (!date || date < day || date > dayEnd) return sum;
+        return sum + getOrderRevenue(order);
+      }, 0);
+      return {
+        date: day,
+        label: day.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+        revenue
+      };
+    });
+  }, [liveOrders, analyticsTimeRange]);
 
   const handleAdminLogout = async () => {
     await adminApi.logout();
@@ -1216,12 +1337,19 @@ const Admin = () => {
   const saveOffer = async (event) => {
     event.preventDefault();
     const festiveKeywords = /diwali|eid|holi|christmas|navratri|rakhi|onam|sankranti|ramzan|ugadi|ganesh|dussehra|festival|wedding|party/i;
-    const group = festiveKeywords.test(offerDraft.title + ' ' + offerDraft.badge) ? 'festival' : 'daily';
+    const group = festiveKeywords.test(offerDraft.title + ' ' + offerDraft.badge) ? 'festival' : (offerDraft.group || 'daily');
     const payload = {
       ...offerDraft,
       group,
       price: Number(offerDraft.price) || 0,
       mrp: Number(offerDraft.mrp) || 0,
+      buyQty: Number(offerDraft.buyQty) || 1,
+      getQty: Number(offerDraft.getQty) || 1,
+      targetCategory: offerDraft.targetCategory || null,
+      targetProductId: offerDraft.targetProductId ? Number(offerDraft.targetProductId) : null,
+      startDate: offerDraft.startDate || null,
+      endDate: offerDraft.endDate || null,
+      usageLimit: offerDraft.usageLimit ? Number(offerDraft.usageLimit) : null,
       active: true,
       image: offerDraft.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=700&q=80'
     };
@@ -1229,6 +1357,8 @@ const Admin = () => {
       const saved = normalizeOffer(await adminApi.saveOffer(payload));
       setOffers(prev => [saved, ...prev.filter(offer => offer.id !== saved.id)]);
       setOfferDraft(blankOffer);
+      setSaveToast({ type: 'success', msg: `🎁 Promotion "${saved.title}" saved successfully!` });
+      setTimeout(() => setSaveToast(null), 4000);
     } catch (err) {
       alert(err.message);
     }
@@ -1241,12 +1371,24 @@ const Admin = () => {
       code: couponDraft.code.trim().toUpperCase(),
       value: Number(couponDraft.value) || 0,
       minOrder: Number(couponDraft.minOrder) || 0,
-      maxDiscount: couponDraft.maxDiscount ? Number(couponDraft.maxDiscount) : null
+      maxDiscount: couponDraft.maxDiscount ? Number(couponDraft.maxDiscount) : null,
+      buyQuantity: Number(couponDraft.buyQuantity) || 1,
+      getQuantity: Number(couponDraft.getQuantity) || 1,
+      targetType: couponDraft.targetType || 'all',
+      targetCategory: couponDraft.targetCategory || null,
+      targetProductId: couponDraft.targetProductId ? Number(couponDraft.targetProductId) : null,
+      targetCustomerEmail: couponDraft.targetCustomerEmail || null,
+      usageLimit: couponDraft.usageLimit ? Number(couponDraft.usageLimit) : 500,
+      perUserLimit: Number(couponDraft.perUserLimit) || 1,
+      startDate: couponDraft.startDate || null,
+      endDate: couponDraft.endDate || null
     };
     try {
       const saved = await adminApi.saveCoupon(payload);
       setCoupons(prev => [saved, ...prev.filter(coupon => coupon.id !== saved.id)]);
       setCouponDraft(blankCoupon);
+      setSaveToast({ type: 'success', msg: `🎟️ Coupon "${saved.code}" saved and active!` });
+      setTimeout(() => setSaveToast(null), 4000);
     } catch (err) {
       alert(err.message);
     }
@@ -1431,6 +1573,11 @@ const Admin = () => {
                           {liveOrders.filter(o => ['Pending', 'Preparing'].includes(o.status)).length}
                         </span>
                       )}
+                      {id === 'reviews' && reviewsList.length > 0 && (
+                        <span style={{ marginLeft: 'auto', background: '#F59E0B', color: '#fff', fontSize: '10px', padding: '1px 6px', borderRadius: '10px', fontWeight: 800 }}>
+                          {reviewsList.length}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -1459,11 +1606,13 @@ const Admin = () => {
                 {activeTab === 'inventory' && 'Grocery Inventory Hub'}
                 {activeTab === 'orders' && 'Order & Payment Management'}
                 {activeTab === 'customers' && 'Customer Management & Segmentation'}
+                {activeTab === 'reviews' && 'Customer Reviews & Rating Moderation'}
+                {activeTab === 'offers' && 'Grocery Promotions & Coupon Engine'}
                 {activeTab === 'delivery-zones' && 'Grocery Delivery & Slots'}
                 {activeTab === 'retail-products' && 'Grocery Products & Variants'}
                 {activeTab === 'wholesale-products' && 'Wholesale Products & Bulk Packs'}
-                {activeTab === 'sales-stats' && 'Product Sales & Analytics'}
-                {activeTab !== 'dashboard' && activeTab !== 'inventory' && activeTab !== 'orders' && activeTab !== 'customers' && activeTab !== 'delivery-zones' && activeTab !== 'retail-products' && activeTab !== 'wholesale-products' && activeTab !== 'sales-stats' && activeTab.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                {activeTab === 'sales-stats' && 'Grocery Sales & Performance Analytics'}
+                {activeTab !== 'dashboard' && activeTab !== 'inventory' && activeTab !== 'orders' && activeTab !== 'customers' && activeTab !== 'reviews' && activeTab !== 'offers' && activeTab !== 'delivery-zones' && activeTab !== 'retail-products' && activeTab !== 'wholesale-products' && activeTab !== 'sales-stats' && activeTab.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
               </h1>
             </div>
             
@@ -1488,14 +1637,735 @@ const Admin = () => {
           )}
 
           {/* =========================================================================
-             MODULE 1: ORDER AND PAYMENT MANAGEMENT
+             MODULE 1: REVIEWS & RATINGS MANAGEMENT
+             ========================================================================= */}
+          {activeTab === 'reviews' && (
+            <div className="admin-reviews-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Review KPI & Rating Distribution Card */}
+              <div className="admin-card admin-card--wide" style={{ padding: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', alignItems: 'center' }}>
+                  {/* Big Average Score */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderRight: '1px solid #E1E6DC', paddingRight: '20px' }}>
+                    <div style={{ fontSize: '48px', fontWeight: 900, color: '#2D5016', lineHeight: 1 }}>
+                      {reviewStats.avg}
+                    </div>
+                    <div>
+                      <div className="admin-rating-stars">
+                        {[1, 2, 3, 4, 5].map(s => (
+                          <span key={s}>{s <= Math.round(reviewStats.avg) ? '★' : '☆'}</span>
+                        ))}
+                      </div>
+                      <span style={{ fontSize: '12px', color: '#687466', display: 'block', marginTop: '4px' }}>
+                        Based on <strong>{reviewStats.total}</strong> verified customer reviews
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Rating Breakdown Bars */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {[5, 4, 3, 2, 1].map(stars => {
+                      const count = reviewStats.counts[stars] || 0;
+                      const pct = reviewStats.total > 0 ? Math.round((count / reviewStats.total) * 100) : 0;
+                      return (
+                        <div key={stars} className="admin-dist-bar-row">
+                          <span style={{ width: '35px', fontWeight: 700 }}>{stars} ★</span>
+                          <div className="admin-dist-bar-track">
+                            <div className="admin-dist-bar-fill" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span style={{ width: '45px', textAlign: 'right', color: '#687466' }}>{count} ({pct}%)</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Low Rating Watchlist Banner */}
+                  <div style={{ background: reviewStats.lowCount > 0 ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${reviewStats.lowCount > 0 ? '#FECACA' : '#BBF7D0'}`, borderRadius: '10px', padding: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <FiAlertTriangle style={{ color: reviewStats.lowCount > 0 ? '#DC2626' : '#16A34A' }} />
+                      <strong style={{ fontSize: '13px', color: reviewStats.lowCount > 0 ? '#991B1B' : '#166534' }}>
+                        {reviewStats.lowCount > 0 ? `${reviewStats.lowCount} Low-Rated Reviews` : 'High Customer Satisfaction'}
+                      </strong>
+                    </div>
+                    <p style={{ fontSize: '11.5px', color: '#4B5563', margin: 0 }}>
+                      {reviewStats.lowCount > 0
+                        ? 'Items with 1-2 star ratings require quality check or packaging review.'
+                        : 'No critical negative reviews found. Over 90% positive store rating.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filters & Search Toolbar */}
+              <div className="admin-card admin-card--wide" style={{ padding: '16px 20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div className="inventory-filters-tabs">
+                    <button
+                      className={`inventory-filter-btn ${reviewFilter === 'all' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setReviewFilter('all')}
+                    >
+                      All Reviews <span className="inventory-badge-count">{reviewsList.length}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${reviewFilter === '5' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setReviewFilter('5')}
+                    >
+                      ⭐ 5 Stars <span className="inventory-badge-count">{reviewStats.counts[5]}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${reviewFilter === '4' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setReviewFilter('4')}
+                    >
+                      ⭐ 4 Stars <span className="inventory-badge-count">{reviewStats.counts[4]}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${reviewFilter === '3' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setReviewFilter('3')}
+                    >
+                      ⭐ 3 Stars <span className="inventory-badge-count">{reviewStats.counts[3]}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${reviewFilter === 'low' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setReviewFilter('low')}
+                    >
+                      ⚠️ 1-2 Stars <span className="inventory-badge-count">{reviewStats.lowCount}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${reviewFilter === 'pending' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setReviewFilter('pending')}
+                    >
+                      🟡 Pending <span className="inventory-badge-count">{reviewsList.filter(r => r.status === 'Pending').length}</span>
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <div className="admin-search-label" style={{ flex: 1, minWidth: '280px', maxWidth: '500px' }}>
+                      <FiSearch />
+                      <input
+                        placeholder="Search by product, customer name or review text..."
+                        value={reviewSearchQuery}
+                        onChange={(e) => setReviewSearchQuery(e.target.value)}
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <button className="admin__ghost" onClick={loadReviews}>
+                      <FiRefreshCw size={13} /> Refresh Reviews
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Reviews Cards Grid */}
+              <div className="admin-reviews-grid">
+                {filteredReviews.length === 0 ? (
+                  <div className="admin-card admin-card--wide" style={{ textAlign: 'center', padding: '36px', color: '#687466', gridColumn: '1 / -1' }}>
+                    No customer reviews found matching your filter criteria.
+                  </div>
+                ) : filteredReviews.map(rev => (
+                  <div key={rev.id} className={`admin-review-card ${rev.status === 'Pending' ? 'admin-review-card--pending' : (rev.status === 'Rejected' ? 'admin-review-card--rejected' : '')}`}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                      <div>
+                        <strong style={{ fontSize: '13.5px', color: '#111827', display: 'block' }}>
+                          {rev.productName}
+                        </strong>
+                        <span style={{ fontSize: '11px', color: '#687466' }}>SKU Product #{rev.productId}</span>
+                      </div>
+                      <span style={{
+                        fontSize: '10.5px',
+                        padding: '2px 7px',
+                        borderRadius: '6px',
+                        fontWeight: 800,
+                        background: rev.status === 'Approved' ? '#DCFCE7' : (rev.status === 'Pending' ? '#FEF9C3' : '#FEE2E2'),
+                        color: rev.status === 'Approved' ? '#166534' : (rev.status === 'Pending' ? '#854D0E' : '#991B1B')
+                      }}>
+                        {rev.status}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div className="admin-rating-stars">
+                        {[1, 2, 3, 4, 5].map(s => (
+                          <span key={s}>{s <= rev.rating ? '★' : '☆'}</span>
+                        ))}
+                      </div>
+                      {rev.title && <strong style={{ fontSize: '12.5px', color: '#374151' }}>"{rev.title}"</strong>}
+                    </div>
+
+                    {rev.comment && (
+                      <p style={{ fontSize: '12px', color: '#4B5563', margin: 0, lineHeight: 1.4, background: '#FAF9F5', padding: '8px 10px', borderRadius: '6px' }}>
+                        {rev.comment}
+                      </p>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: '#687466', marginTop: '4px' }}>
+                      <span>👤 <strong>{rev.userName}</strong> (Verified Customer)</span>
+                      <span>{new Date(rev.createdAt).toLocaleDateString('en-IN')}</span>
+                    </div>
+
+                    {/* Moderation actions */}
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px', borderTop: '1px solid #F1F3ED', paddingTop: '8px' }}>
+                      {rev.status !== 'Approved' && (
+                        <button
+                          type="button"
+                          className="admin__ghost"
+                          style={{ flex: 1, height: '30px', fontSize: '11.5px', color: '#166534' }}
+                          onClick={async () => {
+                            await adminApi.updateReviewStatus(rev.id, 'Approved');
+                            setReviewsList(prev => prev.map(r => r.id === rev.id ? { ...r, status: 'Approved' } : r));
+                            setSaveToast({ type: 'success', msg: 'Review approved and published' });
+                            setTimeout(() => setSaveToast(null), 3000);
+                          }}
+                        >
+                          <FiCheck size={12} /> Approve
+                        </button>
+                      )}
+
+                      {rev.status !== 'Rejected' && (
+                        <button
+                          type="button"
+                          className="admin__ghost"
+                          style={{ flex: 1, height: '30px', fontSize: '11.5px', color: '#DC2626' }}
+                          onClick={async () => {
+                            await adminApi.updateReviewStatus(rev.id, 'Rejected');
+                            setReviewsList(prev => prev.map(r => r.id === rev.id ? { ...r, status: 'Rejected' } : r));
+                            setSaveToast({ type: 'success', msg: 'Review rejected & hidden' });
+                            setTimeout(() => setSaveToast(null), 3000);
+                          }}
+                        >
+                          <FiX size={12} /> Reject
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        className="admin-danger"
+                        style={{ width: '30px', height: '30px', padding: 0, borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                        title="Delete Review"
+                        onClick={async () => {
+                          if (window.confirm('Delete this review permanently?')) {
+                            await adminApi.deleteReview(rev.id);
+                            setReviewsList(prev => prev.filter(r => r.id !== rev.id));
+                          }
+                        }}
+                      >
+                        <FiTrash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* =========================================================================
+             MODULE 2: GROCERY PROMOTIONS & COUPONS
+             ========================================================================= */}
+          {activeTab === 'offers' && (
+            <div className="admin-promos-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="admin-grid" style={{ gridTemplateColumns: '1.2fr 1fr' }}>
+                {/* Advanced Coupon Builder Form */}
+                <form className="admin-form" onSubmit={saveCoupon}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FiGift size={18} style={{ color: '#2D5016' }} />
+                    <h2 style={{ margin: 0 }}>Create Coupon / Promotion</h2>
+                  </div>
+
+                  <div className="admin-form__grid admin-form__grid--two">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Coupon Code *</label>
+                      <input value={couponDraft.code} onChange={(e) => setCouponDraft(prev => ({ ...prev, code: e.target.value }))} placeholder="e.g. WELCOME50, BOGO2026" required />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Promotion Type *</label>
+                      <select value={couponDraft.type} onChange={(e) => setCouponDraft(prev => ({ ...prev, type: e.target.value }))}>
+                        <option value="flat">Flat ₹ Discount</option>
+                        <option value="percent">Percentage % Off</option>
+                        <option value="bogo">BOGO (Buy 1 Get 1 Free)</option>
+                        <option value="buyXgetY">Buy X Get Y Free</option>
+                        <option value="freeDelivery">Free Delivery</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* BOGO & Buy X Get Y Quantities */}
+                  {(couponDraft.type === 'bogo' || couponDraft.type === 'buyXgetY') && (
+                    <div className="admin-form__grid admin-form__grid--two" style={{ background: '#FAF9F5', padding: '10px', borderRadius: '8px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Buy Quantity (X)</label>
+                        <input type="number" value={couponDraft.buyQuantity} onChange={(e) => setCouponDraft(prev => ({ ...prev, buyQuantity: e.target.value }))} placeholder="e.g. 2" />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Get Free Quantity (Y)</label>
+                        <input type="number" value={couponDraft.getQuantity} onChange={(e) => setCouponDraft(prev => ({ ...prev, getQuantity: e.target.value }))} placeholder="e.g. 1" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Discount values */}
+                  {couponDraft.type !== 'freeDelivery' && couponDraft.type !== 'bogo' && couponDraft.type !== 'buyXgetY' && (
+                    <div className="admin-form__grid admin-form__grid--two">
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>
+                          {couponDraft.type === 'percent' ? 'Discount Percentage (%)' : 'Discount Amount (₹)'}
+                        </label>
+                        <input value={couponDraft.value} onChange={(e) => setCouponDraft(prev => ({ ...prev, value: e.target.value }))} placeholder={couponDraft.type === 'percent' ? '15' : '50'} type="number" required />
+                      </div>
+                      {couponDraft.type === 'percent' && (
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Max Discount Cap (₹)</label>
+                          <input value={couponDraft.maxDiscount || ''} onChange={(e) => setCouponDraft(prev => ({ ...prev, maxDiscount: e.target.value }))} placeholder="e.g. 150 (optional)" type="number" />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Target Scope & Minimum Order */}
+                  <div className="admin-form__grid admin-form__grid--two">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Minimum Order Value (₹)</label>
+                      <input value={couponDraft.minOrder} onChange={(e) => setCouponDraft(prev => ({ ...prev, minOrder: e.target.value }))} placeholder="e.g. 499" type="number" />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Target Scope</label>
+                      <select value={couponDraft.targetType} onChange={(e) => setCouponDraft(prev => ({ ...prev, targetType: e.target.value }))}>
+                        <option value="all">Entire Store</option>
+                        <option value="category">Specific Category</option>
+                        <option value="product">Specific Product ID</option>
+                        <option value="customer">Specific Customer Email</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {couponDraft.targetType === 'category' && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Select Category</label>
+                      <select value={couponDraft.targetCategory} onChange={(e) => setCouponDraft(prev => ({ ...prev, targetCategory: e.target.value }))}>
+                        <option value="">Choose category...</option>
+                        {(dbCategories.length ? dbCategories : categories).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                  )}
+
+                  {couponDraft.targetType === 'customer' && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Target Customer Email</label>
+                      <input value={couponDraft.targetCustomerEmail || ''} onChange={(e) => setCouponDraft(prev => ({ ...prev, targetCustomerEmail: e.target.value }))} placeholder="customer@gmail.com" />
+                    </div>
+                  )}
+
+                  {/* Scheduling & Limits */}
+                  <div className="admin-form__grid admin-form__grid--two">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Start Date</label>
+                      <input type="date" value={couponDraft.startDate || ''} onChange={(e) => setCouponDraft(prev => ({ ...prev, startDate: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '3px' }}>End Date (Expiry)</label>
+                      <input type="date" value={couponDraft.endDate || ''} onChange={(e) => setCouponDraft(prev => ({ ...prev, endDate: e.target.value }))} />
+                    </div>
+                  </div>
+
+                  <div className="admin-form__grid admin-form__grid--two">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Total Usage Limit</label>
+                      <input type="number" value={couponDraft.usageLimit} onChange={(e) => setCouponDraft(prev => ({ ...prev, usageLimit: e.target.value }))} placeholder="500" />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Customer Type</label>
+                      <select value={couponDraft.customerType} onChange={(e) => setCouponDraft(prev => ({ ...prev, customerType: e.target.value }))}>
+                        <option value="retail">Retail Store</option>
+                        <option value="wholesale">Wholesale B2B</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <input value={couponDraft.title} onChange={(e) => setCouponDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Banner title e.g. FLAT ₹50 OFF" />
+                  <input value={couponDraft.description} onChange={(e) => setCouponDraft(prev => ({ ...prev, description: e.target.value }))} placeholder="Banner subtext e.g. On first grocery order above ₹399" />
+
+                  <button className="admin__primary"><FiPlus /> Save & Activate Coupon</button>
+                </form>
+
+                {/* Promotional Banners & Sale Deals Form */}
+                <form className="admin-form" onSubmit={saveOffer}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FiTag size={18} style={{ color: '#2D5016' }} />
+                    <h2 style={{ margin: 0 }}>Add Festive / Daily Deal Banner</h2>
+                  </div>
+
+                  <input value={offerDraft.title} onChange={(e) => setOfferDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Deal Title e.g. Diwali Mega Rice Fest" required />
+                  <input value={offerDraft.subtitle} onChange={(e) => setOfferDraft(prev => ({ ...prev, subtitle: e.target.value }))} placeholder="Subtitle e.g. Flat 20% off on all Basmati Rice" />
+                  <input value={offerDraft.badge} onChange={(e) => setOfferDraft(prev => ({ ...prev, badge: e.target.value }))} placeholder="Badge e.g. Save ₹80 / BOGO" />
+
+                  <div className="admin-form__grid admin-form__grid--two">
+                    <input value={offerDraft.price} onChange={(e) => setOfferDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="Deal Price (₹)" type="number" />
+                    <input value={offerDraft.mrp} onChange={(e) => setOfferDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="MRP (₹)" type="number" />
+                  </div>
+
+                  <div className="admin-offer-image">
+                    {offerDraft.image ? (
+                      <img src={toWebpImage(offerDraft.image)} alt="Offer preview" />
+                    ) : (
+                      <div className="admin-offer-image__empty"><FiGift /></div>
+                    )}
+                    <div>
+                      <input value={offerDraft.image} onChange={(e) => setOfferDraft(prev => ({ ...prev, image: e.target.value }))} placeholder="Add offer banner image URL" />
+                      <label className="admin-file-input admin-file-input--compact">
+                        <span>Or choose file from device</span>
+                        <input type="file" accept="image/*" onChange={handleOfferImageUpload} />
+                      </label>
+                    </div>
+                  </div>
+
+                  <button className="admin__primary"><FiPlus /> Publish Promotion Banner</button>
+                </form>
+              </div>
+
+              {/* Active Coupons Grid with Usage Analytics */}
+              <div className="admin-card admin-card--wide">
+                <div className="admin-card__toolbar">
+                  <h2>Active Coupons & Promo Codes ({coupons.length})</h2>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
+                  {coupons.map(coupon => (
+                    <div key={coupon.id} className="admin-promo-card">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <strong style={{ fontSize: '15px', color: '#1C4B12', letterSpacing: '0.5px' }}>{coupon.code}</strong>
+                        <span className={`admin-promo-pill admin-promo-pill--${coupon.type}`}>
+                          {coupon.type === 'bogo' ? '🎁 BOGO' : (coupon.type === 'percent' ? `${coupon.value}% OFF` : `₹${coupon.value} OFF`)}
+                        </span>
+                      </div>
+
+                      <p style={{ margin: 0, fontSize: '12px', color: '#4B5563' }}>
+                        {coupon.title || coupon.description || 'Promotional coupon'}
+                      </p>
+
+                      <div style={{ background: '#FAF9F5', padding: '8px 10px', borderRadius: '8px', fontSize: '11.5px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+                        <span>Min Order: <strong>₹{coupon.minOrder || 0}</strong></span>
+                        <span>Scope: <strong>{coupon.targetType || 'All'}</strong></span>
+                        <span>Used: <strong>{coupon.timesUsed || 0} times</strong></span>
+                        <span>Discount Given: <strong>₹{coupon.totalDiscountGiven || 0}</strong></span>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                        <button
+                          type="button"
+                          style={{
+                            background: coupon.active !== false ? '#DCFCE7' : '#F3F4F6',
+                            color: coupon.active !== false ? '#166534' : '#6B7280',
+                            border: 'none',
+                            padding: '2px 8px',
+                            borderRadius: '10px',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            cursor: 'pointer'
+                          }}
+                          onClick={async () => {
+                            const nextActive = coupon.active === false ? true : false;
+                            try {
+                              const updated = await adminApi.updateCoupon(coupon.id, { active: nextActive });
+                              setCoupons(prev => prev.map(c => c.id === updated.id ? updated : c));
+                            } catch (err) { alert(err.message); }
+                          }}
+                        >
+                          {coupon.active !== false ? '🟢 Active' : '⚪ Inactive'}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="admin-danger"
+                          style={{ width: '28px', height: '28px', padding: 0, borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          onClick={async () => {
+                            if (window.confirm(`Delete coupon code ${coupon.code}?`)) {
+                              await adminApi.deleteCoupon(coupon.id);
+                              setCoupons(prev => prev.filter(c => c.id !== coupon.id));
+                            }
+                          }}
+                        >
+                          <FiTrash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* =========================================================================
+             MODULE 3: GROCERY SALES & INVENTORY ANALYTICS
+             ========================================================================= */}
+          {activeTab === 'sales-stats' && (
+            <div className="sales-analytics-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Header & Range Bar */}
+              <div className="admin-card admin-card--wide" style={{ padding: '16px 20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <h2 style={{ margin: 0 }}>Grocery Sales & Inventory Analytics</h2>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
+                      Real-time revenue, margins, wastage, turnover, and delivery area analytics.
+                    </p>
+                  </div>
+
+                  <div className="admin-analytics-range-bar">
+                    <button
+                      type="button"
+                      className={`admin-range-btn ${analyticsTimeRange === '1' ? 'admin-range-btn--active' : ''}`}
+                      onClick={() => setAnalyticsTimeRange('1')}
+                    >
+                      Today
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-range-btn ${analyticsTimeRange === '7' ? 'admin-range-btn--active' : ''}`}
+                      onClick={() => setAnalyticsTimeRange('7')}
+                    >
+                      7 Days
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-range-btn ${analyticsTimeRange === '30' ? 'admin-range-btn--active' : ''}`}
+                      onClick={() => setAnalyticsTimeRange('30')}
+                    >
+                      30 Days
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-range-btn ${analyticsTimeRange === '90' ? 'admin-range-btn--active' : ''}`}
+                      onClick={() => setAnalyticsTimeRange('90')}
+                    >
+                      90 Days
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-range-btn ${analyticsTimeRange === '365' ? 'admin-range-btn--active' : ''}`}
+                      onClick={() => setAnalyticsTimeRange('365')}
+                    >
+                      1 Year
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4-KPI Grid */}
+              <div className="admin-analytics-grid-4">
+                <div className="sales-kpi-card">
+                  <span>GROSS REVENUE</span>
+                  <strong>{formatPrice(analyticsSummary.grossRevenue)}</strong>
+                  <small>Net: {formatPrice(analyticsSummary.netRevenue)} (after {formatPrice(analyticsSummary.totalRefunds)} refunds)</small>
+                </div>
+
+                <div className="sales-kpi-card">
+                  <span>ORDERS & UNITS</span>
+                  <strong>{analyticsSummary.ordersCount} orders</strong>
+                  <small>{analyticsSummary.totalUnitsSold} grocery units delivered</small>
+                </div>
+
+                <div className="sales-kpi-card">
+                  <span>AVG ORDER VALUE (AOV)</span>
+                  <strong>{formatPrice(analyticsSummary.aov)}</strong>
+                  <small>Repeat Customer Rate: <strong>{analyticsSummary.repeatRate}%</strong></small>
+                </div>
+
+                <div className="sales-kpi-card" style={{ background: '#FFFDF7', borderColor: '#FDE68A' }}>
+                  <span style={{ color: '#92400E' }}>WASTAGE / EXPIRED LOSSES</span>
+                  <strong style={{ color: '#B45309' }}>{formatPrice(analyticsSummary.wastageLoss)}</strong>
+                  <small>Damaged + Expired stock valuation</small>
+                </div>
+              </div>
+
+              {/* Revenue Trend SVG Chart */}
+              <section className="sales-chart-card">
+                <div className="sales-section-label">REVENUE TREND ({analyticsTimeRange} DAYS)</div>
+                <div className="sales-line-chart-wrap">
+                  {(() => {
+                    const maxRevenue = Math.max(...salesTrendData.map(item => item.revenue), 1);
+                    const chartWidth = 1000;
+                    const chartHeight = 280;
+                    const left = 52;
+                    const right = 12;
+                    const top = 18;
+                    const bottom = 38;
+                    const innerWidth = chartWidth - left - right;
+                    const innerHeight = chartHeight - top - bottom;
+                    const points = salesTrendData.map((item, index) => {
+                      const x = left + (index / (Math.max(salesTrendData.length - 1, 1))) * innerWidth;
+                      const y = top + innerHeight - (item.revenue / maxRevenue) * innerHeight;
+                      return { ...item, x, y };
+                    });
+                    const linePath = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+                    const areaPath = `${linePath} L ${points[points.length - 1].x} ${top + innerHeight} L ${points[0].x} ${top + innerHeight} Z`;
+                    return (
+                      <svg className="sales-line-chart" viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
+                        {[0, 0.25, 0.5, 0.75, 1].map((tick) => {
+                          const y = top + innerHeight - tick * innerHeight;
+                          return (
+                            <g key={tick}>
+                              <line x1={left} x2={chartWidth - right} y1={y} y2={y} className="sales-chart-grid" />
+                              <text x={left - 12} y={y + 4} textAnchor="end" className="sales-chart-axis">{formatPrice(maxRevenue * tick)}</text>
+                            </g>
+                          );
+                        })}
+                        <path d={areaPath} className="sales-chart-area" />
+                        <path d={linePath} className="sales-chart-line" />
+                      </svg>
+                    );
+                  })()}
+                </div>
+              </section>
+
+              {/* Category & Brand Performance Breakdown Cards */}
+              <div className="admin-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                <div className="admin-breakdown-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ fontSize: '13.5px', color: '#1C4B12' }}>Category Revenue Share</strong>
+                    <FiPieChart size={16} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {analyticsSummary.categorySales.slice(0, 6).map(([cat, rev]) => {
+                      const maxCat = analyticsSummary.categorySales[0]?.[1] || 1;
+                      const pct = Math.round((rev / (analyticsSummary.grossRevenue || 1)) * 100);
+                      return (
+                        <div key={cat} className="admin-breakdown-item">
+                          <span style={{ textTransform: 'capitalize', fontWeight: 600, width: '100px' }}>{cat}</span>
+                          <div className="admin-progress-bar-wrap">
+                            <div className="admin-progress-bar-fill" style={{ width: `${(rev / maxCat) * 100}%` }} />
+                          </div>
+                          <strong>{formatPrice(rev)} ({pct}%)</strong>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="admin-breakdown-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ fontSize: '13.5px', color: '#1C4B12' }}>Brand Performance Share</strong>
+                    <FiTag size={16} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {analyticsSummary.brandSales.slice(0, 6).map(([brand, rev]) => {
+                      const maxBrand = analyticsSummary.brandSales[0]?.[1] || 1;
+                      const pct = Math.round((rev / (analyticsSummary.grossRevenue || 1)) * 100);
+                      return (
+                        <div key={brand} className="admin-breakdown-item">
+                          <span style={{ fontWeight: 600, width: '100px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{brand}</span>
+                          <div className="admin-progress-bar-wrap">
+                            <div className="admin-progress-bar-fill" style={{ width: `${(rev / maxBrand) * 100}%`, background: '#3B82F6' }} />
+                          </div>
+                          <strong>{formatPrice(rev)} ({pct}%)</strong>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Fast-Moving vs Slow-Moving Products */}
+              <div className="admin-grid" style={{ gridTemplateColumns: '1.2fr 1fr' }}>
+                <div className="admin-card">
+                  <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: '#1C4B12', margin: '0 0 10px' }}>
+                    🚀 Fast-Moving Products (Top Sellers)
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {analyticsSummary.fastMoving.map((p, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#FAF9F5', borderRadius: '8px', fontSize: '12px' }}>
+                        <div>
+                          <strong>{idx + 1}. {p.name}</strong>
+                          <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>{p.brand} · {p.category}</span>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <strong style={{ color: '#15803D' }}>{formatPrice(p.revenue)}</strong>
+                          <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>{p.units} units sold</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="admin-card">
+                  <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: '#B45309', margin: '0 0 10px' }}>
+                    ⏳ Slow-Moving / Low Turnover Watchlist
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {analyticsSummary.slowMoving.map((p, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#FFFDF7', border: '1px solid #FEF3C7', borderRadius: '8px', fontSize: '12px' }}>
+                        <div>
+                          <strong>{p.name}</strong>
+                          <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>Stock: {p.stockNote}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="admin__ghost"
+                          style={{ height: '28px', fontSize: '11px' }}
+                          onClick={() => {
+                            setActiveTab('offers');
+                            setCouponDraft(prev => ({
+                              ...prev,
+                              code: `DEAL-${p.category.toUpperCase()}`,
+                              title: `Special Promo on ${p.name}`,
+                              targetType: 'product',
+                              targetProductId: p.id
+                            }));
+                          }}
+                        >
+                          + Create Promo
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Delivery Area & Pincode Performance Table */}
+              <div className="admin-card admin-card--wide">
+                <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: '#1C4B12', margin: '0 0 10px' }}>
+                  🚚 Locality & Delivery Area Performance
+                </h3>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="inventory-table">
+                    <thead>
+                      <tr>
+                        <th>LOCALITY / AREA</th>
+                        <th>ORDERS FULFILLED</th>
+                        <th>REVENUE (₹)</th>
+                        <th>AVG ORDER VALUE (₹)</th>
+                        <th>SHARE (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analyticsSummary.areaSales.map(([area, data]) => {
+                        const pct = Math.round((data.revenue / (analyticsSummary.grossRevenue || 1)) * 100);
+                        return (
+                          <tr key={area}>
+                            <td><strong>{area}</strong></td>
+                            <td>{data.orders}</td>
+                            <td><strong style={{ color: '#15803D' }}>{formatPrice(data.revenue)}</strong></td>
+                            <td>{formatPrice(Math.round(data.revenue / (data.orders || 1)))}</td>
+                            <td>
+                              <span className="admin-dist-bar-fill" style={{ display: 'inline-block', width: `${Math.max(10, pct)}%`, padding: '2px 6px', color: '#fff', fontSize: '10.5px', borderRadius: '4px', textAlign: 'center' }}>
+                                {pct}%
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* =========================================================================
+             OTHER MODULES: ORDERS, CUSTOMERS, INVENTORY, DELIVERY, CATALOG
              ========================================================================= */}
           {activeTab === 'orders' && (
             <div className="admin-orders-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {/* Top Filter and Search Toolbar */}
               <div className="admin-card admin-card--wide" style={{ padding: '16px 20px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {/* Status filter tabs */}
                   <div className="inventory-filters-tabs">
                     <button
                       className={`inventory-filter-btn ${orderStatusFilter === 'all' ? 'inventory-filter-btn--active' : ''}`}
@@ -1535,7 +2405,6 @@ const Admin = () => {
                     </button>
                   </div>
 
-                  {/* Search and Secondary Filter Row */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', gap: '10px', flex: 1, minWidth: '280px' }}>
                       <div className="admin-search-label" style={{ flex: 1 }}>
@@ -1578,160 +2447,140 @@ const Admin = () => {
                   <div className="admin-card admin-card--wide" style={{ textAlign: 'center', padding: '40px', color: '#687466' }}>
                     No orders matching your filter or search criteria.
                   </div>
-                ) : filteredOrders.map(order => {
-                  const subtotal = (order.items || []).reduce((sum, it) => sum + (it.price * (it.quantity || 1)), 0) || order.total;
-                  const deliveryFee = Math.max(0, order.total - subtotal);
-                  const isPaid = order.paymentStatus === 'Paid';
-                  const isRefunded = ['Refunded', 'Partially Refunded'].includes(order.paymentStatus);
-
-                  return (
-                    <div key={order.id} className="admin-order-card-enhanced">
-                      <div className="admin-order-card-header">
-                        {/* Order & Bill No */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ width: 36, height: 36, borderRadius: '8px', background: '#F1F8E9', color: '#2D5016', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <FiShoppingBag size={18} />
-                          </div>
-                          <div>
-                            <strong style={{ fontSize: '14px', color: '#111827' }}>Order #{order.id}</strong>
-                            <span style={{ fontSize: '12px', color: '#2D5016', fontWeight: '800', marginLeft: '8px' }}>BILL-{order.id + 7820}</span>
-                            <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>
-                              Placed on: {order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN') : '—'}
-                            </span>
-                          </div>
+                ) : filteredOrders.map(order => (
+                  <div key={order.id} className="admin-order-card-enhanced">
+                    <div className="admin-order-card-header">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: 36, height: 36, borderRadius: '8px', background: '#F1F8E9', color: '#2D5016', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <FiShoppingBag size={18} />
                         </div>
-
-                        {/* Badges Strip */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span className={`admin-order-status-pill admin-order-status-pill--${order.status.toLowerCase().replace(/\s+/g, '-')}`}>
-                            {order.status}
+                        <div>
+                          <strong style={{ fontSize: '14px', color: '#111827' }}>Order #{order.id}</strong>
+                          <span style={{ fontSize: '12px', color: '#2D5016', fontWeight: '800', marginLeft: '8px' }}>BILL-{order.id + 7820}</span>
+                          <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>
+                            Placed on: {order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN') : '—'}
                           </span>
-                          <span className={`admin-payment-pill admin-payment-pill--${(order.paymentStatus || 'pending').toLowerCase().replace(/\s+/g, '-')}`}>
-                            {order.paymentStatus === 'Paid' ? '✓ Paid' : (order.paymentStatus || 'Pending')}
-                          </span>
-                          {order.deliverySlot && (
-                            <span style={{ fontSize: '11px', background: '#FAF9F5', border: '1px solid #E1E6DC', padding: '2px 7px', borderRadius: '4px', color: '#4B5563' }}>
-                              🕒 {order.deliverySlot}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Action buttons */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <button
-                            className="admin__ghost"
-                            style={{ height: '32px', fontSize: '11.5px', padding: '0 10px', borderRadius: '6px' }}
-                            onClick={() => {
-                              setSelectedOrderModal(order);
-                              setOrderNotesText(order.orderNotes || '');
-                              setRefundForm({ amount: '', reason: 'Customer return / out of stock' });
-                            }}
-                          >
-                            <FiEye size={12} /> View Details
-                          </button>
-
-                          <button
-                            className="admin__ghost"
-                            style={{ height: '32px', fontSize: '11.5px', padding: '0 10px', borderRadius: '6px' }}
-                            title="Print Tax Invoice"
-                            onClick={() => setInvoiceModalOrder(order)}
-                          >
-                            <FiPrinter size={12} /> Invoice
-                          </button>
-
-                          <button
-                            className="admin__ghost"
-                            style={{ height: '32px', fontSize: '11.5px', padding: '0 10px', borderRadius: '6px' }}
-                            title="Print Packing Slip"
-                            onClick={() => setPackingSlipModalOrder(order)}
-                          >
-                            <FiFileText size={12} /> Slip
-                          </button>
                         </div>
                       </div>
 
-                      {/* Body Grid */}
-                      <div className="admin-order-body-grid">
-                        {/* Customer Info */}
-                        <div>
-                          <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Customer</span>
-                          <strong style={{ display: 'block', fontSize: '13px', color: '#111827', marginTop: '2px' }}>
-                            {order.customerName || 'Customer'}
-                          </strong>
-                          {order.customerPhone && <span style={{ fontSize: '11.5px', color: '#4B5563', display: 'block' }}>📞 {order.customerPhone}</span>}
-                          {order.customerEmail && <span style={{ fontSize: '11.5px', color: '#4B5563', display: 'block' }}>✉️ {order.customerEmail}</span>}
-                        </div>
-
-                        {/* Items Summary */}
-                        <div>
-                          <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Items ({order.items?.length || 0})</span>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '3px' }}>
-                            {(order.items || []).slice(0, 3).map((item, idx) => (
-                              <span key={idx} style={{ fontSize: '11.5px', color: '#374151' }}>
-                                • {item.name} {item.weight ? `(${item.weight}${item.unit})` : ''} <strong>x{item.quantity || 1}</strong>
-                              </span>
-                            ))}
-                            {(order.items || []).length > 3 && (
-                              <span style={{ fontSize: '11px', color: '#687466' }}>+{(order.items || []).length - 3} more item(s)...</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Delivery Info */}
-                        <div>
-                          <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Delivery Details</span>
-                          <span style={{ display: 'block', fontSize: '11.5px', color: '#374151', marginTop: '2px', lineHeight: '1.3' }}>
-                            {order.deliveryAddress || 'Store Pickup'}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span className={`admin-order-status-pill admin-order-status-pill--${order.status.toLowerCase().replace(/\s+/g, '-')}`}>
+                          {order.status}
+                        </span>
+                        <span className={`admin-payment-pill admin-payment-pill--${(order.paymentStatus || 'pending').toLowerCase().replace(/\s+/g, '-')}`}>
+                          {order.paymentStatus === 'Paid' ? '✓ Paid' : (order.paymentStatus || 'Pending')}
+                        </span>
+                        {order.deliverySlot && (
+                          <span style={{ fontSize: '11px', background: '#FAF9F5', border: '1px solid #E1E6DC', padding: '2px 7px', borderRadius: '4px', color: '#4B5563' }}>
+                            🕒 {order.deliverySlot}
                           </span>
-                          {order.trackingNumber && (
-                            <span style={{ fontSize: '10.5px', color: '#687466', display: 'block', marginTop: '2px' }}>
-                              Tracking: <strong>{order.trackingNumber}</strong>
-                            </span>
-                          )}
-                        </div>
+                        )}
+                      </div>
 
-                        {/* Payment & Ref */}
-                        <div>
-                          <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Payment & Txn</span>
-                          <strong style={{ display: 'block', fontSize: '12.5px', color: '#111827', marginTop: '2px' }}>
-                            {order.paymentGateway || order.paymentMethod || 'COD'}
-                          </strong>
-                          <span style={{ fontSize: '11px', color: '#687466', fontFamily: 'monospace', display: 'block' }}>
-                            {order.paymentTxnId || `TXN-SIRI-${order.id}`}
-                          </span>
-                          {order.refundAmount > 0 && (
-                            <span style={{ fontSize: '11px', color: '#7E22CE', fontWeight: 'bold', display: 'block' }}>
-                              Refunded: {formatPrice(order.refundAmount)}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Total Amount & Status Quick Change */}
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Grand Total</span>
-                          <strong style={{ display: 'block', fontSize: '16px', color: '#111827', marginTop: '2px' }}>
-                            {formatPrice(order.total)}
-                          </strong>
-                          <select
-                            value={order.status}
-                            className="admin-status-select"
-                            style={{ marginTop: '6px', height: '32px', fontSize: '11.5px' }}
-                            onChange={(e) => handleUpdateOrder(order.id, { status: e.target.value })}
-                          >
-                            {['Pending', 'Preparing', 'In Transit', 'Delivered', 'Paid', 'Cancelled'].map(s => (
-                              <option key={s} value={s}>{s}</option>
-                            ))}
-                          </select>
-                        </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          className="admin__ghost"
+                          style={{ height: '32px', fontSize: '11.5px', padding: '0 10px', borderRadius: '6px' }}
+                          onClick={() => {
+                            setSelectedOrderModal(order);
+                            setOrderNotesText(order.orderNotes || '');
+                            setRefundForm({ amount: '', reason: 'Customer return / out of stock' });
+                          }}
+                        >
+                          <FiEye size={12} /> View Details
+                        </button>
+                        <button
+                          className="admin__ghost"
+                          style={{ height: '32px', fontSize: '11.5px', padding: '0 10px', borderRadius: '6px' }}
+                          title="Print Tax Invoice"
+                          onClick={() => setInvoiceModalOrder(order)}
+                        >
+                          <FiPrinter size={12} /> Invoice
+                        </button>
+                        <button
+                          className="admin__ghost"
+                          style={{ height: '32px', fontSize: '11.5px', padding: '0 10px', borderRadius: '6px' }}
+                          title="Print Packing Slip"
+                          onClick={() => setPackingSlipModalOrder(order)}
+                        >
+                          <FiFileText size={12} /> Slip
+                        </button>
                       </div>
                     </div>
-                  );
-                })}
+
+                    <div className="admin-order-body-grid">
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Customer</span>
+                        <strong style={{ display: 'block', fontSize: '13px', color: '#111827', marginTop: '2px' }}>
+                          {order.customerName || 'Customer'}
+                        </strong>
+                        {order.customerPhone && <span style={{ fontSize: '11.5px', color: '#4B5563', display: 'block' }}>📞 {order.customerPhone}</span>}
+                        {order.customerEmail && <span style={{ fontSize: '11.5px', color: '#4B5563', display: 'block' }}>✉️ {order.customerEmail}</span>}
+                      </div>
+
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Items ({order.items?.length || 0})</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '3px' }}>
+                          {(order.items || []).slice(0, 3).map((item, idx) => (
+                            <span key={idx} style={{ fontSize: '11.5px', color: '#374151' }}>
+                              • {item.name} {item.weight ? `(${item.weight}${item.unit})` : ''} <strong>x{item.quantity || 1}</strong>
+                            </span>
+                          ))}
+                          {(order.items || []).length > 3 && (
+                            <span style={{ fontSize: '11px', color: '#687466' }}>+{(order.items || []).length - 3} more item(s)...</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Delivery Details</span>
+                        <span style={{ display: 'block', fontSize: '11.5px', color: '#374151', marginTop: '2px', lineHeight: '1.3' }}>
+                          {order.deliveryAddress || 'Store Pickup'}
+                        </span>
+                        {order.trackingNumber && (
+                          <span style={{ fontSize: '10.5px', color: '#687466', display: 'block', marginTop: '2px' }}>
+                            Tracking: <strong>{order.trackingNumber}</strong>
+                          </span>
+                        )}
+                      </div>
+
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Payment & Txn</span>
+                        <strong style={{ display: 'block', fontSize: '12.5px', color: '#111827', marginTop: '2px' }}>
+                          {order.paymentGateway || order.paymentMethod || 'COD'}
+                        </strong>
+                        <span style={{ fontSize: '11px', color: '#687466', fontFamily: 'monospace', display: 'block' }}>
+                          {order.paymentTxnId || `TXN-SIRI-${order.id}`}
+                        </span>
+                        {order.refundAmount > 0 && (
+                          <span style={{ fontSize: '11px', color: '#7E22CE', fontWeight: 'bold', display: 'block' }}>
+                            Refunded: {formatPrice(order.refundAmount)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Grand Total</span>
+                        <strong style={{ display: 'block', fontSize: '16px', color: '#111827', marginTop: '2px' }}>
+                          {formatPrice(order.total)}
+                        </strong>
+                        <select
+                          value={order.status}
+                          className="admin-status-select"
+                          style={{ marginTop: '6px', height: '32px', fontSize: '11.5px' }}
+                          onChange={(e) => handleUpdateOrder(order.id, { status: e.target.value })}
+                        >
+                          {['Pending', 'Preparing', 'In Transit', 'Delivered', 'Paid', 'Cancelled'].map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              {/* =========================================================
-                 MODAL: DETAILED ORDER DRILLDOWN & PAYMENT ACTIONS
-                 ========================================================= */}
+              {/* MODAL: DETAILED ORDER DRILLDOWN & PAYMENT ACTIONS */}
               {selectedOrderModal && (
                 <div className="inventory-modal-backdrop" onClick={() => setSelectedOrderModal(null)}>
                   <div className="inventory-modal" style={{ maxWidth: '780px' }} onClick={e => e.stopPropagation()}>
@@ -1746,7 +2595,6 @@ const Admin = () => {
                     </div>
 
                     <div className="inventory-modal__body" style={{ gap: '16px' }}>
-                      {/* Customer & Delivery Bar */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', background: '#FAF9F5', padding: '14px', borderRadius: '10px' }}>
                         <div>
                           <strong style={{ display: 'block', fontSize: '13px', color: '#1C4B12', marginBottom: '4px' }}>Customer Contact</strong>
@@ -1766,7 +2614,6 @@ const Admin = () => {
                         </div>
                       </div>
 
-                      {/* Itemized Products List */}
                       <div>
                         <h3 style={{ fontSize: '12.5px', textTransform: 'uppercase', color: '#1C4B12', margin: '0 0 8px', fontWeight: 800 }}>
                           Order Items ({(selectedOrderModal.items || []).length})
@@ -1795,7 +2642,6 @@ const Admin = () => {
                         </table>
                       </div>
 
-                      {/* Payment & Transaction Card */}
                       <div style={{ background: '#FFFFFF', border: '1px solid #E1E6DC', borderRadius: '10px', padding: '14px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                           <strong style={{ fontSize: '13px', color: '#111827' }}>Payment & Transaction Record</strong>
@@ -1810,7 +2656,6 @@ const Admin = () => {
                           <div>Refunded: <strong style={{ color: '#7E22CE' }}>{formatPrice(selectedOrderModal.refundAmount || 0)}</strong></div>
                         </div>
 
-                        {/* Quick Payment Status Changer */}
                         <div style={{ display: 'flex', gap: '8px', marginTop: '12px', alignItems: 'center' }}>
                           <span style={{ fontSize: '11px', fontWeight: 700, color: '#687466' }}>Update Payment Status:</span>
                           <button
@@ -1832,7 +2677,6 @@ const Admin = () => {
                         </div>
                       </div>
 
-                      {/* Issue Refund Form */}
                       <div style={{ background: '#FAF5FF', border: '1px solid #E9D5FF', borderRadius: '10px', padding: '14px' }}>
                         <strong style={{ display: 'block', fontSize: '12.5px', color: '#6B21A8', marginBottom: '8px' }}>
                           💸 Issue Refund / Partial Refund
@@ -1871,12 +2715,11 @@ const Admin = () => {
                         </div>
                       </div>
 
-                      {/* Cancellation & Restock */}
                       {selectedOrderModal.status !== 'Cancelled' && (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', padding: '12px 14px' }}>
                           <div>
                             <strong style={{ display: 'block', fontSize: '12.5px', color: '#991B1B' }}>Cancel Order & Restock</strong>
-                            <span style={{ fontSize: '11px', color: '#7F1D1D' }}>Cancel this order and automatically restore stock into the inventory database.</span>
+                            <span style={{ fontSize: '11px', color: '#7F1D1D' }}>Cancel order and automatically restore stock in inventory database.</span>
                           </div>
                           <button
                             type="button"
@@ -1897,7 +2740,6 @@ const Admin = () => {
                         </div>
                       )}
 
-                      {/* Internal Admin Notes */}
                       <div>
                         <strong style={{ display: 'block', fontSize: '12px', color: '#111827', marginBottom: '4px' }}>Internal Order Notes & Instructions</strong>
                         <textarea
@@ -1928,14 +2770,11 @@ const Admin = () => {
                 </div>
               )}
 
-              {/* =========================================================
-                 MODAL: TAX INVOICE GENERATOR & PRINT VIEW
-                 ========================================================= */}
+              {/* MODAL: TAX INVOICE GENERATOR & PRINT VIEW */}
               {invoiceModalOrder && (
                 <div className="inventory-modal-backdrop" onClick={() => setInvoiceModalOrder(null)}>
                   <div className="admin-invoice-modal" onClick={e => e.stopPropagation()}>
                     <div className="admin-invoice-paper">
-                      {/* Header */}
                       <div className="admin-invoice-header">
                         <div>
                           <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 900, color: '#1C4B12', letterSpacing: '0.5px' }}>
@@ -1957,7 +2796,6 @@ const Admin = () => {
                         </div>
                       </div>
 
-                      {/* Customer Info */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', paddingBottom: '14px', borderBottom: '1px solid #E2E8F0', fontSize: '12px' }}>
                         <div>
                           <strong style={{ color: '#2D5016', display: 'block', marginBottom: '2px' }}>Billed / Delivered To:</strong>
@@ -1975,7 +2813,6 @@ const Admin = () => {
                         </div>
                       </div>
 
-                      {/* Items Table */}
                       <table className="admin-invoice-table">
                         <thead>
                           <tr>
@@ -2001,7 +2838,6 @@ const Admin = () => {
                         </tbody>
                       </table>
 
-                      {/* Total Calculation */}
                       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
                         <div style={{ width: '260px', fontSize: '12.5px', lineHeight: '1.6' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -2023,7 +2859,6 @@ const Admin = () => {
                         </div>
                       </div>
 
-                      {/* Signatures */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '36px', paddingTop: '20px', borderTop: '1px solid #E2E8F0', fontSize: '11px', color: '#687466' }}>
                         <div>
                           Thank you for choosing Siri Traders!<br />
@@ -2046,9 +2881,7 @@ const Admin = () => {
                 </div>
               )}
 
-              {/* =========================================================
-                 MODAL: PACKING SLIP VIEW
-                 ========================================================= */}
+              {/* MODAL: PACKING SLIP VIEW */}
               {packingSlipModalOrder && (
                 <div className="inventory-modal-backdrop" onClick={() => setPackingSlipModalOrder(null)}>
                   <div className="admin-invoice-modal" onClick={e => e.stopPropagation()}>
@@ -2108,18 +2941,222 @@ const Admin = () => {
             </div>
           )}
 
-          {/* =========================================================================
-             MODULE 2: GROCERY DELIVERY & SLOTS MANAGEMENT
-             ========================================================================= */}
+          {/* CUSTOMER HUB */}
+          {activeTab === 'customers' && (
+            <div className="admin-customers-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="admin-card admin-card--wide" style={{ padding: '16px 20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div className="inventory-filters-tabs">
+                    <button
+                      className={`inventory-filter-btn ${customerSegmentFilter === 'all' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setCustomerSegmentFilter('all')}
+                    >
+                      All Customers <span className="inventory-badge-count">{liveCustomers?.length || 0}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${customerSegmentFilter === 'VIP' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setCustomerSegmentFilter('VIP')}
+                    >
+                      🌟 VIP / High-Value <span className="inventory-badge-count">{liveCustomers?.filter(c => c.segment === 'VIP').length || 0}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${customerSegmentFilter === 'Returning' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setCustomerSegmentFilter('Returning')}
+                    >
+                      🔁 Returning <span className="inventory-badge-count">{liveCustomers?.filter(c => c.segment === 'Returning').length || 0}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${customerSegmentFilter === 'New' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setCustomerSegmentFilter('New')}
+                    >
+                      🌱 New <span className="inventory-badge-count">{liveCustomers?.filter(c => c.segment === 'New').length || 0}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${customerSegmentFilter === 'Inactive' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setCustomerSegmentFilter('Inactive')}
+                    >
+                      💤 Inactive (30d+) <span className="inventory-badge-count">{liveCustomers?.filter(c => c.segment === 'Inactive').length || 0}</span>
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                    <div className="admin-search-label" style={{ flex: 1, minWidth: '280px', maxWidth: '500px' }}>
+                      <FiSearch />
+                      <input
+                        placeholder="Search by customer name, email or phone..."
+                        value={customerSearchQuery}
+                        onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <button className="admin__ghost" onClick={loadCustomers}>
+                      <FiRefreshCw size={13} /> Refresh Customers
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="admin-customer-grid">
+                {filteredCustomers.length === 0 ? (
+                  <div className="admin-card admin-card--wide" style={{ textAlign: 'center', padding: '36px', color: '#687466', gridColumn: '1 / -1' }}>
+                    No customer accounts found matching your filter.
+                  </div>
+                ) : filteredCustomers.map(customer => {
+                  const initial = (customer.name || customer.email || 'C')[0].toUpperCase();
+
+                  return (
+                    <div key={customer.id} className="admin-customer-card">
+                      <div className="admin-customer-card__header">
+                        <div className="admin-customer-avatar">{initial}</div>
+                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            <strong style={{ fontSize: '13.5px', color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {customer.name || 'Customer'}
+                            </strong>
+                            <span className={`admin-segment-pill admin-segment-pill--${(customer.segment || 'new').toLowerCase()}`}>
+                              {customer.segment === 'VIP' ? '🌟 VIP' : (customer.segment || 'New')}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: '11.5px', color: '#687466', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {customer.email}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="admin-customer-stats-row">
+                        <div>
+                          <span>Total Spent</span>
+                          <strong>{formatPrice(customer.totalSpent || 0)}</strong>
+                        </div>
+                        <div>
+                          <span>Orders</span>
+                          <strong>{customer.ordersCount || 0}</strong>
+                        </div>
+                        <div>
+                          <span>Avg Order</span>
+                          <strong>{formatPrice(customer.averageOrderValue || 0)}</strong>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: '#687466' }}>
+                        <span>Phone: {customer.phone || '—'}</span>
+                        <span>Joined: {new Date(customer.createdAt).toLocaleDateString('en-IN')}</span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+                        <button
+                          type="button"
+                          className="admin__ghost"
+                          style={{ flex: 1, height: '32px', fontSize: '11.5px' }}
+                          onClick={() => setSelectedCustomerModal(customer)}
+                        >
+                          <FiEye size={12} /> View Profile & History
+                        </button>
+                        <button
+                          type="button"
+                          className="admin__primary"
+                          style={{ height: '32px', padding: '0 12px', fontSize: '11.5px' }}
+                          onClick={() => {
+                            setActiveTab('broadcast');
+                            setBroadcastSubject(`Special Offer for ${customer.name || 'Valued Customer'}`);
+                            setSelectedBroadcastEmails([customer.email]);
+                          }}
+                        >
+                          <FiMail size={12} /> Message
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {selectedCustomerModal && (
+                <div className="inventory-modal-backdrop" onClick={() => setSelectedCustomerModal(null)}>
+                  <div className="inventory-modal" style={{ maxWidth: '780px' }} onClick={e => e.stopPropagation()}>
+                    <div className="inventory-modal__header">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div className="admin-customer-avatar">
+                          {(selectedCustomerModal.name || selectedCustomerModal.email || 'C')[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <h2 style={{ margin: 0 }}>{selectedCustomerModal.name || 'Customer Profile'}</h2>
+                          <span style={{ fontSize: '11.5px', color: '#687466' }}>{selectedCustomerModal.email} · Phone: {selectedCustomerModal.phone || 'Not provided'}</span>
+                        </div>
+                      </div>
+                      <button className="inventory-modal__close" onClick={() => setSelectedCustomerModal(null)}>✕</button>
+                    </div>
+
+                    <div className="inventory-modal__body" style={{ gap: '14px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', background: '#FAF9F5', padding: '12px', borderRadius: '10px' }}>
+                        <div>
+                          <span style={{ fontSize: '10.5px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Total Spent</span>
+                          <strong style={{ display: 'block', fontSize: '15px', color: '#1C4B12' }}>{formatPrice(selectedCustomerModal.totalSpent || 0)}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '10.5px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Total Orders</span>
+                          <strong style={{ display: 'block', fontSize: '15px' }}>{selectedCustomerModal.ordersCount || 0}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '10.5px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Average Order</span>
+                          <strong style={{ display: 'block', fontSize: '15px' }}>{formatPrice(selectedCustomerModal.averageOrderValue || 0)}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '10.5px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Segment</span>
+                          <div style={{ marginTop: '2px' }}>
+                            <span className={`admin-segment-pill admin-segment-pill--${(selectedCustomerModal.segment || 'new').toLowerCase()}`}>
+                              {selectedCustomerModal.segment || 'New'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 style={{ fontSize: '13px', color: '#1C4B12', margin: '0 0 8px', fontWeight: 800 }}>
+                          Order History ({selectedCustomerModal.orderHistory?.length || 0})
+                        </h3>
+                        {(!selectedCustomerModal.orderHistory || selectedCustomerModal.orderHistory.length === 0) ? (
+                          <p style={{ color: '#687466', fontSize: '12px', padding: '12px 0' }}>No past orders found for this customer.</p>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
+                            {selectedCustomerModal.orderHistory.map(order => (
+                              <div key={order.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: '#FFFFFF', border: '1px solid #E1E6DC', borderRadius: '8px', fontSize: '12px' }}>
+                                <div>
+                                  <strong>Order #{order.id}</strong> <span style={{ color: '#2D5016', fontWeight: 700 }}>BILL-{order.id + 7820}</span>
+                                  <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>
+                                    {new Date(order.createdAt).toLocaleString('en-IN')} · {order.items?.length || 0} items
+                                  </span>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                  <strong style={{ fontSize: '13px', display: 'block' }}>{formatPrice(order.total)}</strong>
+                                  <span className={`admin-order-status-pill admin-order-status-pill--${order.status.toLowerCase().replace(/\s+/g, '-')}`} style={{ fontSize: '10px', padding: '1px 6px' }}>
+                                    {order.status}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="inventory-modal__footer">
+                      <button className="admin__primary" onClick={() => setSelectedCustomerModal(null)}>Close</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* GROCERY DELIVERY & SLOTS */}
           {activeTab === 'delivery-zones' && (
             <div className="admin-delivery-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* Delivery Slots Management Card */}
               <div className="admin-card admin-card--wide">
                 <div className="admin-card__toolbar">
                   <div>
                     <h2 style={{ margin: 0 }}>Grocery Delivery Slots Configuration</h2>
                     <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
-                      Configure standard grocery delivery windows for customer checkout and schedule management.
+                      Configure standard grocery delivery windows for customer checkout.
                     </p>
                   </div>
                 </div>
@@ -2162,7 +3199,6 @@ const Admin = () => {
                 </div>
               </div>
 
-              {/* Add / Edit Delivery Zone Form Card */}
               <div className="admin-card admin-card--wide">
                 <h2 style={{ margin: '0 0 12px' }}>{editingZoneModal ? 'Edit Delivery Area & Pincode' : 'Add New Delivery Zone & Pincode'}</h2>
                 <div className="admin-form__grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
@@ -2324,7 +3360,6 @@ const Admin = () => {
                 </div>
               </div>
 
-              {/* Serviceable Delivery Zones Table */}
               <div className="admin-card admin-card--wide">
                 <div className="admin-card__toolbar">
                   <h2>Serviceable Pincodes & Coverage ({deliveryZones.length})</h2>
@@ -2423,227 +3458,7 @@ const Admin = () => {
             </div>
           )}
 
-          {/* =========================================================================
-             MODULE 3: CUSTOMER MANAGEMENT & SEGMENTATION
-             ========================================================================= */}
-          {activeTab === 'customers' && (
-            <div className="admin-customers-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* Toolbar & Filters */}
-              <div className="admin-card admin-card--wide" style={{ padding: '16px 20px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div className="inventory-filters-tabs">
-                    <button
-                      className={`inventory-filter-btn ${customerSegmentFilter === 'all' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setCustomerSegmentFilter('all')}
-                    >
-                      All Customers <span className="inventory-badge-count">{liveCustomers?.length || 0}</span>
-                    </button>
-                    <button
-                      className={`inventory-filter-btn ${customerSegmentFilter === 'VIP' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setCustomerSegmentFilter('VIP')}
-                    >
-                      🌟 VIP / High-Value <span className="inventory-badge-count">{liveCustomers?.filter(c => c.segment === 'VIP').length || 0}</span>
-                    </button>
-                    <button
-                      className={`inventory-filter-btn ${customerSegmentFilter === 'Returning' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setCustomerSegmentFilter('Returning')}
-                    >
-                      🔁 Returning <span className="inventory-badge-count">{liveCustomers?.filter(c => c.segment === 'Returning').length || 0}</span>
-                    </button>
-                    <button
-                      className={`inventory-filter-btn ${customerSegmentFilter === 'New' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setCustomerSegmentFilter('New')}
-                    >
-                      🌱 New <span className="inventory-badge-count">{liveCustomers?.filter(c => c.segment === 'New').length || 0}</span>
-                    </button>
-                    <button
-                      className={`inventory-filter-btn ${customerSegmentFilter === 'Inactive' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setCustomerSegmentFilter('Inactive')}
-                    >
-                      💤 Inactive (30d+) <span className="inventory-badge-count">{liveCustomers?.filter(c => c.segment === 'Inactive').length || 0}</span>
-                    </button>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                    <div className="admin-search-label" style={{ flex: 1, minWidth: '280px', maxWidth: '500px' }}>
-                      <FiSearch />
-                      <input
-                        placeholder="Search by customer name, email or phone..."
-                        value={customerSearchQuery}
-                        onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                        style={{ width: '100%' }}
-                      />
-                    </div>
-                    <button className="admin__ghost" onClick={loadCustomers}>
-                      <FiRefreshCw size={13} /> Refresh Customers
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Customer Cards Grid */}
-              <div className="admin-customer-grid">
-                {filteredCustomers.length === 0 ? (
-                  <div className="admin-card admin-card--wide" style={{ textAlign: 'center', padding: '36px', color: '#687466', gridColumn: '1 / -1' }}>
-                    No customer accounts found matching your filter.
-                  </div>
-                ) : filteredCustomers.map(customer => {
-                  const initial = (customer.name || customer.email || 'C')[0].toUpperCase();
-
-                  return (
-                    <div key={customer.id} className="admin-customer-card">
-                      <div className="admin-customer-card__header">
-                        <div className="admin-customer-avatar">{initial}</div>
-                        <div style={{ flex: 1, overflow: 'hidden' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                            <strong style={{ fontSize: '13.5px', color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {customer.name || 'Customer'}
-                            </strong>
-                            <span className={`admin-segment-pill admin-segment-pill--${(customer.segment || 'new').toLowerCase()}`}>
-                              {customer.segment === 'VIP' ? '🌟 VIP' : (customer.segment || 'New')}
-                            </span>
-                          </div>
-                          <span style={{ fontSize: '11.5px', color: '#687466', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {customer.email}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Stats Row */}
-                      <div className="admin-customer-stats-row">
-                        <div>
-                          <span>Total Spent</span>
-                          <strong>{formatPrice(customer.totalSpent || 0)}</strong>
-                        </div>
-                        <div>
-                          <span>Orders</span>
-                          <strong>{customer.ordersCount || 0}</strong>
-                        </div>
-                        <div>
-                          <span>Avg Order</span>
-                          <strong>{formatPrice(customer.averageOrderValue || 0)}</strong>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: '#687466' }}>
-                        <span>Phone: {customer.phone || '—'}</span>
-                        <span>Joined: {new Date(customer.createdAt).toLocaleDateString('en-IN')}</span>
-                      </div>
-
-                      {/* Action buttons */}
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
-                        <button
-                          type="button"
-                          className="admin__ghost"
-                          style={{ flex: 1, height: '32px', fontSize: '11.5px' }}
-                          onClick={() => setSelectedCustomerModal(customer)}
-                        >
-                          <FiEye size={12} /> View Profile & History
-                        </button>
-                        <button
-                          type="button"
-                          className="admin__primary"
-                          style={{ height: '32px', padding: '0 12px', fontSize: '11.5px' }}
-                          onClick={() => {
-                            setActiveTab('broadcast');
-                            setBroadcastSubject(`Special Offer for ${customer.name || 'Valued Customer'}`);
-                            setSelectedBroadcastEmails([customer.email]);
-                          }}
-                        >
-                          <FiMail size={12} /> Message
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* =========================================================
-                 MODAL: CUSTOMER PROFILE & ORDER HISTORY
-                 ========================================================= */}
-              {selectedCustomerModal && (
-                <div className="inventory-modal-backdrop" onClick={() => setSelectedCustomerModal(null)}>
-                  <div className="inventory-modal" style={{ maxWidth: '780px' }} onClick={e => e.stopPropagation()}>
-                    <div className="inventory-modal__header">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div className="admin-customer-avatar">
-                          {(selectedCustomerModal.name || selectedCustomerModal.email || 'C')[0].toUpperCase()}
-                        </div>
-                        <div>
-                          <h2 style={{ margin: 0 }}>{selectedCustomerModal.name || 'Customer Profile'}</h2>
-                          <span style={{ fontSize: '11.5px', color: '#687466' }}>{selectedCustomerModal.email} · Phone: {selectedCustomerModal.phone || 'Not provided'}</span>
-                        </div>
-                      </div>
-                      <button className="inventory-modal__close" onClick={() => setSelectedCustomerModal(null)}>✕</button>
-                    </div>
-
-                    <div className="inventory-modal__body" style={{ gap: '14px' }}>
-                      {/* Customer Metrics */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', background: '#FAF9F5', padding: '12px', borderRadius: '10px' }}>
-                        <div>
-                          <span style={{ fontSize: '10.5px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Total Spent</span>
-                          <strong style={{ display: 'block', fontSize: '15px', color: '#1C4B12' }}>{formatPrice(selectedCustomerModal.totalSpent || 0)}</strong>
-                        </div>
-                        <div>
-                          <span style={{ fontSize: '10.5px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Total Orders</span>
-                          <strong style={{ display: 'block', fontSize: '15px' }}>{selectedCustomerModal.ordersCount || 0}</strong>
-                        </div>
-                        <div>
-                          <span style={{ fontSize: '10.5px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Average Order</span>
-                          <strong style={{ display: 'block', fontSize: '15px' }}>{formatPrice(selectedCustomerModal.averageOrderValue || 0)}</strong>
-                        </div>
-                        <div>
-                          <span style={{ fontSize: '10.5px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Segment</span>
-                          <div style={{ marginTop: '2px' }}>
-                            <span className={`admin-segment-pill admin-segment-pill--${(selectedCustomerModal.segment || 'new').toLowerCase()}`}>
-                              {selectedCustomerModal.segment || 'New'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Order History */}
-                      <div>
-                        <h3 style={{ fontSize: '13px', color: '#1C4B12', margin: '0 0 8px', fontWeight: 800 }}>
-                          Order History ({selectedCustomerModal.orderHistory?.length || 0})
-                        </h3>
-                        {(!selectedCustomerModal.orderHistory || selectedCustomerModal.orderHistory.length === 0) ? (
-                          <p style={{ color: '#687466', fontSize: '12px', padding: '12px 0' }}>No past orders found for this customer.</p>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
-                            {selectedCustomerModal.orderHistory.map(order => (
-                              <div key={order.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: '#FFFFFF', border: '1px solid #E1E6DC', borderRadius: '8px', fontSize: '12px' }}>
-                                <div>
-                                  <strong>Order #{order.id}</strong> <span style={{ color: '#2D5016', fontWeight: 700 }}>BILL-{order.id + 7820}</span>
-                                  <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>
-                                    {new Date(order.createdAt).toLocaleString('en-IN')} · {order.items?.length || 0} items
-                                  </span>
-                                </div>
-                                <div style={{ textAlign: 'right' }}>
-                                  <strong style={{ fontSize: '13px', display: 'block' }}>{formatPrice(order.total)}</strong>
-                                  <span className={`admin-order-status-pill admin-order-status-pill--${order.status.toLowerCase().replace(/\s+/g, '-')}`} style={{ fontSize: '10px', padding: '1px 6px' }}>
-                                    {order.status}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="inventory-modal__footer">
-                      <button className="admin__primary" onClick={() => setSelectedCustomerModal(null)}>Close</button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* =========================================================================
-             GROCERY INVENTORY MANAGEMENT MODULE
-             ========================================================================= */}
+          {/* GROCERY INVENTORY HUB */}
           {activeTab === 'inventory' && (
             <div className="admin-inventory-page">
               <div className="inventory-alerts-container">
@@ -2651,31 +3466,18 @@ const Admin = () => {
                   <div className="inventory-alert-banner inventory-alert-banner--danger">
                     <div className="inventory-alert-banner__content">
                       <FiAlertCircle size={20} />
-                      <span><strong>Out of Stock Alert:</strong> {invSummary.outOfStockCount} grocery product(s) have 0 available units and are marked out of stock.</span>
+                      <span><strong>Out of Stock Alert:</strong> {invSummary.outOfStockCount} grocery product(s) have 0 available units.</span>
                     </div>
-                    <button className="inventory-alert-banner__btn" onClick={() => setInventoryFilter('out-of-stock')}>View Out of Stock Items</button>
+                    <button className="inventory-alert-banner__btn" onClick={() => setInventoryFilter('out-of-stock')}>View Out of Stock</button>
                   </div>
                 )}
                 {invSummary.lowStockCount > 0 && (
                   <div className="inventory-alert-banner inventory-alert-banner--warning">
                     <div className="inventory-alert-banner__content">
                       <FiAlertTriangle size={20} />
-                      <span><strong>Low Stock Alert:</strong> {invSummary.lowStockCount} product(s) are at or below their configured reorder threshold.</span>
+                      <span><strong>Low Stock Alert:</strong> {invSummary.lowStockCount} product(s) are at or below reorder threshold.</span>
                     </div>
-                    <button className="inventory-alert-banner__btn" onClick={() => setInventoryFilter('low-stock')}>View Low Stock Items</button>
-                  </div>
-                )}
-                {(invSummary.expiredCount > 0 || invSummary.nearExpiryCount > 0) && (
-                  <div className="inventory-alert-banner inventory-alert-banner--warning" style={{ background: '#FFF7ED', borderColor: '#FDBA74', color: '#C2410C' }}>
-                    <div className="inventory-alert-banner__content">
-                      <FiClock size={20} />
-                      <span>
-                        <strong>Expiry Warning:</strong> {invSummary.expiredCount} expired product(s) & {invSummary.nearExpiryCount} item(s) expiring within 30 days.
-                      </span>
-                    </div>
-                    <button className="inventory-alert-banner__btn" onClick={() => setInventoryFilter(invSummary.expiredCount > 0 ? 'expired' : 'near-expiry')}>
-                      View Expiry Warnings
-                    </button>
+                    <button className="inventory-alert-banner__btn" onClick={() => setInventoryFilter('low-stock')}>View Low Stock</button>
                   </div>
                 )}
               </div>
@@ -2718,16 +3520,6 @@ const Admin = () => {
                 </div>
               </section>
 
-              <div className="inventory-breakdown-bar">
-                <span className="inventory-breakdown-title">Stock Status:</span>
-                <span className="inventory-pill inventory-pill--available">Available: {invSummary.totalAvailableUnits}</span>
-                <span className="inventory-pill inventory-pill--reserved">Reserved in Orders: {invSummary.totalReservedUnits}</span>
-                <span className="inventory-pill inventory-pill--damaged">Damaged: {invSummary.totalDamagedUnits}</span>
-                <span className="inventory-pill inventory-pill--returned">Returned: {invSummary.totalReturnedUnits}</span>
-                <span className="inventory-pill inventory-pill--expired">Expired: {invSummary.totalExpiredUnits}</span>
-                <span className="inventory-pill inventory-pill--incoming">Incoming Shipment: {invSummary.totalIncomingUnits}</span>
-              </div>
-
               <div className="admin-card admin-card--wide" style={{ padding: '16px 20px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div className="inventory-filters-tabs">
@@ -2748,24 +3540,6 @@ const Admin = () => {
                       onClick={() => setInventoryFilter('out-of-stock')}
                     >
                       ❌ Out of Stock <span className="inventory-badge-count">{invSummary.outOfStockCount}</span>
-                    </button>
-                    <button
-                      className={`inventory-filter-btn ${inventoryFilter === 'near-expiry' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setInventoryFilter('near-expiry')}
-                    >
-                      ⏳ Near Expiry <span className="inventory-badge-count">{invSummary.nearExpiryCount}</span>
-                    </button>
-                    <button
-                      className={`inventory-filter-btn ${inventoryFilter === 'expired' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setInventoryFilter('expired')}
-                    >
-                      ⛔ Expired <span className="inventory-badge-count">{invSummary.expiredCount}</span>
-                    </button>
-                    <button
-                      className={`inventory-filter-btn ${inventoryFilter === 'incoming' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setInventoryFilter('incoming')}
-                    >
-                      📦 Incoming <span className="inventory-badge-count">{invSummary.totalIncomingUnits}</span>
                     </button>
                     <button
                       className={`inventory-filter-btn ${inventoryFilter === 'logs' ? 'inventory-filter-btn--active' : ''}`}
@@ -2826,20 +3600,19 @@ const Admin = () => {
                         <th>INCOMING</th>
                         <th>UNIT COST / VALUE</th>
                         <th>REORDER LEVEL</th>
-                        <th>EXPIRY DATE</th>
                         <th style={{ textAlign: 'center' }}>ACTIONS</th>
                       </tr>
                     </thead>
                     <tbody>
                       {inventoryLoading ? (
                         <tr>
-                          <td colSpan="10" style={{ textAlign: 'center', padding: '36px', color: '#687466' }}>
+                          <td colSpan="9" style={{ textAlign: 'center', padding: '36px', color: '#687466' }}>
                             Loading live inventory tracking...
                           </td>
                         </tr>
                       ) : filteredInventoryItems.length === 0 ? (
                         <tr>
-                          <td colSpan="10" style={{ textAlign: 'center', padding: '36px', color: '#687466' }}>
+                          <td colSpan="9" style={{ textAlign: 'center', padding: '36px', color: '#687466' }}>
                             No inventory items matching your filter/search.
                           </td>
                         </tr>
@@ -2853,11 +3626,6 @@ const Admin = () => {
                                 <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>
                                   {item.brand ? `${item.brand} · ` : ''}{item.weight}{item.unit} · SKU #{item.productId}
                                 </span>
-                                {item.batchNumber && (
-                                  <span style={{ fontSize: '10px', background: '#F3F4F6', color: '#374151', padding: '1px 5px', borderRadius: '4px', display: 'inline-block', marginTop: '2px' }}>
-                                    Batch: {item.batchNumber}
-                                  </span>
-                                )}
                               </div>
                             </div>
                           </td>
@@ -2866,9 +3634,6 @@ const Admin = () => {
                             <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'capitalize', color: '#2D5016' }}>
                               {item.category}
                             </span>
-                            {item.isWholesale && (
-                              <span style={{ display: 'block', fontSize: '10px', color: '#FF6B35', fontWeight: '800' }}>Wholesale</span>
-                            )}
                           </td>
 
                           <td>
@@ -2877,64 +3642,24 @@ const Admin = () => {
                             </span>
                           </td>
 
-                          <td>
-                            {item.reservedStock > 0 ? (
-                              <span className="inventory-pill inventory-pill--reserved">{item.reservedStock} units</span>
-                            ) : (
-                              <span style={{ color: '#9CA3AF', fontSize: '12px' }}>0</span>
-                            )}
-                          </td>
+                          <td>{item.reservedStock > 0 ? `${item.reservedStock} units` : 0}</td>
 
                           <td>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px' }}>
-                              {item.damagedStock > 0 && <span style={{ color: '#9D174D' }}>Damaged: <strong>{item.damagedStock}</strong></span>}
-                              {item.returnedStock > 0 && <span style={{ color: '#6B21A8' }}>Returned: <strong>{item.returnedStock}</strong></span>}
-                              {item.expiredStock > 0 && <span style={{ color: '#7F1D1D' }}>Expired: <strong>{item.expiredStock}</strong></span>}
-                              {item.damagedStock === 0 && item.returnedStock === 0 && item.expiredStock === 0 && <span style={{ color: '#9CA3AF' }}>0</span>}
+                              {item.damagedStock > 0 && <span style={{ color: '#9D174D' }}>Damaged: {item.damagedStock}</span>}
+                              {item.returnedStock > 0 && <span style={{ color: '#6B21A8' }}>Returned: {item.returnedStock}</span>}
+                              {item.damagedStock === 0 && item.returnedStock === 0 && <span style={{ color: '#9CA3AF' }}>0</span>}
                             </div>
                           </td>
 
-                          <td>
-                            {item.incomingStock > 0 ? (
-                              <span className="inventory-pill inventory-pill--incoming">+{item.incomingStock}</span>
-                            ) : (
-                              <span style={{ color: '#9CA3AF', fontSize: '12px' }}>0</span>
-                            )}
-                          </td>
+                          <td>{item.incomingStock > 0 ? `+${item.incomingStock}` : 0}</td>
 
                           <td>
                             <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>Cost: {formatPrice(item.costPrice)}</span>
                             <span style={{ fontSize: '11px', color: '#2D5016', display: 'block' }}>Sell: {formatPrice(item.price)}</span>
-                            <strong style={{ fontSize: '12px', color: '#111827' }}>Val: {formatPrice(item.stockValuation)}</strong>
                           </td>
 
-                          <td>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                              <span style={{ fontSize: '12px', fontWeight: '700' }}>{item.reorderLevel} units</span>
-                              {item.isLowStock && (
-                                <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '800' }}>⚠️ Reorder Now</span>
-                              )}
-                            </div>
-                          </td>
-
-                          <td>
-                            {item.expiryDate ? (
-                              <div>
-                                <span style={{ fontSize: '11.5px', fontWeight: '600' }}>{item.expiryDate}</span>
-                                {item.isExpired ? (
-                                  <span style={{ display: 'block', fontSize: '10px', color: '#DC2626', fontWeight: '800' }}>⛔ Expired</span>
-                                ) : item.isNearExpiry ? (
-                                  <span style={{ display: 'block', fontSize: '10px', color: '#EA580C', fontWeight: '800' }}>
-                                    ⏳ {item.daysUntilExpiry}d left
-                                  </span>
-                                ) : (
-                                  <span style={{ display: 'block', fontSize: '10px', color: '#16A34A', fontWeight: '700' }}>Good</span>
-                                )}
-                              </div>
-                            ) : (
-                              <span style={{ color: '#9CA3AF', fontSize: '11px' }}>Not Set</span>
-                            )}
-                          </td>
+                          <td>{item.reorderLevel} units</td>
 
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
@@ -2954,25 +3679,6 @@ const Admin = () => {
                               >
                                 Adjust
                               </button>
-
-                              <button
-                                className="admin__ghost"
-                                style={{ height: '32px', padding: '0 8px', fontSize: '11px', borderRadius: '6px' }}
-                                onClick={() => {
-                                  setReorderModalItem(item);
-                                  setReorderForm({
-                                    reorderLevel: item.reorderLevel,
-                                    costPrice: item.costPrice,
-                                    expiryDate: item.expiryDate || '',
-                                    batchNumber: item.batchNumber || '',
-                                    location: item.location || 'Main Shelf',
-                                    incomingStock: item.incomingStock || 0
-                                  });
-                                }}
-                              >
-                                <FiSliders size={13} />
-                              </button>
-
                               <button
                                 className="admin__ghost"
                                 style={{ height: '32px', padding: '0 8px', fontSize: '11px', borderRadius: '6px' }}
@@ -2990,79 +3696,42 @@ const Admin = () => {
               ) : (
                 <div className="admin-card admin-card--wide">
                   <div className="admin-card__toolbar">
-                    <div>
-                      <h2 style={{ margin: 0 }}>Stock Movement & Adjustment History</h2>
-                      <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
-                        Complete audit trail of all manual adjustments, purchase deliveries, and status changes.
-                      </p>
-                    </div>
+                    <h2>Stock Movement & Adjustment History</h2>
                     <button className="admin__ghost" onClick={loadInventoryLogs}>
                       <FiRefreshCw size={13} /> Refresh Logs
                     </button>
                   </div>
 
-                  {logsLoading ? (
-                    <p style={{ color: '#687466', padding: '24px 0', textAlign: 'center' }}>Loading audit logs...</p>
-                  ) : inventoryLogs.length === 0 ? (
-                    <p style={{ color: '#687466', padding: '24px 0', textAlign: 'center' }}>No stock movement logs recorded yet.</p>
-                  ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                      <table className="inventory-table">
-                        <thead>
-                          <tr>
-                            <th>DATE & TIME</th>
-                            <th>PRODUCT</th>
-                            <th>ACTION / EVENT</th>
-                            <th>QTY</th>
-                            <th>STOCK BEFORE ➔ AFTER</th>
-                            <th>REASON</th>
-                            <th>NOTES</th>
-                            <th>ADMIN USER</th>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="inventory-table">
+                      <thead>
+                        <tr>
+                          <th>DATE & TIME</th>
+                          <th>PRODUCT</th>
+                          <th>ACTION</th>
+                          <th>QTY</th>
+                          <th>BEFORE ➔ AFTER</th>
+                          <th>REASON</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {inventoryLogs.map(log => (
+                          <tr key={log.id}>
+                            <td style={{ fontSize: '11.5px', color: '#687466' }}>{new Date(log.createdAt).toLocaleString('en-IN')}</td>
+                            <td><strong>{log.productName}</strong></td>
+                            <td>{log.changeType}</td>
+                            <td><strong>{log.quantity > 0 ? `+${log.quantity}` : log.quantity}</strong></td>
+                            <td>{log.stockBefore} ➔ {log.stockAfter}</td>
+                            <td>{log.reason}</td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {inventoryLogs.map(log => (
-                            <tr key={log.id}>
-                              <td style={{ fontSize: '11.5px', color: '#687466', whiteSpace: 'nowrap' }}>
-                                {new Date(log.createdAt).toLocaleString('en-IN')}
-                              </td>
-                              <td>
-                                <strong>{log.productName}</strong>
-                                <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>ID #{log.productId}</span>
-                              </td>
-                              <td>
-                                <span style={{
-                                  padding: '2px 8px',
-                                  borderRadius: '6px',
-                                  fontSize: '10.5px',
-                                  fontWeight: '800',
-                                  background: log.changeType === 'ADD' ? '#ECFDF5' : (log.changeType === 'DAMAGE' || log.changeType === 'EXPIRED' ? '#FEF2F2' : '#F3F4F6'),
-                                  color: log.changeType === 'ADD' ? '#065F46' : (log.changeType === 'DAMAGE' || log.changeType === 'EXPIRED' ? '#991B1B' : '#374151')
-                                }}>
-                                  {log.changeType}
-                                </span>
-                              </td>
-                              <td style={{ fontWeight: '800', fontSize: '13px', color: '#111827' }}>
-                                {log.quantity > 0 ? `+${log.quantity}` : log.quantity}
-                              </td>
-                              <td>
-                                <span style={{ fontSize: '12px', fontWeight: '700', color: '#2D5016' }}>
-                                  {log.stockBefore} ➔ {log.stockAfter}
-                                </span>
-                              </td>
-                              <td style={{ fontSize: '12px' }}>{log.reason}</td>
-                              <td style={{ fontSize: '11px', color: '#687466' }}>{log.notes || '—'}</td>
-                              <td style={{ fontSize: '12px', fontWeight: '600' }}>{log.adminName}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
 
-              {/* MODAL 1: STOCK ADJUSTMENT */}
+              {/* MODALS FOR INVENTORY */}
               {adjustModalItem && (
                 <div className="inventory-modal-backdrop" onClick={() => setAdjustModalItem(null)}>
                   <div className="inventory-modal" onClick={e => e.stopPropagation()}>
@@ -3075,9 +3744,7 @@ const Admin = () => {
                       <div className="inventory-modal__body">
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                           <div>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
-                              Adjustment Type
-                            </label>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '4px' }}>Type</label>
                             <select
                               className="admin-input-box"
                               value={adjustForm.changeType}
@@ -3086,38 +3753,30 @@ const Admin = () => {
                                 setAdjustForm(prev => ({
                                   ...prev,
                                   changeType: val,
-                                  targetField: val === 'DAMAGE' ? 'damagedStock' : (val === 'EXPIRED' ? 'expiredStock' : (val === 'RETURN' ? 'returnedStock' : 'availableStock')),
-                                  reason: val === 'ADD' ? 'Purchase / New Stock Received' : (val === 'DAMAGE' ? 'Damaged in transit / handling' : (val === 'EXPIRED' ? 'Expired Batch Removed' : (val === 'RETURN' ? 'Customer Order Return' : 'Physical Stock Audit Correction')))
+                                  targetField: val === 'DAMAGE' ? 'damagedStock' : (val === 'EXPIRED' ? 'expiredStock' : 'availableStock'),
+                                  reason: val === 'ADD' ? 'Purchase / New Stock Received' : (val === 'DAMAGE' ? 'Damaged in transit' : 'Audit Correction')
                                 }));
                               }}
                             >
-                              <option value="ADD">➕ Add Stock (Purchase / Arrival)</option>
-                              <option value="SET">📝 Set Exact Count (Stock Audit)</option>
+                              <option value="ADD">➕ Add Stock</option>
+                              <option value="SET">📝 Set Exact Count</option>
                               <option value="DAMAGE">⚠️ Record Damaged Goods</option>
                               <option value="EXPIRED">⛔ Record Expired Goods</option>
-                              <option value="RETURN">↩️ Record Customer Return</option>
                             </select>
                           </div>
-
                           <div>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
-                              Quantity
-                            </label>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '4px' }}>Quantity</label>
                             <input
                               type="number"
                               className="admin-input-box"
-                              placeholder="e.g. 25"
                               value={adjustForm.quantity}
                               onChange={(e) => setAdjustForm(prev => ({ ...prev, quantity: e.target.value }))}
                               required
                             />
                           </div>
                         </div>
-
                         <div>
-                          <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
-                            Reason / Reference
-                          </label>
+                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '4px' }}>Reason</label>
                           <input
                             type="text"
                             className="admin-input-box"
@@ -3126,115 +3785,16 @@ const Admin = () => {
                             required
                           />
                         </div>
-
-                        <div>
-                          <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
-                            Notes (Optional)
-                          </label>
-                          <textarea
-                            rows={2}
-                            className="admin-input-box"
-                            placeholder="e.g. Invoice #PO-9821, received from Daawat vendor"
-                            value={adjustForm.notes}
-                            onChange={(e) => setAdjustForm(prev => ({ ...prev, notes: e.target.value }))}
-                          />
-                        </div>
                       </div>
-
                       <div className="inventory-modal__footer">
-                        <button type="button" className="admin__ghost" onClick={() => setAdjustModalItem(null)}>
-                          Cancel
-                        </button>
-                        <button type="submit" className="admin__primary" disabled={adjustLoading}>
-                          {adjustLoading ? 'Updating Stock...' : 'Confirm Adjustment'}
-                        </button>
+                        <button type="button" className="admin__ghost" onClick={() => setAdjustModalItem(null)}>Cancel</button>
+                        <button type="submit" className="admin__primary" disabled={adjustLoading}>Confirm</button>
                       </div>
                     </form>
                   </div>
                 </div>
               )}
 
-              {/* MODAL 2: REORDER CONFIG */}
-              {reorderModalItem && (
-                <div className="inventory-modal-backdrop" onClick={() => setReorderModalItem(null)}>
-                  <div className="inventory-modal" onClick={e => e.stopPropagation()}>
-                    <div className="inventory-modal__header">
-                      <h2>Inventory Settings — {reorderModalItem.name}</h2>
-                      <button className="inventory-modal__close" onClick={() => setReorderModalItem(null)}>✕</button>
-                    </div>
-
-                    <form onSubmit={handleReorderConfigSave}>
-                      <div className="inventory-modal__body">
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
-                              Reorder Level (Alert Threshold)
-                            </label>
-                            <input
-                              type="number"
-                              className="admin-input-box"
-                              value={reorderForm.reorderLevel}
-                              onChange={(e) => setReorderForm(prev => ({ ...prev, reorderLevel: e.target.value }))}
-                              required
-                            />
-                          </div>
-
-                          <div>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
-                              Cost / Purchase Price (₹)
-                            </label>
-                            <input
-                              type="number"
-                              className="admin-input-box"
-                              value={reorderForm.costPrice}
-                              onChange={(e) => setReorderForm(prev => ({ ...prev, costPrice: e.target.value }))}
-                              required
-                            />
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
-                              Batch / Lot Number
-                            </label>
-                            <input
-                              type="text"
-                              className="admin-input-box"
-                              placeholder="e.g. BAT-2026-09"
-                              value={reorderForm.batchNumber}
-                              onChange={(e) => setReorderForm(prev => ({ ...prev, batchNumber: e.target.value }))}
-                            />
-                          </div>
-
-                          <div>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
-                              Expiry Date
-                            </label>
-                            <input
-                              type="date"
-                              className="admin-input-box"
-                              value={reorderForm.expiryDate}
-                              onChange={(e) => setReorderForm(prev => ({ ...prev, expiryDate: e.target.value }))}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="inventory-modal__footer">
-                        <button type="button" className="admin__ghost" onClick={() => setReorderModalItem(null)}>
-                          Cancel
-                        </button>
-                        <button type="submit" className="admin__primary" disabled={reorderLoading}>
-                          {reorderLoading ? 'Saving...' : 'Save Settings'}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
-
-              {/* MODAL 3: HISTORY */}
               {historyModalItem && (
                 <div className="inventory-modal-backdrop" onClick={() => setHistoryModalItem(null)}>
                   <div className="inventory-modal" onClick={e => e.stopPropagation()}>
@@ -3242,38 +3802,22 @@ const Admin = () => {
                       <h2>Movement History — {historyModalItem.name}</h2>
                       <button className="inventory-modal__close" onClick={() => setHistoryModalItem(null)}>✕</button>
                     </div>
-
                     <div className="inventory-modal__body">
-                      {historyLoading ? (
-                        <p style={{ textAlign: 'center', padding: '24px 0', color: '#687466' }}>Loading transaction history...</p>
-                      ) : historyLogs.length === 0 ? (
-                        <p style={{ textAlign: 'center', padding: '24px 0', color: '#687466' }}>No adjustment transactions recorded yet for this product.</p>
-                      ) : (
-                        <div className="inventory-timeline">
-                          {historyLogs.map(log => (
-                            <div key={log.id} className="inventory-timeline-item">
-                              <div className="inventory-timeline-item__header">
-                                <span style={{ fontSize: '12px', fontWeight: '800', color: '#1C4B12' }}>
-                                  {log.reason} ({log.changeType})
-                                </span>
-                                <span style={{ fontSize: '11px', color: '#687466' }}>
-                                  {new Date(log.createdAt).toLocaleString('en-IN')}
-                                </span>
-                              </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: '2px' }}>
-                                <span>Quantity: <strong>{log.quantity > 0 ? `+${log.quantity}` : log.quantity}</strong></span>
-                                <span>Stock: <strong>{log.stockBefore} ➔ {log.stockAfter}</strong></span>
-                              </div>
-                            </div>
-                          ))}
+                      {historyLogs.map(log => (
+                        <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #eee', fontSize: '12px' }}>
+                          <div>
+                            <strong>{log.reason} ({log.changeType})</strong>
+                            <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>{new Date(log.createdAt).toLocaleString('en-IN')}</span>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <strong>{log.quantity > 0 ? `+${log.quantity}` : log.quantity}</strong>
+                            <span style={{ fontSize: '11px', color: '#2D5016', display: 'block' }}>{log.stockBefore} ➔ {log.stockAfter}</span>
+                          </div>
                         </div>
-                      )}
+                      ))}
                     </div>
-
                     <div className="inventory-modal__footer">
-                      <button className="admin__primary" onClick={() => setHistoryModalItem(null)}>
-                        Close
-                      </button>
+                      <button className="admin__primary" onClick={() => setHistoryModalItem(null)}>Close</button>
                     </div>
                   </div>
                 </div>
@@ -3281,9 +3825,7 @@ const Admin = () => {
             </div>
           )}
 
-          {/* =========================================================================
-             GROCERY PRODUCT MANAGEMENT (RETAIL & WHOLESALE)
-             ========================================================================= */}
+          {/* GROCERY PRODUCTS (RETAIL / WHOLESALE) */}
           {(activeTab === 'retail-products' || activeTab === 'wholesale-products') && (
             <section className="admin-workspace">
               <form className="admin-form" onSubmit={saveProduct}>
@@ -3300,404 +3842,69 @@ const Admin = () => {
                   <h3 className="admin-form-section__title"><FiPackage /> 1. General Product Information</h3>
                   <div className="admin-form__grid">
                     <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Product Name *</label>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Product Name *</label>
                       <input value={productDraft.name} onChange={(e) => setProductDraft(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g. Dawat Lovely Gold Biryani Rice" required />
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Category *</label>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Category *</label>
                       <select value={productDraft.category} onChange={(e) => setProductDraft(prev => ({ ...prev, category: e.target.value }))}>
                         {(dbCategories.length ? dbCategories : categories).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
                       </select>
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Subcategory</label>
-                      <input value={productDraft.subcategory || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, subcategory: e.target.value }))} placeholder="e.g. Basmati Rice, Sunflower Oil, Toor Dal" />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Brand</label>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Brand</label>
                       <input value={productDraft.brand || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, brand: e.target.value }))} placeholder="e.g. Daawat, Fortune, Siri Select" required />
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Pack Size / Weight</label>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Pack Size / Weight</label>
                       <input value={productDraft.weight || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, weight: e.target.value }))} placeholder="e.g. 500, 1, 5" />
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Unit of Measure</label>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Unit</label>
                       <select value={productDraft.unit || 'g'} onChange={(e) => setProductDraft(prev => ({ ...prev, unit: e.target.value }))}>
                         <option value="g">Grams (g)</option>
                         <option value="kg">Kilograms (kg)</option>
                         <option value="ml">Millilitres (ml)</option>
                         <option value="L">Litres (L)</option>
                         <option value="pcs">Pieces (pcs)</option>
-                        <option value="pack">Pack</option>
-                        <option value="box">Box</option>
-                        <option value="bottle">Bottle</option>
-                        <option value="can">Can</option>
                       </select>
                     </div>
 
                     <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#111827' }}>SKU Code</label>
-                        <button
-                          type="button"
-                          style={{ background: 'transparent', border: 'none', color: '#2D5016', fontSize: '11px', fontWeight: '800', cursor: 'pointer', padding: 0 }}
-                          onClick={() => setProductDraft(prev => ({ ...prev, sku: genSku(prev.category) }))}
-                        >
-                          ⚡ Auto-Gen
-                        </button>
-                      </div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>SKU Code</label>
                       <input value={productDraft.sku || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, sku: e.target.value }))} placeholder="e.g. SIRI-RIC-0021" />
-                    </div>
-
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#111827' }}>Barcode (EAN/UPC)</label>
-                        <button
-                          type="button"
-                          style={{ background: 'transparent', border: 'none', color: '#2D5016', fontSize: '11px', fontWeight: '800', cursor: 'pointer', padding: 0 }}
-                          onClick={() => setProductDraft(prev => ({ ...prev, barcode: genBarcode() }))}
-                        >
-                          ⚡ Auto-Gen
-                        </button>
-                      </div>
-                      <input value={productDraft.barcode || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, barcode: e.target.value }))} placeholder="e.g. 8901234567890" />
                     </div>
                   </div>
 
                   <div style={{ marginTop: '8px' }}>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Product Image URL</label>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Product Image URL</label>
                     <input value={productDraft.image || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, image: e.target.value }))} placeholder="https://images.unsplash.com/..." />
                     <label className="admin-file-input" style={{ marginTop: '6px' }}>
                       <span>Or choose image from device</span>
                       <input type="file" accept="image/*" onChange={handleImageUpload} />
                     </label>
                   </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Description</label>
-                    <textarea value={productDraft.description || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, description: e.target.value }))} placeholder="Fresh basmati rice for daily cooking." rows="2" />
-                  </div>
                 </div>
 
                 <div className="admin-form-section">
-                  <h3 className="admin-form-section__title"><FiDollarSign /> 2. Pricing, Cost & Profit Margin Tracking</h3>
+                  <h3 className="admin-form-section__title"><FiDollarSign /> 2. Pricing & Cost</h3>
                   <div className="admin-form__grid">
                     <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Selling Price (₹) *</label>
-                      <input value={productDraft.price} onChange={(e) => setProductDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="e.g. 420" type="number" required />
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Selling Price (₹) *</label>
+                      <input value={productDraft.price} onChange={(e) => setProductDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="420" type="number" required />
                     </div>
-
                     <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>MRP / Market Price (₹)</label>
-                      <input value={productDraft.mrp} onChange={(e) => setProductDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="e.g. 490" type="number" />
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>MRP (₹)</label>
+                      <input value={productDraft.mrp} onChange={(e) => setProductDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="490" type="number" />
                     </div>
-
                     <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Cost Price / Purchase Price (₹)</label>
-                      <input value={productDraft.costPrice} onChange={(e) => setProductDraft(prev => ({ ...prev, costPrice: e.target.value }))} placeholder="e.g. 330" type="number" />
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Cost Price (₹)</label>
+                      <input value={productDraft.costPrice} onChange={(e) => setProductDraft(prev => ({ ...prev, costPrice: e.target.value }))} placeholder="330" type="number" />
                     </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>GST / Tax Rate</label>
-                      <select value={productDraft.gstRate || '0'} onChange={(e) => setProductDraft(prev => ({ ...prev, gstRate: e.target.value }))}>
-                        <option value="0">0% — Exempt / Fresh Produce</option>
-                        <option value="5">5% — Essential Packaged Foods</option>
-                        <option value="12">12% — Processed Grocery / Butter / Ghee</option>
-                        <option value="18">18% — Packaged Snacks / Branded Goods</option>
-                        <option value="28">28% — Luxury / Aerated Goods</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>HSN Code</label>
-                      <input value={productDraft.hsnCode || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, hsnCode: e.target.value }))} placeholder="e.g. 1006 (Rice), 1512 (Oil), 0713 (Pulses)" />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Discount %</label>
-                      <input value={productDraft.discount} onChange={(e) => setProductDraft(prev => ({ ...prev, discount: e.target.value }))} placeholder="e.g. 14" type="number" />
-                    </div>
-                  </div>
-
-                  {currSellPrice > 0 && currCostPrice > 0 && (
-                    <div className="admin-profit-card" style={{ marginTop: '8px' }}>
-                      <div>
-                        <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Profit per Unit</span>
-                        <strong style={{ display: 'block', fontSize: '16px', color: currProfitAmount >= 0 ? '#15803D' : '#DC2626' }}>
-                          {formatPrice(currProfitAmount)}
-                        </strong>
-                      </div>
-                      <div>
-                        <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Profit Margin</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <strong style={{ fontSize: '16px', color: '#111827' }}>{currProfitMarginPct}%</strong>
-                          <span className={`admin-profit-pill ${currProfitMarginPct >= 20 ? 'admin-profit-pill--high' : (currProfitMarginPct >= 10 ? 'admin-profit-pill--med' : 'admin-profit-pill--low')}`}>
-                            {currProfitMarginPct >= 20 ? '🔥 High Margin' : (currProfitMarginPct >= 10 ? '⚖️ Balanced' : '⚠️ Low Margin')}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="admin-form-section">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <h3 className="admin-form-section__title" style={{ border: 'none', padding: 0 }}><FiGrid /> 3. Pack-Size & Unit Variants</h3>
-                    <button
-                      type="button"
-                      className="admin__ghost"
-                      style={{ height: '30px', fontSize: '11.5px', padding: '0 10px' }}
-                      onClick={() => setDetailedVariants(prev => [
-                        ...prev,
-                        {
-                          id: `var-${Date.now()}`,
-                          label: '',
-                          packSize: '',
-                          unit: productDraft.unit || 'g',
-                          price: '',
-                          mrp: '',
-                          costPrice: '',
-                          stock: 50,
-                          sku: genSku(productDraft.category),
-                          barcode: genBarcode(),
-                          inStock: true
-                        }
-                      ])}
-                    >
-                      <FiPlus /> Add Variant
-                    </button>
-                  </div>
-
-                  <div>
-                    <span style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#687466', marginBottom: '6px' }}>Quick Add Preset Pack Sizes:</span>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {groceryUnitPresets.map(preset => {
-                        const isAdded = detailedVariants.some(v => v.label === preset);
-                        return (
-                          <button
-                            key={preset}
-                            type="button"
-                            style={{
-                              padding: '3px 9px',
-                              borderRadius: '16px',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              border: isAdded ? '1px solid #2D5016' : '1px solid #DCE3D8',
-                              background: isAdded ? '#E8F5E9' : '#FFFFFF',
-                              color: isAdded ? '#2D5016' : '#4B5563'
-                            }}
-                            onClick={() => {
-                              if (isAdded) {
-                                setDetailedVariants(prev => prev.filter(v => v.label !== preset));
-                              } else {
-                                setDetailedVariants(prev => [
-                                  ...prev,
-                                  {
-                                    id: `var-${Date.now()}-${preset}`,
-                                    label: preset,
-                                    packSize: preset.split(' ')[0] || '',
-                                    unit: preset.split(' ')[1] || 'g',
-                                    price: '',
-                                    mrp: '',
-                                    costPrice: '',
-                                    stock: 50,
-                                    sku: `${genSku(productDraft.category)}-${preset.replace(/\s+/g, '')}`,
-                                    barcode: genBarcode(),
-                                    inStock: true
-                                  }
-                                ]);
-                              }
-                            }}
-                          >
-                            {isAdded ? `✓ ${preset}` : `+ ${preset}`}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {detailedVariants.length > 0 && (
-                    <div className="admin-variant-table-wrap" style={{ marginTop: '8px' }}>
-                      <table className="admin-variant-table">
-                        <thead>
-                          <tr>
-                            <th>VARIANT SIZE</th>
-                            <th>PRICE (₹)</th>
-                            <th>MRP (₹)</th>
-                            <th>COST (₹)</th>
-                            <th>STOCK</th>
-                            <th>SKU</th>
-                            <th>STATUS</th>
-                            <th>ACTION</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {detailedVariants.map((variant, idx) => (
-                            <tr key={variant.id || idx}>
-                              <td>
-                                <input
-                                  placeholder="e.g. 1 kg"
-                                  value={variant.label}
-                                  style={{ width: '90px' }}
-                                  onChange={(e) => {
-                                    const next = [...detailedVariants];
-                                    next[idx] = { ...next[idx], label: e.target.value };
-                                    setDetailedVariants(next);
-                                  }}
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  placeholder="Price"
-                                  value={variant.price}
-                                  style={{ width: '70px' }}
-                                  onChange={(e) => {
-                                    const next = [...detailedVariants];
-                                    next[idx] = { ...next[idx], price: e.target.value };
-                                    setDetailedVariants(next);
-                                  }}
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  placeholder="MRP"
-                                  value={variant.mrp}
-                                  style={{ width: '70px' }}
-                                  onChange={(e) => {
-                                    const next = [...detailedVariants];
-                                    next[idx] = { ...next[idx], mrp: e.target.value };
-                                    setDetailedVariants(next);
-                                  }}
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  placeholder="Cost"
-                                  value={variant.costPrice}
-                                  style={{ width: '70px' }}
-                                  onChange={(e) => {
-                                    const next = [...detailedVariants];
-                                    next[idx] = { ...next[idx], costPrice: e.target.value };
-                                    setDetailedVariants(next);
-                                  }}
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  placeholder="Stock"
-                                  value={variant.stock}
-                                  style={{ width: '60px' }}
-                                  onChange={(e) => {
-                                    const next = [...detailedVariants];
-                                    next[idx] = { ...next[idx], stock: e.target.value };
-                                    setDetailedVariants(next);
-                                  }}
-                                />
-                              </td>
-                              <td>
-                                <input
-                                  placeholder="SKU"
-                                  value={variant.sku || ''}
-                                  style={{ width: '100px' }}
-                                  onChange={(e) => {
-                                    const next = [...detailedVariants];
-                                    next[idx] = { ...next[idx], sku: e.target.value };
-                                    setDetailedVariants(next);
-                                  }}
-                                />
-                              </td>
-                              <td>
-                                <label style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={variant.inStock !== false}
-                                    onChange={(e) => {
-                                      const next = [...detailedVariants];
-                                      next[idx] = { ...next[idx], inStock: e.target.checked };
-                                      setDetailedVariants(next);
-                                    }}
-                                  />
-                                  <span>{variant.inStock !== false ? 'In' : 'Out'}</span>
-                                </label>
-                              </td>
-                              <td>
-                                <button
-                                  type="button"
-                                  className="admin-danger"
-                                  style={{ width: '28px', height: '28px', borderRadius: '6px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                                  onClick={() => setDetailedVariants(prev => prev.filter((_, i) => i !== idx))}
-                                >
-                                  <FiTrash2 size={12} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-                <div className="admin-form-section">
-                  <h3 className="admin-form-section__title"><FiClock /> 4. Batch, Expiry & Storefront Visibility</h3>
-                  <div className="admin-form__grid">
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Batch / Lot Number</label>
-                      <input value={productDraft.batchNumber || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, batchNumber: e.target.value }))} placeholder="e.g. BAT-2026-09" />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Mfg Date</label>
-                      <input type="date" value={productDraft.mfgDate || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, mfgDate: e.target.value }))} />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Expiry Date</label>
-                      <input type="date" value={productDraft.expiryDate || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, expiryDate: e.target.value }))} />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '4px', color: '#111827' }}>Stock Status Note</label>
-                      <select value={productDraft.stockNote} onChange={(e) => setProductDraft(prev => ({ ...prev, stockNote: e.target.value }))}>
-                        <option>In stock</option>
-                        <option>Only few left</option>
-                        <option>Only 10 left</option>
-                        <option>Out of stock</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '18px', paddingTop: '6px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#2D5016', fontWeight: '700', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={productDraft.isPublished !== false} onChange={(e) => setProductDraft(prev => ({ ...prev, isPublished: e.target.checked }))} style={{ width: 'auto', margin: 0 }} />
-                      <span>🟢 Published on Storefront</span>
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#2D5016', fontWeight: '700', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={Boolean(productDraft.isBestseller)} onChange={(e) => setProductDraft(prev => ({ ...prev, isBestseller: e.target.checked }))} style={{ width: 'auto', margin: 0 }} />
-                      <span>⭐ Best Seller Item</span>
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#2D5016', fontWeight: '700', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={Boolean(productDraft.isTodaysDeal)} onChange={(e) => setProductDraft(prev => ({ ...prev, isTodaysDeal: e.target.checked }))} style={{ width: 'auto', margin: 0 }} />
-                      <span>🏷️ Today's Deal</span>
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#B91C1C', fontWeight: '700', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={Boolean(productDraft.isArchived)} onChange={(e) => setProductDraft(prev => ({ ...prev, isArchived: e.target.checked }))} style={{ width: 'auto', margin: 0 }} />
-                      <span>📁 Archived Product</span>
-                    </label>
                   </div>
                 </div>
 
@@ -3717,515 +3924,98 @@ const Admin = () => {
                       <FiX /> Clear
                     </button>
                   )}
-                  {saveToast && (
-                    <div style={{ marginLeft: 'auto', padding: '8px 12px', borderRadius: '6px', fontSize: '13px', background: saveToast.type === 'error' ? '#fee' : '#e6f4ea', color: saveToast.type === 'error' ? '#c00' : '#1e8e3e' }}>
-                      {saveToast.msg}
-                    </div>
-                  )}
                 </div>
               </form>
 
-              {/* Products Listing */}
+              {/* Listing */}
               <div className="admin-card admin-card--wide">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div className="inventory-filters-tabs">
-                    <button
-                      type="button"
-                      className={`inventory-filter-btn ${productStatusFilter === 'all' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setProductStatusFilter('all')}
-                    >
-                      All Items <span className="inventory-badge-count">{activeTab === 'wholesale-products' ? wholesaleProducts.length : retailProducts.length}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`inventory-filter-btn ${productStatusFilter === 'published' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setProductStatusFilter('published')}
-                    >
-                      🟢 Published <span className="inventory-badge-count">{(activeTab === 'wholesale-products' ? wholesaleProducts : retailProducts).filter(p => p.isPublished !== false && !p.isArchived).length}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`inventory-filter-btn ${productStatusFilter === 'draft' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setProductStatusFilter('draft')}
-                    >
-                      🟡 Draft / Hidden <span className="inventory-badge-count">{(activeTab === 'wholesale-products' ? wholesaleProducts : retailProducts).filter(p => p.isPublished === false && !p.isArchived).length}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`inventory-filter-btn ${productStatusFilter === 'archived' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setProductStatusFilter('archived')}
-                    >
-                      📁 Archived <span className="inventory-badge-count">{(activeTab === 'wholesale-products' ? wholesaleProducts : retailProducts).filter(p => p.isArchived).length}</span>
-                    </button>
-                  </div>
-
-                  <div className="admin-card__toolbar" style={{ margin: 0, flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', gap: '10px', flex: 1, minWidth: '280px' }}>
-                      <label className="admin-search-label" style={{ flex: 1 }}>
-                        <FiSearch />
-                        <input
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          placeholder="Search by name, brand, subcategory, SKU or barcode..."
-                          style={{ width: '100%' }}
-                        />
-                      </label>
-                      <select
-                        className="admin-input-box"
-                        style={{ width: '160px', height: '38px', borderRadius: '9px' }}
-                        value={productCategoryFilter}
-                        onChange={(e) => setProductCategoryFilter(e.target.value)}
-                      >
-                        <option value="all">All Categories</option>
-                        {(dbCategories.length ? dbCategories : categories).map(c => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <button
-                      className="admin__ghost"
-                      onClick={() => adminApi.fetchProducts(true).then(dbProducts => {
-                        const retail = dbProducts.filter(p => !p.wholesalePrice);
-                        const ws = dbProducts.filter(p => p.wholesalePrice);
-                        if (retail.length) persistRetailProducts(retail);
-                        if (ws.length) persistWholesaleProducts(ws);
-                      })}
-                    >
-                      ↻ Refresh
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '14px' }}>
-                  {filteredProducts.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '36px', color: '#687466' }}>
-                      No products found matching your search and filter criteria.
-                    </div>
-                  ) : filteredProducts.map(product => {
-                    const price = Number(product.price) || 0;
-                    const mrp = Number(product.mrp) || price;
-                    const cost = Number(product.costPrice) || Math.round(price * 0.78);
-                    const profit = price - cost;
-                    const margin = price > 0 ? Math.round((profit / price) * 100) : 0;
-                    const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
-                    const isExpanded = expandedVariantId === product.id;
-
-                    return (
-                      <div
-                        key={product.id}
-                        className={`admin-product-card-enhanced ${product.isArchived ? 'admin-product-card-enhanced--archived' : ''}`}
-                      >
-                        <div className="admin-product-top-row">
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '260px' }}>
-                            <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover', background: '#F7F4EE' }} />
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                <strong style={{ fontSize: '14px', color: '#111827' }}>{product.name}</strong>
-                                {product.isArchived ? (
-                                  <span className="admin-status-badge admin-status-badge--archived">📁 Archived</span>
-                                ) : product.isPublished === false ? (
-                                  <span className="admin-status-badge admin-status-badge--draft">🟡 Hidden (Draft)</span>
-                                ) : (
-                                  <span className="admin-status-badge admin-status-badge--published">🟢 Active</span>
-                                )}
-                              </div>
-                              <span style={{ fontSize: '12px', color: '#687466', display: 'block', marginTop: '2px' }}>
-                                {product.brand ? <strong>{product.brand}</strong> : 'Unbranded'} · {product.category} {product.subcategory ? `(${product.subcategory})` : ''} · {product.weight}{product.unit}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                            {product.sku && <span className="admin-tag-pill admin-tag-pill--sku">SKU: {product.sku}</span>}
-                            {product.barcode && <span className="admin-tag-pill admin-tag-pill--barcode">Barcode: {product.barcode}</span>}
-                            <span className="admin-tag-pill admin-tag-pill--gst">GST: {product.gstRate || 0}%</span>
-                          </div>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                            <div style={{ textAlign: 'right' }}>
-                              <strong style={{ fontSize: '15px', color: '#111827', display: 'block' }}>{formatPrice(price)}</strong>
-                              <span style={{ fontSize: '11px', color: '#687466' }}>
-                                Cost: {formatPrice(cost)} · MRP: {formatPrice(mrp)}
-                              </span>
-                              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2px' }}>
-                                <span className={`admin-profit-pill ${margin >= 20 ? 'admin-profit-pill--high' : (margin >= 10 ? 'admin-profit-pill--med' : 'admin-profit-pill--low')}`}>
-                                  {formatPrice(profit)} ({margin}%)
-                                </span>
-                              </div>
-                            </div>
-
-                            <select
-                              value={product.stockNote || (product.inStock ? 'In stock' : 'Out of stock')}
-                              onChange={(e) => updateProductStock(product.id, e.target.value, adminMode === 'wholesale')}
-                              className="admin-status-select"
-                              style={{ height: '34px', fontSize: '12px' }}
-                            >
-                              <option>In stock</option>
-                              <option>Only few left</option>
-                              <option>Only 10 left</option>
-                              <option>Out of stock</option>
-                            </select>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                              <button
-                                className="admin__ghost"
-                                style={{ width: '34px', height: '34px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
-                                title="Edit Product"
-                                onClick={() => editProduct(product)}
-                              >
-                                <FiEdit2 size={13} />
-                              </button>
-
-                              <button
-                                className="admin__ghost"
-                                style={{ width: '34px', height: '34px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
-                                title="Duplicate / Clone Product"
-                                onClick={() => duplicateProduct(product)}
-                              >
-                                <FiCopy size={13} />
-                              </button>
-
-                              <button
-                                className="admin__ghost"
-                                style={{ width: '34px', height: '34px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
-                                title={product.isPublished === false ? 'Publish to Store' : 'Hide from Store (Make Draft)'}
-                                onClick={() => togglePublishProduct(product)}
-                              >
-                                {product.isPublished === false ? <FiEyeOff size={13} style={{ color: '#F59E0B' }} /> : <FiEye size={13} style={{ color: '#16A34A' }} />}
-                              </button>
-
-                              <button
-                                className="admin__ghost"
-                                style={{ width: '34px', height: '34px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
-                                title={product.isArchived ? 'Restore from Archive' : 'Archive Product'}
-                                onClick={() => toggleArchiveProduct(product)}
-                              >
-                                <FiArchive size={13} style={{ color: product.isArchived ? '#2D5016' : '#6B7280' }} />
-                              </button>
-
-                              <button
-                                className="admin-danger"
-                                style={{ width: '34px', height: '34px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
-                                title="Delete Permanently"
-                                onClick={() => removeProduct(product.id)}
-                              >
-                                <FiTrash2 size={13} />
-                              </button>
-                            </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {filteredProducts.map(product => (
+                    <div key={product.id} className="admin-product-card-enhanced">
+                      <div className="admin-product-top-row">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />
+                          <div>
+                            <strong>{product.name}</strong>
+                            <span style={{ fontSize: '12px', color: '#687466', display: 'block' }}>{product.brand} · {product.category} · {product.weight}{product.unit}</span>
                           </div>
                         </div>
-
-                        {hasVariants && (
-                          <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: '8px', marginTop: '4px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <button
-                                type="button"
-                                style={{ background: 'transparent', border: 'none', color: '#2D5016', fontSize: '11.5px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}
-                                onClick={() => setExpandedVariantId(isExpanded ? null : product.id)}
-                              >
-                                <span>{isExpanded ? '▲ Hide' : '▼ View'} {product.variants.length} Pack Variants</span>
-                              </button>
-                              <div style={{ display: 'flex', gap: '6px' }}>
-                                {product.variants.slice(0, 4).map(v => (
-                                  <span key={v.label} style={{ fontSize: '10.5px', background: '#F9FAFB', border: '1px solid #E5E7EB', padding: '1px 6px', borderRadius: '4px' }}>
-                                    {v.label}: {formatPrice(v.price)}
-                                  </span>
-                                ))}
-                                {product.variants.length > 4 && <span style={{ fontSize: '10px', color: '#687466' }}>+{product.variants.length - 4} more</span>}
-                              </div>
-                            </div>
-
-                            {isExpanded && (
-                              <div className="admin-variant-table-wrap" style={{ marginTop: '8px' }}>
-                                <table className="admin-variant-table">
-                                  <thead>
-                                    <tr>
-                                      <th>VARIANT</th>
-                                      <th>PRICE</th>
-                                      <th>MRP</th>
-                                      <th>COST</th>
-                                      <th>PROFIT MARGIN</th>
-                                      <th>STOCK</th>
-                                      <th>SKU / BARCODE</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {product.variants.map((v, i) => {
-                                      const vp = Number(v.price) || 0;
-                                      const vc = Number(v.costPrice) || Math.round(vp * 0.78);
-                                      const vm = vp > 0 ? Math.round(((vp - vc) / vp) * 100) : 0;
-                                      return (
-                                        <tr key={i}>
-                                          <td style={{ fontWeight: '700' }}>{v.label}</td>
-                                          <td style={{ fontWeight: '800', color: '#2D5016' }}>{formatPrice(vp)}</td>
-                                          <td style={{ color: '#687466' }}>{formatPrice(v.mrp || vp)}</td>
-                                          <td style={{ color: '#4B5563' }}>{formatPrice(vc)}</td>
-                                          <td>
-                                            <span className={`admin-profit-pill ${vm >= 20 ? 'admin-profit-pill--high' : (vm >= 10 ? 'admin-profit-pill--med' : 'admin-profit-pill--low')}`}>
-                                              {formatPrice(vp - vc)} ({vm}%)
-                                            </span>
-                                          </td>
-                                          <td>{v.stock || 50} units</td>
-                                          <td style={{ fontSize: '10.5px', color: '#687466' }}>{v.sku || '—'} {v.barcode ? `· ${v.barcode}` : ''}</td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                        <div>
+                          <strong style={{ fontSize: '15px' }}>{formatPrice(product.price)}</strong>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button className="admin__ghost" style={{ padding: '6px 10px', fontSize: '11.5px' }} onClick={() => editProduct(product)}>
+                            <FiEdit2 size={12} /> Edit
+                          </button>
+                          <button className="admin-danger" style={{ padding: '6px 10px', fontSize: '11.5px' }} onClick={() => removeProduct(product.id)}>
+                            <FiTrash2 size={12} />
+                          </button>
+                        </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
               </div>
             </section>
           )}
 
-          {/* =========================================================================
-             OFFERS, COUPONS, BESTSELLERS, DEALS, CONTENT, ADMINS
-             ========================================================================= */}
-          {activeTab === 'offers' && (
-            <section className="admin-grid">
-              <form className="admin-form" onSubmit={saveOffer}>
-                <h2>Add offer or sale</h2>
-                <input value={offerDraft.title} onChange={(e) => setOfferDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Offer title" required />
-                <input value={offerDraft.subtitle} onChange={(e) => setOfferDraft(prev => ({ ...prev, subtitle: e.target.value }))} placeholder="Subtitle / contents" />
-                <input value={offerDraft.badge} onChange={(e) => setOfferDraft(prev => ({ ...prev, badge: e.target.value }))} placeholder="Badge text e.g. Save 20%" />
-                <div className="admin-form__grid admin-form__grid--two">
-                  <input value={offerDraft.price} onChange={(e) => setOfferDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="Deal price (₹)" type="number" />
-                  <input value={offerDraft.mrp} onChange={(e) => setOfferDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="MRP (₹)" type="number" />
-                </div>
-                <div className="admin-offer-image">
-                  {offerDraft.image ? (
-                    <img src={toWebpImage(offerDraft.image)} alt="Offer preview" />
-                  ) : (
-                    <div className="admin-offer-image__empty"><FiGift /></div>
-                  )}
-                  <div>
-                    <input value={offerDraft.image} onChange={(e) => setOfferDraft(prev => ({ ...prev, image: e.target.value }))} placeholder="Add offer image URL" />
-                    <label className="admin-file-input admin-file-input--compact">
-                      <span>Or choose image from files</span>
-                      <input type="file" accept="image/*" onChange={handleOfferImageUpload} />
-                    </label>
-                  </div>
-                </div>
-                <button className="admin__primary"><FiPlus /> Add offer</button>
-              </form>
-
-              <form className="admin-form" onSubmit={saveCoupon}>
-                <h2>Add coupon</h2>
-                <input value={couponDraft.code} onChange={(e) => setCouponDraft(prev => ({ ...prev, code: e.target.value }))} placeholder="Coupon code e.g. WELCOME50" required />
-                <input value={couponDraft.title} onChange={(e) => setCouponDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Banner title e.g. FLAT ₹50 OFF" />
-                <input value={couponDraft.description} onChange={(e) => setCouponDraft(prev => ({ ...prev, description: e.target.value }))} placeholder="Banner subtext e.g. On your first order above ₹399" />
-                <div className="admin-form__grid admin-form__grid--two">
-                  <select value={couponDraft.type} onChange={(e) => setCouponDraft(prev => ({ ...prev, type: e.target.value }))}>
-                    <option value="flat">Flat ₹ off</option>
-                    <option value="percent">Percent % off</option>
-                    <option value="freeDelivery">Free delivery</option>
-                  </select>
-                  <select value={couponDraft.customerType} onChange={(e) => setCouponDraft(prev => ({ ...prev, customerType: e.target.value }))}>
-                    <option value="retail">Retail</option>
-                    <option value="wholesale">Wholesale</option>
-                  </select>
-                </div>
-                {couponDraft.type !== 'freeDelivery' && (
-                  <div className="admin-form__grid admin-form__grid--two">
-                    <input value={couponDraft.value} onChange={(e) => setCouponDraft(prev => ({ ...prev, value: e.target.value }))} placeholder={couponDraft.type === 'percent' ? 'Percent off e.g. 10' : 'Amount off (₹)'} type="number" />
-                    {couponDraft.type === 'percent' && (
-                      <input value={couponDraft.maxDiscount} onChange={(e) => setCouponDraft(prev => ({ ...prev, maxDiscount: e.target.value }))} placeholder="Max discount cap (₹, optional)" type="number" />
-                    )}
-                  </div>
-                )}
-                <input value={couponDraft.minOrder} onChange={(e) => setCouponDraft(prev => ({ ...prev, minOrder: e.target.value }))} placeholder="Minimum order value (₹)" type="number" />
-                <button className="admin__primary"><FiPlus /> Add coupon</button>
-              </form>
-            </section>
-          )}
-
+          {/* BESTSELLERS */}
           {activeTab === 'bestsellers' && (
             <section className="admin-card admin-card--wide">
               <div className="admin-card__toolbar">
                 <h2>Bestsellers ({allProducts.filter(p => p.isBestseller).length})</h2>
-                <label className="admin-search-label">
-                  <FiSearch />
-                  <input value={bestsellerSearch} onChange={(e) => setBestsellerSearch(e.target.value)} placeholder="Search products..." />
-                </label>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {allProducts
-                  .filter(p => p.name.toLowerCase().includes(bestsellerSearch.toLowerCase()) || (p.brand || '').toLowerCase().includes(bestsellerSearch.toLowerCase()))
-                  .map(product => (
-                    <div key={product.id} className="admin-row admin-row--plain" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
-                      <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />
-                      <div style={{ flex: 1 }}>
-                        <strong>{product.name}</strong>
-                        <span style={{ fontSize: 12, color: '#687466' }}>{product.brand} / {product.weight}{product.unit} / {formatPrice(product.price)}</span>
-                      </div>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: product.isBestseller ? '#2D5016' : '#687466', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(product.isBestseller)}
-                          onChange={() => toggleProductFlag(product.id, 'isBestseller', product.isBestseller, Boolean(product.wholesalePrice))}
-                        />
-                        {product.isBestseller ? 'Bestseller' : 'Add'}
-                      </label>
+                {allProducts.map(product => (
+                  <div key={product.id} className="admin-row admin-row--plain" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
+                    <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />
+                    <div style={{ flex: 1 }}>
+                      <strong>{product.name}</strong>
+                      <span style={{ fontSize: 12, color: '#687466' }}>{product.brand} / {product.weight}{product.unit} / {formatPrice(product.price)}</span>
                     </div>
-                  ))}
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: product.isBestseller ? '#2D5016' : '#687466', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(product.isBestseller)}
+                        onChange={() => toggleProductFlag(product.id, 'isBestseller', product.isBestseller, Boolean(product.wholesalePrice))}
+                      />
+                      {product.isBestseller ? 'Bestseller' : 'Add'}
+                    </label>
+                  </div>
+                ))}
               </div>
             </section>
           )}
 
+          {/* TODAY'S DEALS */}
           {activeTab === 'todays-deals' && (
             <section className="admin-card admin-card--wide">
               <div className="admin-card__toolbar">
                 <h2>Today's Deals ({allProducts.filter(p => p.isTodaysDeal).length})</h2>
-                <label className="admin-search-label">
-                  <FiSearch />
-                  <input value={dealSearch} onChange={(e) => setDealSearch(e.target.value)} placeholder="Search products..." />
-                </label>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {allProducts
-                  .filter(p => p.name.toLowerCase().includes(dealSearch.toLowerCase()) || (p.brand || '').toLowerCase().includes(dealSearch.toLowerCase()))
-                  .map(product => (
-                    <div key={product.id} className="admin-row admin-row--plain" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
-                      <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />
-                      <div style={{ flex: 1 }}>
-                        <strong>{product.name}</strong>
-                        <span style={{ fontSize: 12, color: '#687466' }}>{product.brand} / {product.weight}{product.unit} / {formatPrice(product.price)}</span>
-                      </div>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: product.isTodaysDeal ? '#2D5016' : '#687466', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(product.isTodaysDeal)}
-                          onChange={() => toggleProductFlag(product.id, 'isTodaysDeal', product.isTodaysDeal, Boolean(product.wholesalePrice))}
-                        />
-                        {product.isTodaysDeal ? "Today's Deal" : 'Add'}
-                      </label>
+                {allProducts.map(product => (
+                  <div key={product.id} className="admin-row admin-row--plain" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
+                    <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />
+                    <div style={{ flex: 1 }}>
+                      <strong>{product.name}</strong>
+                      <span style={{ fontSize: 12, color: '#687466' }}>{product.brand} / {product.weight}{product.unit} / {formatPrice(product.price)}</span>
                     </div>
-                  ))}
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: product.isTodaysDeal ? '#2D5016' : '#687466', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(product.isTodaysDeal)}
+                        onChange={() => toggleProductFlag(product.id, 'isTodaysDeal', product.isTodaysDeal, Boolean(product.wholesalePrice))}
+                      />
+                      {product.isTodaysDeal ? "Today's Deal" : 'Add'}
+                    </label>
+                  </div>
+                ))}
               </div>
             </section>
           )}
 
-          {activeTab === 'sales-stats' && (
-            <div className="sales-analytics-page">
-              <header className="sales-page-header">
-                <div>
-                  <div className="sales-eyebrow">PRODUCT SALES</div>
-                  <h1>Sales Stats</h1>
-                  <p>Track revenue, orders and product performance.</p>
-                </div>
-              </header>
-
-              <section className="sales-kpi-grid">
-                <div className="sales-kpi-card">
-                  <span>TODAY</span>
-                  <strong>{formatPrice(salesToday.revenue)}</strong>
-                  <small>{salesToday.orders} orders</small>
-                </div>
-                <div className="sales-kpi-card">
-                  <span>LAST 7 DAYS</span>
-                  <strong>{formatPrice(salesLast7.revenue)}</strong>
-                  <small>{salesLast7.orders} orders</small>
-                </div>
-                <div className="sales-kpi-card">
-                  <span>LAST 30 DAYS</span>
-                  <strong>{formatPrice(salesLast30.revenue)}</strong>
-                  <small>{salesLast30.orders} orders</small>
-                </div>
-                <div className="sales-kpi-card">
-                  <span>AVG ORDER VALUE</span>
-                  <strong>{formatPrice(averageOrderValue)}</strong>
-                  <small>30-day average</small>
-                </div>
-              </section>
-
-              <section className="sales-chart-card">
-                <div className="sales-section-label">REVENUE, LAST 30 DAYS</div>
-                <div className="sales-line-chart-wrap">
-                  {(() => {
-                    const maxRevenue = Math.max(...revenueLast30Days.map(item => item.revenue), 1);
-                    const chartWidth = 1000;
-                    const chartHeight = 300;
-                    const left = 52;
-                    const right = 12;
-                    const top = 18;
-                    const bottom = 38;
-                    const innerWidth = chartWidth - left - right;
-                    const innerHeight = chartHeight - top - bottom;
-                    const points = revenueLast30Days.map((item, index) => {
-                      const x = left + (index / (revenueLast30Days.length - 1)) * innerWidth;
-                      const y = top + innerHeight - (item.revenue / maxRevenue) * innerHeight;
-                      return { ...item, x, y };
-                    });
-                    const linePath = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
-                    const areaPath = `${linePath} L ${points[points.length - 1].x} ${top + innerHeight} L ${points[0].x} ${top + innerHeight} Z`;
-                    return (
-                      <svg className="sales-line-chart" viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
-                        {[0, 0.25, 0.5, 0.75, 1].map((tick) => {
-                          const y = top + innerHeight - tick * innerHeight;
-                          return (
-                            <g key={tick}>
-                              <line x1={left} x2={chartWidth - right} y1={y} y2={y} className="sales-chart-grid" />
-                              <text x={left - 12} y={y + 4} textAnchor="end" className="sales-chart-axis">{formatPrice(maxRevenue * tick)}</text>
-                            </g>
-                          );
-                        })}
-                        <path d={areaPath} className="sales-chart-area" />
-                        <path d={linePath} className="sales-chart-line" />
-                      </svg>
-                    );
-                  })()}
-                </div>
-              </section>
-
-              <section className="sales-bottom-grid">
-                <div className="sales-simple-card">
-                  <div className="sales-card-heading">
-                    <div className="sales-section-label">TOP PRODUCTS</div>
-                    <span>Last 30 days</span>
-                  </div>
-                  <div className="sales-product-list">
-                    {topProductStats.map((product, index) => {
-                      const max = Math.max(topProductStats[0]?.totalRevenue || 1, 1);
-                      return (
-                        <div className="sales-product-row" key={product.id}>
-                          <div className="sales-product-meta">
-                            <span>{index + 1}. {product.name}</span>
-                            <strong>{formatPrice(product.totalRevenue)}</strong>
-                          </div>
-                          <div className="sales-product-bar"><i style={{ width: `${Math.max(4, (product.totalRevenue / max) * 100)}%` }} /></div>
-                          <small>{product.quantitySold} units · {product.ordersCount} orders</small>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="sales-simple-card">
-                  <div className="sales-card-heading">
-                    <div className="sales-section-label">INVENTORY VALUATION SUMMARY</div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '10px' }}>
-                    <div>
-                      <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase' }}>Cost-Based Stock Value</span>
-                      <strong style={{ display: 'block', fontSize: '22px', color: '#2D5016' }}>{formatPrice(invSummary.totalValuation)}</strong>
-                    </div>
-                    <div>
-                      <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase' }}>Potential Retail Value</span>
-                      <strong style={{ display: 'block', fontSize: '20px', color: '#111827' }}>{formatPrice(invSummary.totalRetailValuation)}</strong>
-                    </div>
-                  </div>
-                </div>
-              </section>
-            </div>
-          )}
-
+          {/* BROADCAST */}
           {activeTab === 'broadcast' && (
             <section className="admin-card admin-card--wide" style={{ maxWidth: '800px', margin: '0 auto' }}>
               <div className="admin-card__toolbar" style={{ borderBottom: '1px solid #E1E6DC', paddingBottom: '12px', marginBottom: '20px' }}>
@@ -4303,72 +4093,7 @@ const Admin = () => {
             </section>
           )}
 
-          {(activeTab === 'retail-content' || activeTab === 'wholesale-content') && (
-            <section className="admin-card admin-card--wide">
-              <div className="admin-card__toolbar">
-                <h2>{activeTab === 'retail-content' ? 'Retail' : 'Wholesale'} Product Content Editor</h2>
-                <label className="admin-search-label">
-                  <FiSearch />
-                  <input value={contentSearch} onChange={(e) => setContentSearch(e.target.value)} placeholder="Search products..." />
-                </label>
-              </div>
-
-              <div className="admin-content-list">
-                <div className={`admin-content-header ${activeTab === 'wholesale-content' ? 'admin-content-header--ws' : ''}`}>
-                  <span>Image</span>
-                  <span>Item Name</span>
-                  <span>MRP (₹)</span>
-                  <span>Disc. Price (₹)</span>
-                  <span>% Off</span>
-                  <span>Availability</span>
-                  <span>Quantity</span>
-                  {activeTab === 'wholesale-content' && <span>WS Price (₹)</span>}
-                  {activeTab === 'wholesale-content' && <span>Bulk Pack Label</span>}
-                  {activeTab === 'wholesale-content' && <span>Bulk Pack Price (₹)</span>}
-                  {activeTab === 'wholesale-content' && <span>WS Case Label</span>}
-                  {activeTab === 'wholesale-content' && <span>WS Case Price (₹)</span>}
-                  <span>Description</span>
-                </div>
-
-                {filteredContentProducts.map(product => {
-                  const isWS = activeTab === 'wholesale-content';
-                  return (
-                    <div key={product.id} className={`admin-content-editor ${isWS ? 'admin-content-editor--ws' : ''}`}>
-                      <img src={toWebpImage(product.image)} alt={product.name} />
-                      <input value={product.name || ''} onChange={(e) => updateProductField(product.id, 'name', e.target.value, isWS)} placeholder="Item name" />
-                      <input value={product.mrp || ''} onChange={(e) => updateProductField(product.id, 'mrp', e.target.value, isWS)} type="number" placeholder="MRP" />
-                      <input value={product.price || ''} onChange={(e) => updateProductField(product.id, 'price', e.target.value, isWS)} type="number" placeholder="Price" />
-                      <input value={product.discount || ''} onChange={(e) => updateProductField(product.id, 'discount', e.target.value, isWS)} type="number" placeholder="% off" />
-                      <select value={product.stockNote || 'In stock'} onChange={(e) => updateProductField(product.id, 'stockNote', e.target.value, isWS)}>
-                        <option>In stock</option>
-                        <option>Only few left</option>
-                        <option>Only 10 left</option>
-                        <option>Out of stock</option>
-                      </select>
-                      <input
-                        value={`${product.weight || ''} ${product.unit || ''}`.trim()}
-                        onChange={(e) => {
-                          const parts = e.target.value.trim().split(' ');
-                          const unit = parts.length > 1 ? parts[parts.length - 1] : '';
-                          const weight = parts.slice(0, parts.length - 1).join(' ') || parts[0];
-                          updateProductField(product.id, 'weight', weight, isWS);
-                          if (unit) updateProductField(product.id, 'unit', unit, isWS);
-                        }}
-                        placeholder="e.g. 500 g"
-                      />
-                      {isWS && <input value={product.wholesalePrice || ''} onChange={(e) => updateProductField(product.id, 'wholesalePrice', e.target.value, true)} type="number" placeholder="WS price" />}
-                      {isWS && <input value={product.bulkPackLabel || ''} onChange={(e) => updateProductField(product.id, 'bulkPackLabel', e.target.value, true)} placeholder="Bulk label" />}
-                      {isWS && <input value={product.bulkPackPrice || ''} onChange={(e) => updateProductField(product.id, 'bulkPackPrice', e.target.value, true)} type="number" placeholder="Bulk price" />}
-                      {isWS && <input value={product.wholesaleCaseLabel || ''} onChange={(e) => updateProductField(product.id, 'wholesaleCaseLabel', e.target.value, true)} placeholder="Case label" />}
-                      {isWS && <input value={product.wholesaleCasePrice || ''} onChange={(e) => updateProductField(product.id, 'wholesaleCasePrice', e.target.value, true)} type="number" placeholder="Case price" />}
-                      <input value={product.description || ''} onChange={(e) => updateProductField(product.id, 'description', e.target.value, isWS)} placeholder="Description" />
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
+          {/* ADMIN ACCOUNTS */}
           {activeTab === 'admins' && (
             <section className="admin-grid">
               <form className="admin-form" onSubmit={saveAdmin}>

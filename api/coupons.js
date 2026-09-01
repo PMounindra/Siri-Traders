@@ -36,6 +36,18 @@ export default async function handler(req, res) {
           value: Number(body.value) || 0,
           minOrder: Number(body.minOrder) || 0,
           maxDiscount: body.maxDiscount ? Number(body.maxDiscount) : null,
+          buyQuantity: body.buyQuantity != null ? Number(body.buyQuantity) : 1,
+          getQuantity: body.getQuantity != null ? Number(body.getQuantity) : 1,
+          targetType: body.targetType || 'all',
+          targetCategory: body.targetCategory || null,
+          targetProductId: body.targetProductId ? Number(body.targetProductId) : null,
+          targetCustomerEmail: body.targetCustomerEmail || null,
+          usageLimit: body.usageLimit ? Number(body.usageLimit) : null,
+          perUserLimit: body.perUserLimit ? Number(body.perUserLimit) : 1,
+          timesUsed: body.timesUsed ? Number(body.timesUsed) : 0,
+          totalDiscountGiven: body.totalDiscountGiven ? Number(body.totalDiscountGiven) : 0,
+          startDate: body.startDate || null,
+          endDate: body.endDate || null,
           title: body.title || '',
           description: body.description || '',
           customerType: body.customerType || 'retail',
@@ -68,6 +80,18 @@ export default async function handler(req, res) {
       if (body.value !== undefined) patch.value = Number(body.value) || 0;
       if (body.minOrder !== undefined) patch.minOrder = Number(body.minOrder) || 0;
       if (body.maxDiscount !== undefined) patch.maxDiscount = body.maxDiscount ? Number(body.maxDiscount) : null;
+      if (body.buyQuantity !== undefined) patch.buyQuantity = Number(body.buyQuantity) || 1;
+      if (body.getQuantity !== undefined) patch.getQuantity = Number(body.getQuantity) || 1;
+      if (body.targetType !== undefined) patch.targetType = body.targetType;
+      if (body.targetCategory !== undefined) patch.targetCategory = body.targetCategory;
+      if (body.targetProductId !== undefined) patch.targetProductId = body.targetProductId ? Number(body.targetProductId) : null;
+      if (body.targetCustomerEmail !== undefined) patch.targetCustomerEmail = body.targetCustomerEmail;
+      if (body.usageLimit !== undefined) patch.usageLimit = body.usageLimit ? Number(body.usageLimit) : null;
+      if (body.perUserLimit !== undefined) patch.perUserLimit = Number(body.perUserLimit) || 1;
+      if (body.timesUsed !== undefined) patch.timesUsed = Number(body.timesUsed) || 0;
+      if (body.totalDiscountGiven !== undefined) patch.totalDiscountGiven = Number(body.totalDiscountGiven) || 0;
+      if (body.startDate !== undefined) patch.startDate = body.startDate;
+      if (body.endDate !== undefined) patch.endDate = body.endDate;
       if (body.title !== undefined) patch.title = body.title;
       if (body.description !== undefined) patch.description = body.description;
       if (body.customerType !== undefined) patch.customerType = body.customerType;

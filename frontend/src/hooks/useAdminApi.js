@@ -306,6 +306,32 @@ export async function apiUpdateSettings(data) {
   return asJson(res, 'Failed to update settings');
 }
 
+// ── Reviews & Ratings ───────────────────────────────────────────────────
+
+export async function apiFetchReviews() {
+  const res = await fetch('/api/admin/auth?action=reviews', withCreds);
+  if (!res.ok) throw new Error('Failed to load reviews');
+  return res.json();
+}
+
+export async function apiUpdateReviewStatus(id, status) {
+  const res = await fetch(`/api/admin/auth?action=review-status&id=${id}`, {
+    method: 'PATCH',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify({ status }),
+  });
+  return asJson(res, 'Failed to update review');
+}
+
+export async function apiDeleteReview(id) {
+  const res = await fetch(`/api/admin/auth?action=review-status&id=${id}`, {
+    method: 'DELETE',
+    ...withCreds,
+  });
+  return asJson(res, 'Failed to delete review');
+}
+
 // ── Hook ─────────────────────────────────────────────────────────────────
 // Admin.jsx calls adminApi.xxx(), so expose named methods as a plain object.
 export function useAdminApi() {
@@ -341,6 +367,10 @@ export function useAdminApi() {
     updateCoupon: apiUpdateCoupon,
     deleteCoupon: apiDeleteCoupon,
 
+    fetchReviews: apiFetchReviews,
+    updateReviewStatus: apiUpdateReviewStatus,
+    deleteReview: apiDeleteReview,
+
     fetchDeliveryZones: apiFetchDeliveryZones,
     saveDeliveryZone: apiSaveDeliveryZone,
     updateDeliveryZone: apiUpdateDeliveryZone,
@@ -354,3 +384,4 @@ export function useAdminApi() {
     updateSettings: apiUpdateSettings,
   };
 }
+

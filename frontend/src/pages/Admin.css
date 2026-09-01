@@ -2189,4 +2189,164 @@
   color: #2D5016;
 }
 
+/* ==========================================================
+   SIRI TRADERS — REVIEWS & RATINGS MANAGEMENT STYLES
+   ========================================================== */
+.admin-reviews-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.admin-review-card {
+  background: #FFFFFF;
+  border: 1px solid #E1E6DC;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.admin-review-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.admin-review-card--pending {
+  border-left: 4px solid #F59E0B;
+  background: #FFFDF7;
+}
+
+.admin-review-card--rejected {
+  opacity: 0.7;
+  border-left: 4px solid #EF4444;
+  background: #FEF2F2;
+}
+
+.admin-rating-stars {
+  display: inline-flex;
+  gap: 2px;
+  color: #F59E0B;
+  font-size: 14px;
+}
+
+.admin-dist-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+}
+
+.admin-dist-bar-track {
+  flex: 1;
+  height: 8px;
+  background: #F1F3ED;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.admin-dist-bar-fill {
+  height: 100%;
+  background: #F59E0B;
+  border-radius: 4px;
+}
+
+/* ==========================================================
+   SIRI TRADERS — PROMOTIONS & COUPONS STYLES
+   ========================================================== */
+.admin-promo-card {
+  background: #FFFFFF;
+  border: 1px solid #E1E6DC;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-promo-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.admin-promo-pill--bogo { background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; }
+.admin-promo-pill--percent { background: #E0E7FF; color: #3730A3; border: 1px solid #C7D2FE; }
+.admin-promo-pill--flat { background: #DCFCE7; color: #166534; border: 1px solid #BBF7D0; }
+.admin-promo-pill--freedelivery { background: #F3E8FF; color: #6B21A8; border: 1px solid #E9D5FF; }
+
+/* ==========================================================
+   SIRI TRADERS — DEEP SALES & INVENTORY ANALYTICS STYLES
+   ========================================================== */
+.admin-analytics-range-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #FAF9F5;
+  border: 1px solid #E1E6DC;
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.admin-range-btn {
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4B5563;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-range-btn--active {
+  background: #2D5016;
+  color: #FFFFFF;
+}
+
+.admin-analytics-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.admin-breakdown-card {
+  background: #FFFFFF;
+  border: 1px solid #E1E6DC;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-breakdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+}
+
+.admin-progress-bar-wrap {
+  flex: 1;
+  max-width: 140px;
+  height: 6px;
+  background: #F1F3ED;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.admin-progress-bar-fill {
+  height: 100%;
+  background: #2D5016;
+}
+
+
 
