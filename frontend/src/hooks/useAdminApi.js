@@ -87,6 +87,41 @@ export async function apiDeleteProduct(id) {
   return asJson(res, 'Failed to delete product');
 }
 
+// ── Inventory Management ──────────────────────────────────────────────────
+
+export async function apiFetchInventory() {
+  const res = await fetch('/api/admin/inventory', withCreds);
+  if (!res.ok) throw new Error('Failed to load inventory');
+  return res.json();
+}
+
+export async function apiAdjustStock(data) {
+  const res = await fetch('/api/admin/inventory?action=adjust', {
+    method: 'POST',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify(data),
+  });
+  return asJson(res, 'Failed to adjust stock');
+}
+
+export async function apiUpdateInventoryConfig(data) {
+  const res = await fetch('/api/admin/inventory?action=config', {
+    method: 'PUT',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify(data),
+  });
+  return asJson(res, 'Failed to update inventory settings');
+}
+
+export async function apiFetchInventoryLogs(productId) {
+  const url = productId ? `/api/admin/inventory?action=logs&productId=${productId}` : '/api/admin/inventory?action=logs';
+  const res = await fetch(url, withCreds);
+  if (!res.ok) throw new Error('Failed to load inventory logs');
+  return res.json();
+}
+
 // ── Orders / Users (admin) ────────────────────────────────────────────────
 
 export async function apiFetchAllOrders() {
@@ -274,6 +309,11 @@ export function useAdminApi() {
     createProduct: apiCreateProduct,
     updateProduct: apiUpdateProduct,
     deleteProduct: apiDeleteProduct,
+
+    fetchInventory: apiFetchInventory,
+    adjustStock: apiAdjustStock,
+    updateInventoryConfig: apiUpdateInventoryConfig,
+    fetchInventoryLogs: apiFetchInventoryLogs,
 
     fetchAllOrders: apiFetchAllOrders,
     updateOrderStatus: apiUpdateOrderStatus,

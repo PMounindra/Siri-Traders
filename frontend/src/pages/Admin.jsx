@@ -22,32 +22,33 @@ import {
   FiStar,
   FiCheck,
   FiTrendingUp,
-  FiMail
+  FiMail,
+  FiLayers,
+  FiAlertTriangle,
+  FiAlertCircle,
+  FiClock,
+  FiRefreshCw,
+  FiActivity,
+  FiArchive,
+  FiSliders,
+  FiInfo,
+  FiCheckCircle
 } from 'react-icons/fi';
-import { getAccounts } from '../context/AuthContext';
 import { useAdminApi } from '../hooks/useAdminApi';
 import { products as baseProducts, getProducts as getAllProducts } from '../data/products';
 import { categories } from '../data/categories';
-import { baseDailyOffers, baseFestivalOffers } from '../data/offers';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
-import { getUserStorageKey } from '../utils/userStorage';
 import './Admin.css';
 
 const formatWeightUnit = (weight, unit) => {
   if (!weight) return '';
   const wStr = String(weight).trim();
   const uStr = String(unit || '').trim();
-  
   if (!uStr) return wStr;
-  
   const wLower = wStr.toLowerCase();
   const uLower = uStr.toLowerCase();
-  
-  if (wLower.endsWith(uLower)) {
-    return wStr;
-  }
-  
+  if (wLower.endsWith(uLower)) return wStr;
   return `${wStr} ${uStr}`;
 };
 
@@ -144,43 +145,6 @@ const blankAdmin = {
   role: 'Manager'
 };
 
-// Dummy payments kept for placeholder
-const demoPayments = [
-  {
-    billNo: 'BILL-7821',
-    orderId: 'ORD-1024',
-    customer: 'Mounindra Pullepu',
-    method: 'Cash on delivery',
-    transactionId: 'COD-SIRI-829104',
-    subtotal: 344,
-    deliveryFee: 0,
-    paid: 344,
-    status: 'Paid'
-  },
-  {
-    billNo: 'BILL-7822',
-    orderId: 'ORD-1025',
-    customer: 'Ravi Kumar',
-    method: 'Cash on delivery',
-    transactionId: 'COD-SIRI-492018',
-    subtotal: 2000,
-    deliveryFee: 0,
-    paid: 2000,
-    status: 'Paid'
-  },
-  {
-    billNo: 'BILL-7823',
-    orderId: 'ORD-1026',
-    customer: 'Priya Sharma',
-    method: 'Cash on delivery',
-    transactionId: 'COD-SIRI-730245',
-    subtotal: 1345,
-    deliveryFee: 20,
-    paid: 1365,
-    status: 'Paid'
-  }
-];
-
 const csvEscape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 
 const downloadCsv = (filename, rows) => {
@@ -194,30 +158,20 @@ const downloadCsv = (filename, rows) => {
   URL.revokeObjectURL(url);
 };
 
-const getStoredList = (key) => {
-  try {
-    const saved = key ? localStorage.getItem(key) : null;
-    return saved ? JSON.parse(saved) : [];
-  } catch {
-    return [];
-  }
-};
-
-
 const ADMIN_ROLE_PERMISSIONS = {
-  Owner: ['dashboard','sales-stats','orders','customers','retail-products','wholesale-products','offers','bestsellers','todays-deals','retail-content','wholesale-content','delivery-zones','broadcast','admins'],
-  'Super Admin': ['dashboard','sales-stats','orders','customers','retail-products','wholesale-products','offers','bestsellers','todays-deals','retail-content','wholesale-content','delivery-zones','broadcast'],
-  'Product Manager': ['dashboard','retail-products','wholesale-products','bestsellers','todays-deals'],
-  'Order Manager': ['dashboard','orders','customers','delivery-zones'],
+  Owner: ['dashboard','inventory','sales-stats','orders','customers','retail-products','wholesale-products','offers','bestsellers','todays-deals','retail-content','wholesale-content','delivery-zones','broadcast','admins'],
+  'Super Admin': ['dashboard','inventory','sales-stats','orders','customers','retail-products','wholesale-products','offers','bestsellers','todays-deals','retail-content','wholesale-content','delivery-zones','broadcast'],
+  'Product Manager': ['dashboard','inventory','retail-products','wholesale-products','bestsellers','todays-deals'],
+  'Order Manager': ['dashboard','inventory','orders','customers','delivery-zones'],
   'Marketing Manager': ['dashboard','offers','bestsellers','todays-deals','broadcast'],
   'Content Manager': ['dashboard','retail-content','wholesale-content'],
-  'Customer Support': ['dashboard','customers','orders','delivery-zones'],
-  Viewer: ['dashboard','sales-stats']
+  'Customer Support': ['dashboard','inventory','customers','orders','delivery-zones'],
+  Viewer: ['dashboard','inventory','sales-stats']
 };
 
 const ADMIN_NAV_SECTIONS = [
   {
-    title: 'SALES ANALYTICS',
+    title: 'SALES & ANALYTICS',
     items: [
       ['dashboard', 'Overview', FiBarChart2],
       ['sales-stats', 'Product Sales', FiTrendingUp],
@@ -226,7 +180,15 @@ const ADMIN_NAV_SECTIONS = [
     ]
   },
   {
-    title: 'CONTENT MANAGEMENT',
+    title: 'INVENTORY & OPERATIONS',
+    items: [
+      ['inventory', 'Inventory Hub', FiLayers],
+      ['delivery-zones', 'Delivery Zones', FiTruck],
+      ['broadcast', 'Email Broadcast', FiMail]
+    ]
+  },
+  {
+    title: 'PRODUCT MANAGEMENT',
     items: [
       ['retail-products', 'Retail Items', FiPackage],
       ['wholesale-products', 'Wholesale Items', FiPackage],
@@ -235,13 +197,6 @@ const ADMIN_NAV_SECTIONS = [
       ['todays-deals', "Today's Deals", FiTag],
       ['retail-content', 'Retail Content', FiEdit2],
       ['wholesale-content', 'Wholesale Content', FiEdit2]
-    ]
-  },
-  {
-    title: 'OPERATIONS',
-    items: [
-      ['delivery-zones', 'Delivery Zones', FiTruck],
-      ['broadcast', 'Email Broadcast', FiMail]
     ]
   },
   {
@@ -255,14 +210,13 @@ const ADMIN_NAV_SECTIONS = [
 const Admin = () => {
   const [selectedAdminRole, setSelectedAdminRole] = useState('Owner');
   const navigate = useNavigate();
-  const editFormRef = useRef(null);
   const [adminSession, setAdminSession] = useState(null);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [adminMode, setAdminMode] = useState('retail'); // 'retail' | 'wholesale'
   const [searchQuery, setSearchQuery] = useState('');
 
-  // ── Separate state for retail vs wholesale products ──
+  // ── Products state ──
   const [retailProducts, setRetailProducts] = useState(() =>
     readStorage(ADMIN_PRODUCTS_RETAIL_KEY, baseProducts.map(product => ({
       ...product,
@@ -280,8 +234,8 @@ const Admin = () => {
   const [coupons, setCoupons] = useState([]);
   const [productDraft, setProductDraft] = useState(blankProduct);
   const [apiLoading, setApiLoading] = useState(false);
-  const [saveToast, setSaveToast] = useState(null); // { type: 'success'|'error', msg }
-  const [liveOrders, setLiveOrders] = useState(null); // null = not yet loaded
+  const [saveToast, setSaveToast] = useState(null);
+  const [liveOrders, setLiveOrders] = useState(null);
   const [liveCustomers, setLiveCustomers] = useState(null);
   const adminApi = useAdminApi();
   const [newOrderToast, setNewOrderToast] = useState(null);
@@ -289,53 +243,44 @@ const Admin = () => {
   const [broadcastSubject, setBroadcastSubject] = useState('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [broadcastSending, setBroadcastSending] = useState(false);
-  const [broadcastStatus, setBroadcastStatus] = useState(null); // { type: 'success'|'error', msg }
-  const [analyticsPeriod, setAnalyticsPeriod] = useState('lifetime');
-  const [customStartDate, setCustomStartDate] = useState('');
-  const [customEndDate, setCustomEndDate] = useState('');
-  const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
-  const [appliedPeriod, setAppliedPeriod] = useState('lifetime');
-  const [appliedStartDate, setAppliedStartDate] = useState('');
-  const [appliedEndDate, setAppliedEndDate] = useState('');
+  const [broadcastStatus, setBroadcastStatus] = useState(null);
   const [selectedBroadcastEmails, setSelectedBroadcastEmails] = useState([]);
   const [productSearchQuery, setProductSearchQuery] = useState('');
 
-  const getCustomerName = (userId) => {
-    if (!liveCustomers) return 'Customer';
-    const c = liveCustomers.find(u => u.id === userId);
-    return c ? (c.name || c.email || 'Customer') : 'Customer';
-  };
+  // ── Inventory Management State ──
+  const [inventoryData, setInventoryData] = useState(null);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventoryFilter, setInventoryFilter] = useState('all'); // 'all'|'low-stock'|'out-of-stock'|'near-expiry'|'expired'|'incoming'|'logs'
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [inventoryCategory, setInventoryCategory] = useState('all');
+  const [inventoryLogs, setInventoryLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
 
-  // Play synthetic ding-dong notification chime using Web Audio API
-  const playChime = () => {
-    try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc1 = audioCtx.createOscillator();
-      const gain1 = audioCtx.createGain();
-      osc1.connect(gain1);
-      gain1.connect(audioCtx.destination);
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
-      gain1.gain.setValueAtTime(0.12, audioCtx.currentTime);
-      gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-      osc1.start(audioCtx.currentTime);
-      osc1.stop(audioCtx.currentTime + 0.3);
-      setTimeout(() => {
-        const osc2 = audioCtx.createOscillator();
-        const gain2 = audioCtx.createGain();
-        osc2.connect(gain2);
-        gain2.connect(audioCtx.destination);
-        osc2.type = 'sine';
-        osc2.frequency.setValueAtTime(1109.73, audioCtx.currentTime); // C#6
-        gain2.gain.setValueAtTime(0.12, audioCtx.currentTime);
-        gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
-        osc2.start(audioCtx.currentTime);
-        osc2.stop(audioCtx.currentTime + 0.4);
-      }, 120);
-    } catch (err) {
-      console.warn("Failed to play notification audio:", err);
-    }
-  };
+  // Modals for Stock Adjustment, History & Reorder Config
+  const [adjustModalItem, setAdjustModalItem] = useState(null);
+  const [adjustForm, setAdjustForm] = useState({
+    changeType: 'ADD',
+    quantity: '',
+    targetField: 'availableStock',
+    reason: 'Purchase / New Stock Received',
+    notes: ''
+  });
+  const [adjustLoading, setAdjustLoading] = useState(false);
+
+  const [historyModalItem, setHistoryModalItem] = useState(null);
+  const [historyLogs, setHistoryLogs] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const [reorderModalItem, setReorderModalItem] = useState(null);
+  const [reorderForm, setReorderForm] = useState({
+    reorderLevel: 10,
+    costPrice: 0,
+    expiryDate: '',
+    batchNumber: '',
+    location: 'Main Shelf',
+    incomingStock: 0
+  });
+  const [reorderLoading, setReorderLoading] = useState(false);
 
   const [offerDraft, setOfferDraft] = useState(blankOffer);
   const [couponDraft, setCouponDraft] = useState(blankCoupon);
@@ -350,13 +295,48 @@ const Admin = () => {
   const [deliveryZones, setDeliveryZones] = useState([]);
   const [newZone, setNewZone] = useState({ area: '', pincode: '', time: '30 mins', distance: '', deliveryFee: 0, freeDeliveryThreshold: 0, handlingCharge: 0 });
   const [savedZoneIds, setSavedZoneIds] = useState({});
-  // Variant builder: predefined checkboxes + custom entries
+
   const defaultVariantOptions = ['100 g','200 g','250 g','500 g','1 kg','2 kg','5 kg','10 kg','100 ml','200 ml','500 ml','1 L','5 L','15 L'];
   const [checkedVariants, setCheckedVariants] = useState([]);
   const [variantPrices, setVariantPrices] = useState({});
   const [customVariants, setCustomVariants] = useState([{ label: '', price: '' }]);
 
-  // ── Separate persist functions ──
+  const getCustomerName = (userId) => {
+    if (!liveCustomers) return 'Customer';
+    const c = liveCustomers.find(u => u.id === userId);
+    return c ? (c.name || c.email || 'Customer') : 'Customer';
+  };
+
+  const playChime = () => {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(880, audioCtx.currentTime);
+      gain1.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+      osc1.start(audioCtx.currentTime);
+      osc1.stop(audioCtx.currentTime + 0.3);
+      setTimeout(() => {
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1109.73, audioCtx.currentTime);
+        gain2.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+        osc2.start(audioCtx.currentTime);
+        osc2.stop(audioCtx.currentTime + 0.4);
+      }, 120);
+    } catch (err) {
+      console.warn("Failed to play notification audio:", err);
+    }
+  };
+
   const persistRetailProducts = (next) => {
     setRetailProducts(next);
     writeStorage(ADMIN_PRODUCTS_RETAIL_KEY, next);
@@ -370,20 +350,44 @@ const Admin = () => {
   const normalizeOffer = (o) => ({ ...o, group: o.groupType || o.group || 'daily' });
   const allowedAdminTabs = ADMIN_ROLE_PERMISSIONS[selectedAdminRole] || ADMIN_ROLE_PERMISSIONS.Viewer;
 
-  // ── Load products from DB on mount ──
+  // ── Load Inventory ──
+  const loadInventory = async () => {
+    setInventoryLoading(true);
+    try {
+      const data = await adminApi.fetchInventory();
+      setInventoryData(data);
+    } catch (err) {
+      console.error('Failed to load inventory:', err);
+    } finally {
+      setInventoryLoading(false);
+    }
+  };
+
+  // ── Load Inventory Movement Logs ──
+  const loadInventoryLogs = async () => {
+    setLogsLoading(true);
+    try {
+      const logs = await adminApi.fetchInventoryLogs();
+      setInventoryLogs(logs);
+    } catch (err) {
+      console.error('Failed to load inventory logs:', err);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  // ── Load initial data ──
   useEffect(() => {
     adminApi.fetchProducts().then(dbProducts => {
       if (!dbProducts || dbProducts.length === 0) return;
-      // Separate retail (no wholesalePrice) vs wholesale
       const retail = dbProducts.filter(p => !p.wholesalePrice);
       const ws = dbProducts.filter(p => p.wholesalePrice);
       if (retail.length > 0) persistRetailProducts(retail.map(p => ({ ...p, stockNote: p.inStock ? 'In stock' : 'Out of stock' })));
       if (ws.length > 0) persistWholesaleProducts(ws.map(p => ({ ...p, stockNote: p.inStock ? 'In stock' : 'Out of stock' })));
-    }).catch(() => { /* offline – localStorage fallback still works */ });
+    }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
-  // ── Check real admin session on mount ──
   useEffect(() => {
     adminApi.me().then(session => {
       setAdminSession(session);
@@ -392,7 +396,6 @@ const Admin = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Keep the role selector aligned with the authenticated admin on first load.
   useEffect(() => {
     if (adminSession?.role) {
       const sessionRole = String(adminSession.role);
@@ -402,14 +405,12 @@ const Admin = () => {
     }
   }, [adminSession]);
 
-  // Never leave the user on a page that the selected role cannot access.
   useEffect(() => {
     if (!allowedAdminTabs.includes(activeTab)) {
       setActiveTab(allowedAdminTabs[0] || 'dashboard');
     }
   }, [selectedAdminRole, activeTab, allowedAdminTabs]);
 
-  // ── Load live orders, customers, offers, coupons, zones, categories, admins on mount ──
   useEffect(() => {
     adminApi.fetchAllOrders().then(setLiveOrders).catch(() => setLiveOrders([]));
     adminApi.fetchAllUsers().then(usersList => {
@@ -424,10 +425,22 @@ const Admin = () => {
     adminApi.fetchDeliveryZones().then(setDeliveryZones).catch(() => {});
     adminApi.fetchCategories().then(setDbCategories).catch(() => {});
     adminApi.fetchAdminUsers().then(setAdminAccounts).catch(() => {});
+    loadInventory();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Poll for new orders every 10 seconds to notify active admin dashboard users
+  // Fetch inventory whenever active tab is inventory
+  useEffect(() => {
+    if (activeTab === 'inventory') {
+      loadInventory();
+      if (inventoryFilter === 'logs') {
+        loadInventoryLogs();
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, inventoryFilter]);
+
+  // Real-time order notifications
   useEffect(() => {
     if (!adminSession) return;
 
@@ -447,7 +460,6 @@ const Admin = () => {
                   total: latest.total,
                   msg: `New Order placed: Order #${latest.id} for ₹${latest.total}!`
                 });
-                // Auto dismiss toast after 8 seconds
                 setTimeout(() => setNewOrderToast(null), 8000);
               }
             }
@@ -462,13 +474,8 @@ const Admin = () => {
     return () => clearInterval(interval);
   }, [adminSession, adminApi]);
 
-  // ── Switch mode and reset draft to appropriate blank ──
-  const switchMode = (mode) => {
-    setAdminMode(mode);
-    setProductDraft(mode === 'wholesale' ? blankWholesaleProduct : blankProduct);
-  };
+  const allProducts = useMemo(() => [...retailProducts, ...wholesaleProducts], [retailProducts, wholesaleProducts]);
 
-  // ── Filtered products per tab ──
   const filteredRetailProducts = useMemo(() => {
     const q = searchQuery.toLowerCase();
     return retailProducts.filter(p =>
@@ -487,305 +494,167 @@ const Admin = () => {
     );
   }, [wholesaleProducts, searchQuery]);
 
-  // keep for legacy references
   const filteredProducts = activeTab === 'wholesale-products' ? filteredWholesaleProducts : filteredRetailProducts;
-  const allProducts = useMemo(() => [...retailProducts, ...wholesaleProducts],[retailProducts, wholesaleProducts]);
+
+  // ── Filtered Inventory Items ──
+  const filteredInventoryItems = useMemo(() => {
+    if (!inventoryData?.items) return [];
+    let list = inventoryData.items;
+
+    // Filter by tab
+    if (inventoryFilter === 'low-stock') {
+      list = list.filter(i => i.isLowStock);
+    } else if (inventoryFilter === 'out-of-stock') {
+      list = list.filter(i => i.isOutOfStock);
+    } else if (inventoryFilter === 'near-expiry') {
+      list = list.filter(i => i.isNearExpiry);
+    } else if (inventoryFilter === 'expired') {
+      list = list.filter(i => i.isExpired);
+    } else if (inventoryFilter === 'incoming') {
+      list = list.filter(i => i.incomingStock > 0);
+    }
+
+    // Category filter
+    if (inventoryCategory !== 'all') {
+      list = list.filter(i => i.category === inventoryCategory);
+    }
+
+    // Search query
+    if (inventorySearch.trim()) {
+      const q = inventorySearch.toLowerCase();
+      list = list.filter(i =>
+        i.name.toLowerCase().includes(q) ||
+        (i.brand || '').toLowerCase().includes(q) ||
+        (i.batchNumber || '').toLowerCase().includes(q) ||
+        String(i.productId).includes(q)
+      );
+    }
+
+    return list;
+  }, [inventoryData, inventoryFilter, inventoryCategory, inventorySearch]);
 
   const stats = [
     { label: 'Retail products', value: retailProducts.length, icon: FiPackage },
     { label: 'Wholesale products', value: wholesaleProducts.length, icon: FiPackage },
     { label: 'Live offers', value: offers.filter(offer => offer.active).length, icon: FiGift },
-    { label: 'Coupons', value: coupons.filter(coupon => coupon.active).length, icon: FiTag },
+    { label: 'Inventory items', value: inventoryData?.items?.length || allProducts.length, icon: FiLayers },
     { label: 'Customers', value: liveCustomers ? liveCustomers.length : 0, icon: FiUsers },
     { label: 'Orders', value: liveOrders ? liveOrders.length : 0, icon: FiTruck },
   ];
 
-  const productSales = useMemo(() => {
-    const sales = {};
-    if (liveOrders) {
-      liveOrders.forEach(order => {
-        if (order.items) {
-          order.items.forEach(item => {
-            const prodId = item.productId || item.id;
-            const qty = parseInt(item.quantity || 1, 10);
-            if (prodId) {
-              if (!sales[prodId]) {
-                const matchedProd = allProducts.find(p => p.id === prodId);
-                sales[prodId] = {
-                  id: prodId,
-                  name: item.name || (matchedProd ? matchedProd.name : 'Unknown Product'),
-                  weight: item.weight || (matchedProd ? matchedProd.weight : ''),
-                  unit: item.unit || (matchedProd ? matchedProd.unit : ''),
-                  category: matchedProd ? (wholesaleProducts.some(w => w.id === prodId) ? 'Wholesale' : 'Retail') : 'Retail',
-                  price: item.price || (matchedProd ? matchedProd.price : 0),
-                  quantitySold: 0,
-                  ordersCount: 0,
-                  totalRevenue: 0
-                };
-              }
-              sales[prodId].quantitySold += qty;
-              sales[prodId].ordersCount += 1;
-              sales[prodId].totalRevenue += (item.price || 0) * qty;
-            }
-          });
-        }
-      });
+  // ── Export Inventory CSV ──
+  const exportInventoryCsv = () => {
+    if (!inventoryData?.items) return;
+    downloadCsv('siri-traders-inventory-report.csv', [
+      ['Product ID', 'Name', 'Category', 'Brand', 'Weight/Unit', 'Available Stock', 'Reserved Stock', 'Damaged Stock', 'Returned Stock', 'Expired Stock', 'Incoming Stock', 'Reorder Level', 'Cost Price (₹)', 'Selling Price (₹)', 'Stock Valuation (₹)', 'Expiry Date', 'Batch Number', 'Status'],
+      ...inventoryData.items.map(i => [
+        i.productId,
+        i.name,
+        i.category,
+        i.brand || '',
+        `${i.weight || ''} ${i.unit || ''}`.trim(),
+        i.availableStock,
+        i.reservedStock,
+        i.damagedStock,
+        i.returnedStock,
+        i.expiredStock,
+        i.incomingStock,
+        i.reorderLevel,
+        i.costPrice,
+        i.price,
+        i.stockValuation,
+        i.expiryDate || 'N/A',
+        i.batchNumber || 'N/A',
+        i.isOutOfStock ? 'OUT OF STOCK' : (i.isLowStock ? 'LOW STOCK' : 'IN STOCK')
+      ])
+    ]);
+  };
+
+  // ── Handle Stock Adjustment Submit ──
+  const handleStockAdjustment = async (e) => {
+    e.preventDefault();
+    if (!adjustModalItem) return;
+    const qty = parseInt(adjustForm.quantity, 10);
+    if (isNaN(qty) || qty <= 0) {
+      alert('Please enter a valid positive quantity');
+      return;
     }
-    return Object.values(sales).sort((a, b) => b.quantitySold - a.quantitySold);
-  }, [liveOrders, allProducts, wholesaleProducts]);
+
+    setAdjustLoading(true);
+    try {
+      await adminApi.adjustStock({
+        productId: adjustModalItem.productId,
+        changeType: adjustForm.changeType,
+        quantity: qty,
+        targetField: adjustForm.targetField,
+        reason: adjustForm.reason,
+        notes: adjustForm.notes
+      });
+      await loadInventory();
+      setAdjustModalItem(null);
+      setAdjustForm({
+        changeType: 'ADD',
+        quantity: '',
+        targetField: 'availableStock',
+        reason: 'Purchase / New Stock Received',
+        notes: ''
+      });
+      setSaveToast({ type: 'success', msg: `Stock adjusted successfully for ${adjustModalItem.name}` });
+      setTimeout(() => setSaveToast(null), 4000);
+    } catch (err) {
+      alert('Stock adjustment failed: ' + err.message);
+    } finally {
+      setAdjustLoading(false);
+    }
+  };
+
+  // ── Handle Reorder Level & Batch Configuration Submit ──
+  const handleReorderConfigSave = async (e) => {
+    e.preventDefault();
+    if (!reorderModalItem) return;
+
+    setReorderLoading(true);
+    try {
+      await adminApi.updateInventoryConfig({
+        productId: reorderModalItem.productId,
+        reorderLevel: parseInt(reorderForm.reorderLevel, 10) || 10,
+        costPrice: parseInt(reorderForm.costPrice, 10) || 0,
+        expiryDate: reorderForm.expiryDate,
+        batchNumber: reorderForm.batchNumber,
+        location: reorderForm.location,
+        incomingStock: parseInt(reorderForm.incomingStock, 10) || 0
+      });
+      await loadInventory();
+      setReorderModalItem(null);
+      setSaveToast({ type: 'success', msg: `Reorder & batch settings updated for ${reorderModalItem.name}` });
+      setTimeout(() => setSaveToast(null), 4000);
+    } catch (err) {
+      alert('Failed to update inventory settings: ' + err.message);
+    } finally {
+      setReorderLoading(false);
+    }
+  };
+
+  // ── Open Product History Modal ──
+  const openProductHistory = async (item) => {
+    setHistoryModalItem(item);
+    setHistoryLoading(true);
+    try {
+      const logs = await adminApi.fetchInventoryLogs(item.productId);
+      setHistoryLogs(logs);
+    } catch (err) {
+      console.error('Failed to load product history:', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const parseOrderDate = (dateVal) => {
     if (!dateVal) return null;
     if (dateVal instanceof Date) return dateVal;
-    let cleanStr = String(dateVal).trim();
-    if (cleanStr.includes(' ')) {
-      cleanStr = cleanStr.replace(' ', 'T');
-    }
+    let cleanStr = String(dateVal).trim().replace(' ', 'T');
     const d = new Date(cleanStr);
-    if (isNaN(d.getTime())) {
-      const match = cleanStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (match) {
-        return new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10));
-      }
-    }
-    return d;
-  };
-
-  const getPeriodDateRange = (period, startVal, endVal) => {
-    const now = new Date();
-    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    
-    let startDate = null;
-    let endDate = todayEnd;
-
-    switch (period) {
-      case 'today':
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-        break;
-      case 'yesterday':
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
-        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
-        break;
-      case 'last-7':
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0);
-        break;
-      case 'last-30':
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0, 0);
-        break;
-      case 'this-month':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-        break;
-      case 'last-month':
-        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
-        endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-        break;
-      case 'custom':
-        if (startVal) {
-          startDate = new Date(startVal);
-          startDate.setHours(0, 0, 0, 0);
-        }
-        if (endVal) {
-          endDate = new Date(endVal);
-          endDate.setHours(23, 59, 59, 999);
-        }
-        break;
-      case 'lifetime':
-      default:
-        startDate = null;
-        endDate = null;
-        break;
-    }
-    return { startDate, endDate };
-  };
-
-  const periodStats = useMemo(() => {
-    const { startDate, endDate } = getPeriodDateRange(appliedPeriod, appliedStartDate, appliedEndDate);
-    
-    let filtered = liveOrders || [];
-    if (appliedPeriod !== 'lifetime') {
-      filtered = (liveOrders || []).filter(order => {
-        if (!order.createdAt) return false;
-        const d = parseOrderDate(order.createdAt);
-        if (!d || isNaN(d.getTime())) return false;
-        
-        if (startDate && d < startDate) return false;
-        if (endDate && d > endDate) return false;
-        return true;
-      });
-    }
-
-    let retailQty = 0;
-    let retailRevenue = 0;
-    let wholesaleQty = 0;
-    let wholesaleRevenue = 0;
-    const productSalesMap = {};
-
-    filtered.forEach(order => {
-      if (order.items) {
-        order.items.forEach(item => {
-          const prodId = item.productId || item.id;
-          const qty = parseInt(item.quantity || 1, 10);
-          const price = item.price || 0;
-          const isWS = wholesaleProducts.some(w => w.id === prodId);
-
-          if (isWS) {
-            wholesaleQty += qty;
-            wholesaleRevenue += price * qty;
-          } else {
-            retailQty += qty;
-            retailRevenue += price * qty;
-          }
-
-          if (prodId) {
-            if (!productSalesMap[prodId]) {
-              const matchedProd = allProducts.find(p => p.id === prodId);
-              productSalesMap[prodId] = {
-                id: prodId,
-                name: item.name || (matchedProd ? matchedProd.name : 'Unknown Product'),
-                quantitySold: 0,
-              };
-            }
-            productSalesMap[prodId].quantitySold += qty;
-          }
-        });
-      }
-    });
-
-    const topItems = Object.values(productSalesMap)
-      .sort((a, b) => b.quantitySold - a.quantitySold)
-      .slice(0, 5);
-
-    return {
-      retailQty,
-      retailRevenue,
-      wholesaleQty,
-      wholesaleRevenue,
-      topItems
-    };
-  }, [liveOrders, appliedPeriod, appliedStartDate, appliedEndDate, allProducts, wholesaleProducts]);
-
-  const donutSegments = useMemo(() => {
-    const { startDate, endDate } = getPeriodDateRange(appliedPeriod, appliedStartDate, appliedEndDate);
-    
-    let filtered = liveOrders || [];
-    if (appliedPeriod !== 'lifetime') {
-      filtered = (liveOrders || []).filter(order => {
-        if (!order.createdAt) return false;
-        const d = parseOrderDate(order.createdAt);
-        if (!d || isNaN(d.getTime())) return false;
-        
-        if (startDate && d < startDate) return false;
-        if (endDate && d > endDate) return false;
-        return true;
-      });
-    }
-
-    let totalQty = 0;
-    const allItemsMap = {};
-
-    filtered.forEach(order => {
-      if (order.items) {
-        order.items.forEach(item => {
-          const qty = parseInt(item.quantity || 1, 10);
-          const name = item.name;
-          if (name) {
-            allItemsMap[name] = (allItemsMap[name] || 0) + qty;
-            totalQty += qty;
-          }
-        });
-      }
-    });
-
-    const sortedAll = Object.entries(allItemsMap)
-      .map(([name, qty]) => ({ name, qty }))
-      .sort((a, b) => b.qty - a.qty);
-
-    const top4 = sortedAll.slice(0, 4);
-    const top4Sum = top4.reduce((sum, item) => sum + item.qty, 0);
-    const othersQty = Math.max(0, totalQty - top4Sum);
-
-    const result = top4.map((item, idx) => {
-      const colors = ['#2D5016', '#5B8C3F', '#FCD34D', '#FF6B35'];
-      return {
-        name: item.name,
-        qty: item.qty,
-        pct: totalQty > 0 ? (item.qty / totalQty) * 100 : 0,
-        color: colors[idx]
-      };
-    });
-
-    if (othersQty > 0) {
-      result.push({
-        name: 'Others',
-        qty: othersQty,
-        pct: (othersQty / totalQty) * 100,
-        color: '#9CA3AF'
-      });
-    }
-
-    return result;
-  }, [liveOrders, appliedPeriod, appliedStartDate, appliedEndDate]);
-
-  const getTopAreaForProduct = (productId) => {
-    const { startDate, endDate } = getPeriodDateRange(appliedPeriod, appliedStartDate, appliedEndDate);
-    let filteredOrders = liveOrders || [];
-    if (appliedPeriod !== 'lifetime') {
-      filteredOrders = (liveOrders || []).filter(order => {
-        if (!order.createdAt) return false;
-        const d = parseOrderDate(order.createdAt);
-        if (!d || isNaN(d.getTime())) return false;
-        
-        if (startDate && d < startDate) return false;
-        if (endDate && d > endDate) return false;
-        return true;
-      });
-    }
-
-    const areaCount = {};
-    filteredOrders.forEach(order => {
-      const hasProduct = order.items && order.items.some(item => (item.productId || item.id) === productId);
-      if (hasProduct && order.deliveryAddress) {
-        let matchedZone = 'Other Address';
-        const addr = order.deliveryAddress.toUpperCase();
-        
-        for (const zone of deliveryZones) {
-          if (zone.name && addr.includes(zone.name.toUpperCase())) {
-            matchedZone = zone.name;
-            break;
-          }
-        }
-        
-        if (matchedZone === 'Other Address') {
-          if (addr.includes('ISNAPUR')) matchedZone = 'Isnapur';
-          else if (addr.includes('CHITKUL')) matchedZone = 'Chitkul';
-          else if (addr.includes('PATANCHERU')) matchedZone = 'Patancheru';
-          else {
-            const parts = order.deliveryAddress.split(',');
-            if (parts.length >= 2) {
-              matchedZone = parts[parts.length - 2].trim();
-            } else {
-              matchedZone = order.deliveryAddress.trim();
-            }
-            if (matchedZone.length > 20) {
-              matchedZone = matchedZone.slice(0, 17) + '...';
-            }
-          }
-        }
-        
-        areaCount[matchedZone] = (areaCount[matchedZone] || 0) + 1;
-      }
-    });
-
-    let topArea = '—';
-    let maxVal = 0;
-    Object.entries(areaCount).forEach(([area, count]) => {
-      if (count > maxVal) {
-        maxVal = count;
-        topArea = area;
-      }
-    });
-
-    return topArea;
+    return isNaN(d.getTime()) ? null : d;
   };
 
   const getOrderRevenue = (order) => {
@@ -801,7 +670,7 @@ const Admin = () => {
     const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     const orders = (liveOrders || []).filter(order => {
       const date = parseOrderDate(order.createdAt);
-      return date && !Number.isNaN(date.getTime()) && date >= start && date <= end;
+      return date && date >= start && date <= end;
     });
     const revenue = orders.reduce((sum, order) => sum + getOrderRevenue(order), 0);
     const units = orders.reduce((sum, order) => sum + (order.items || []).reduce((itemSum, item) => itemSum + parseInt(item.quantity || 1, 10), 0), 0);
@@ -819,7 +688,7 @@ const Admin = () => {
     const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
     const revenue = (liveOrders || []).reduce((sum, order) => {
       const date = parseOrderDate(order.createdAt);
-      if (!date || Number.isNaN(date.getTime()) || date < day || date > dayEnd) return sum;
+      if (!date || date < day || date > dayEnd) return sum;
       return sum + getOrderRevenue(order);
     }, 0);
     return {
@@ -829,83 +698,30 @@ const Admin = () => {
     };
   });
 
-
-  const filteredSalesStats = useMemo(() => {
-    const { startDate, endDate } = getPeriodDateRange(appliedPeriod, appliedStartDate, appliedEndDate);
-    
-    let filteredOrders = liveOrders || [];
-    if (appliedPeriod !== 'lifetime') {
-      filteredOrders = (liveOrders || []).filter(order => {
-        if (!order.createdAt) return false;
-        const d = parseOrderDate(order.createdAt);
-        if (!d || isNaN(d.getTime())) return false;
-        
-        if (startDate && d < startDate) return false;
-        if (endDate && d > endDate) return false;
-        return true;
-      });
-    }
-    
+  const topProductStats = useMemo(() => {
     const sales = {};
-    
-    filteredOrders.forEach(order => {
-      if (order.items) {
-        order.items.forEach(item => {
-          const prodId = item.productId || item.id;
-          if (prodId) {
-            if (!sales[prodId]) {
-              const matchedProd = allProducts.find(p => p.id === prodId);
-              sales[prodId] = {
-                id: prodId,
-                name: item.name || (matchedProd ? matchedProd.name : 'Unknown Product'),
-                weight: item.weight || (matchedProd ? matchedProd.weight : ''),
-                unit: item.unit || (matchedProd ? matchedProd.unit : ''),
-                category: matchedProd ? (wholesaleProducts.some(w => w.id === prodId) ? 'Wholesale' : 'Retail') : 'Retail',
-                price: item.price || (matchedProd ? matchedProd.price : 0),
-                quantitySold: 0,
-                ordersCount: 0,
-                totalRevenue: 0
-              };
-            }
-            const qty = parseInt(item.quantity || 1, 10);
-            sales[prodId].quantitySold += qty;
-            sales[prodId].ordersCount += 1;
-            sales[prodId].totalRevenue += (item.price || 0) * qty;
-          }
-        });
-      }
+    (liveOrders || []).forEach(order => {
+      (order.items || []).forEach(item => {
+        const pId = item.productId || item.id;
+        if (!pId) return;
+        if (!sales[pId]) {
+          sales[pId] = { id: pId, name: item.name, quantitySold: 0, ordersCount: 0, totalRevenue: 0 };
+        }
+        const q = parseInt(item.quantity || 1, 10);
+        sales[pId].quantitySold += q;
+        sales[pId].ordersCount += 1;
+        sales[pId].totalRevenue += (item.price || 0) * q;
+      });
     });
-    
-    let result = Object.values(sales);
-    
-    if (productSearchQuery.trim()) {
-      const q = productSearchQuery.toLowerCase();
-      result = result.filter(item => item.name.toLowerCase().includes(q));
-    }
-    
-    return result.sort((a, b) => b.quantitySold - a.quantitySold);
-  }, [liveOrders, appliedPeriod, appliedStartDate, appliedEndDate, allProducts, wholesaleProducts, productSearchQuery]);
-  
-  const exportItems = () => {
-    const isWS = activeTab === 'wholesale-products' || activeTab === 'wholesale-content';
-    const source = isWS ? wholesaleProducts : retailProducts;
-    downloadCsv(`siri-traders-${isWS ? 'wholesale' : 'retail'}-items.csv`, [
-      ['ID', 'Name', 'Brand', 'Category', 'Price', 'MRP', 'Discount', 'Stock', 'Description'],
-      ...source.map(p => [p.id, p.name, p.brand, p.category, p.price, p.mrp, p.discount, p.stockNote, p.description])
-    ]);
+    return Object.values(sales).sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, 5);
+  }, [liveOrders]);
+
+  const handleAdminLogout = async () => {
+    await adminApi.logout();
+    setAdminSession(null);
+    navigate('/admin-login');
   };
 
-  const exportCustomers = () => downloadCsv('siri-traders-customers.csv', [
-    ['Name', 'Email', 'Phone', 'Orders', 'Total Spent'],
-    ...(liveCustomers || []).map(customer => [
-      customer.name,
-      customer.email,
-      customer.phone,
-      customer.ordersCount || 0,
-      customer.totalSpent || 0
-    ])
-  ]);
-  
   const handleImageUpload = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -923,19 +739,14 @@ const Admin = () => {
     reader.readAsDataURL(file);
     event.target.value = '';
   };
-  
+
   const saveProduct = async (event) => {
     event.preventDefault();
     const isWholesale = activeTab === 'wholesale-products';
     
-    // Build variants from checked options + custom entries
     const builtVariants = [
-      ...checkedVariants
-      .filter(label => variantPrices[label])
-      .map(label => ({ label, price: Number(variantPrices[label]) || 0 })),
-      ...customVariants
-      .filter(v => v.label.trim() && v.price)
-      .map(v => ({ label: v.label.trim(), price: Number(v.price) || 0 }))
+      ...checkedVariants.filter(label => variantPrices[label]).map(label => ({ label, price: Number(variantPrices[label]) || 0 })),
+      ...customVariants.filter(v => v.label.trim() && v.price).map(v => ({ label: v.label.trim(), price: Number(v.price) || 0 }))
     ];
     
     const baseNext = {
@@ -973,27 +784,24 @@ const Admin = () => {
       };
     }
     
-    // ── API sync ──────────────────────────────────────────────────────
     setApiLoading(true);
     setSaveToast(null);
     try {
       const isEdit = Boolean(productDraft.id && typeof productDraft.id === 'number');
-      // Strip UI-only fields that are not in the DB schema
-      const { stockNote, id: _id, wholesalePrice, bulkPackLabel, bulkPackPrice,
-        wholesaleCaseLabel, wholesaleCasePrice, ...apiPayload } = nextProduct;
-        if (isEdit) {
-          const saved = await adminApi.updateProduct(productDraft.id, apiPayload);
-          nextProduct = { ...nextProduct, id: saved.id };
-        } else {
+      const { stockNote, id: _id, wholesalePrice, bulkPackLabel, bulkPackPrice, wholesaleCaseLabel, wholesaleCasePrice, ...apiPayload } = nextProduct;
+      if (isEdit) {
+        const saved = await adminApi.updateProduct(productDraft.id, apiPayload);
+        nextProduct = { ...nextProduct, id: saved.id };
+      } else {
         const saved = await adminApi.createProduct(apiPayload);
         nextProduct = { ...nextProduct, id: saved.id };
       }
       setSaveToast({ type: 'success', msg: `✅ “${nextProduct.name}” saved to database (ID: ${nextProduct.id})` });
       setTimeout(() => setSaveToast(null), 5000);
+      loadInventory(); // reload inventory to track new product
     } catch (err) {
-      console.error('API sync failed:', err);
       if (!productDraft.id) nextProduct = { ...nextProduct, id: Date.now() };
-      setSaveToast({ type: 'error', msg: `⚠️ Saved locally only. DB error: ${err.message}` });
+      setSaveToast({ type: 'error', msg: `⚠️ DB error: ${err.message}` });
       setTimeout(() => setSaveToast(null), 8000);
     } finally {
       setApiLoading(false);
@@ -1001,35 +809,20 @@ const Admin = () => {
     
     if (isWholesale) {
       const exists = wholesaleProducts.some(p => String(p.id) === String(nextProduct.id));
-      const next = exists
-      ? wholesaleProducts.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p)
-      : [nextProduct, ...wholesaleProducts];
+      const next = exists ? wholesaleProducts.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p) : [nextProduct, ...wholesaleProducts];
       persistWholesaleProducts(next);
       setProductDraft(blankWholesaleProduct);
     } else {
       const exists = retailProducts.some(p => String(p.id) === String(nextProduct.id));
-      const next = exists
-      ? retailProducts.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p)
-      : [nextProduct, ...retailProducts];
+      const next = exists ? retailProducts.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p) : [nextProduct, ...retailProducts];
       persistRetailProducts(next);
       setProductDraft(blankProduct);
     }
-    // Reset variant builder
     setCheckedVariants([]);
     setVariantPrices({});
     setCustomVariants([{ label: '', price: '' }]);
   };
-  const topProductStats = [...filteredSalesStats].sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, 5);
-  const categorySalesStats = ['Retail', 'Wholesale'].map(category => {
-    const rows = filteredSalesStats.filter(item => item.category === category);
-    return {
-      category,
-      revenue: rows.reduce((sum, item) => sum + item.totalRevenue, 0),
-      units: rows.reduce((sum, item) => sum + item.quantitySold, 0),
-      orders: rows.reduce((sum, item) => sum + item.ordersCount, 0)
-    };
-  });
-  
+
   const editProduct = (product) => {
     const isWholesale = Boolean(product.wholesalePrice);
     const isProductsTab = activeTab === 'retail-products' || activeTab === 'wholesale-products';
@@ -1046,34 +839,24 @@ const Admin = () => {
       wholesaleCasePrice: product.wholesaleCasePrice != null ? String(product.wholesaleCasePrice) : ''
     });
     setActiveTab(targetTab);
-    // Wait for tab to render then scroll to the edit form
     setTimeout(() => {
       const editForm = document.querySelector('.admin-workspace .admin-form');
       editForm?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 150);
   };
 
-  // updateProductStock: applies to the correct array + syncs to API
   const updateProductStock = async (productId, stockNote, isWholesale) => {
     const inStock = stockNote !== 'Out of stock';
     if (isWholesale) {
-      persistWholesaleProducts(wholesaleProducts.map(p =>
-        p.id === productId ? { ...p, stockNote, inStock } : p
-      ));
+      persistWholesaleProducts(wholesaleProducts.map(p => p.id === productId ? { ...p, stockNote, inStock } : p));
     } else {
-      persistRetailProducts(retailProducts.map(p =>
-        p.id === productId ? { ...p, stockNote, inStock } : p
-      ));
+      persistRetailProducts(retailProducts.map(p => p.id === productId ? { ...p, stockNote, inStock } : p));
     }
-    // Only sync numeric IDs (DB rows)
     if (typeof productId === 'number') {
-      adminApi.updateProduct(productId, { inStock }).catch(err =>
-        console.warn('Stock sync failed:', err)
-      );
+      adminApi.updateProduct(productId, { inStock }).catch(() => {});
     }
   };
-  
-  // removeProduct: removes from the correct mode's array + syncs to API
+
   const removeProduct = async (productId) => {
     if (!window.confirm('Delete this product? This cannot be undone.')) return;
     if (activeTab === 'wholesale-products') {
@@ -1081,11 +864,8 @@ const Admin = () => {
     } else {
       persistRetailProducts(retailProducts.filter(p => p.id !== productId));
     }
-    // Only sync numeric IDs (DB rows)
     if (typeof productId === 'number') {
-      adminApi.deleteProduct(productId).catch(err =>
-        console.warn('Delete sync failed:', err)
-      );
+      adminApi.deleteProduct(productId).catch(() => {});
     }
   };
 
@@ -1101,13 +881,6 @@ const Admin = () => {
       try {
         await adminApi.updateProduct(productId, { [field]: nextValue });
       } catch (err) {
-        console.warn(`${field} toggle failed:`, err);
-        const reverter = (p) => p.id === productId ? { ...p, [field]: currentValue } : p;
-        if (isWholesale) {
-          persistWholesaleProducts(wholesaleProducts.map(reverter));
-        } else {
-          persistRetailProducts(retailProducts.map(reverter));
-        }
         alert(`Failed to update ${field}: ${err.message}`);
       }
     }
@@ -1188,17 +961,10 @@ const Admin = () => {
     }
   };
 
-  // filteredContentProducts uses the correct array based on active tab
   const filteredContentProducts = (activeTab === 'wholesale-content' ? wholesaleProducts : retailProducts).filter(product =>
     product.name.toLowerCase().includes(contentSearch.toLowerCase()) ||
     (product.brand || '').toLowerCase().includes(contentSearch.toLowerCase())
   );
-
-  const handleAdminLogout = async () => {
-    await adminApi.logout();
-    setAdminSession(null);
-    navigate('/admin-login');
-  };
 
   if (!sessionChecked) {
     return <div className="admin-auth-required" />;
@@ -1217,8 +983,23 @@ const Admin = () => {
     );
   }
 
+  const invSummary = inventoryData?.summary || {
+    totalValuation: 0,
+    totalRetailValuation: 0,
+    totalAvailableUnits: 0,
+    totalReservedUnits: 0,
+    totalDamagedUnits: 0,
+    totalReturnedUnits: 0,
+    totalExpiredUnits: 0,
+    totalIncomingUnits: 0,
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    nearExpiryCount: 0,
+    expiredCount: 0
+  };
+
   return (
-  <div className="page-wrapper admin-page-wrapper admin-habane">
+    <div className="page-wrapper admin-page-wrapper admin-habane">
       {newOrderToast && (
         <div className="admin-new-order-toast">
           <div className="admin-new-order-toast__content">
@@ -1231,6 +1012,7 @@ const Admin = () => {
           <button className="admin-new-order-toast__close" onClick={() => setNewOrderToast(null)}>×</button>
         </div>
       )}
+
       {/* Mobile top header bar */}
       <div className="admin-mobile-header">
         <div className="admin-mobile-header__brand">
@@ -1248,7 +1030,6 @@ const Admin = () => {
         {/* Left Sidebar */}
         <aside className={`admin-sidebar ${mobileMenuOpen ? 'admin-sidebar--open' : ''}`}>
           <div className="admin-sidebar__brand">
-
             <img src="/logo-mark.webp" alt="Siri Traders" className="admin-sidebar__logo" />
             <div>
               <strong>SIRI TRADERS</strong>
@@ -1257,69 +1038,68 @@ const Admin = () => {
           </div>
          
           <div className="admin-sidebar__user">
-  <div className="admin-sidebar__avatar">
-    {adminSession.name ? adminSession.name[0].toUpperCase() : 'A'}
-  </div>
+            <div className="admin-sidebar__avatar">
+              {adminSession.name ? adminSession.name[0].toUpperCase() : 'A'}
+            </div>
+            <div className="admin-sidebar__user-info">
+              <strong>{adminSession.name || 'Admin'}</strong>
+              <span>{String(adminSession.role || 'Administrator').toUpperCase()}</span>
+            </div>
+          </div>
 
-  <div className="admin-sidebar__user-info">
-    <strong>{adminSession.name || 'Admin'}</strong>
-    <span>{String(adminSession.role || 'Administrator').toUpperCase()}</span>
-  </div>
-</div>
+          {/* ADMIN ROLE SELECTOR */}
+          <div className="admin-role-selector">
+            <label htmlFor="admin-role">SELECT ADMIN ROLE</label>
+            <select
+              id="admin-role"
+              value={selectedAdminRole}
+              onChange={(e) => setSelectedAdminRole(e.target.value)}
+            >
+              <option value="Owner">Owner</option>
+              <option value="Super Admin">Super Admin</option>
+              <option value="Product Manager">Product Manager</option>
+              <option value="Order Manager">Order Manager</option>
+              <option value="Marketing Manager">Marketing Manager</option>
+              <option value="Content Manager">Content Manager</option>
+              <option value="Customer Support">Customer Support</option>
+              <option value="Viewer">Viewer</option>
+            </select>
+          </div>
 
-{/* ADMIN ROLE SELECTOR */}
-<div className="admin-role-selector">
-  <label htmlFor="admin-role">SELECT ADMIN ROLE</label>
+          <nav className="admin-sidebar__nav">
+            {ADMIN_NAV_SECTIONS.map(section => {
+              const visibleItems = section.items.filter(([id]) => allowedAdminTabs.includes(id));
+              if (visibleItems.length === 0) return null;
 
-  <select
-    id="admin-role"
-    value={selectedAdminRole}
-    onChange={(e) => setSelectedAdminRole(e.target.value)}
-  >
-    <option value="Owner">Owner</option>
-    <option value="Super Admin">Super Admin</option>
-    <option value="Product Manager">Product Manager</option>
-    <option value="Order Manager">Order Manager</option>
-    <option value="Marketing Manager">Marketing Manager</option>
-    <option value="Content Manager">Content Manager</option>
-    <option value="Customer Support">Customer Support</option>
-    <option value="Viewer">Viewer</option>
-  </select>
-</div>
+              return (
+                <div className="admin-sidebar__section" key={section.title}>
+                  <div className="admin-sidebar__section-title">
+                    <span>{section.title}</span>
+                  </div>
 
-<nav className="admin-sidebar__nav">
-  {ADMIN_NAV_SECTIONS.map(section => {
-    const visibleItems = section.items.filter(([id]) => allowedAdminTabs.includes(id));
-    if (visibleItems.length === 0) return null;
-
-    return (
-      <div className="admin-sidebar__section" key={section.title}>
-        <div className="admin-sidebar__section-title">
-          <span>{section.title}</span>
-        </div>
-
-        {visibleItems.map(([id, label, Icon]) => (
-          <button
-            key={id}
-            type="button"
-            className={
-              activeTab === id
-                ? 'admin-sidebar__nav-item admin-sidebar__nav-item--active'
-                : 'admin-sidebar__nav-item'
-            }
-            onClick={() => {
-              setActiveTab(id);
-              setMobileMenuOpen(false);
-            }}
-          >
-            <Icon />
-            <span>{label}</span>
-          </button>
-        ))}
-      </div>
-    );
-  })}
-</nav>
+                  {visibleItems.map(([id, label, Icon]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className={activeTab === id ? 'admin-sidebar__nav-item admin-sidebar__nav-item--active' : 'admin-sidebar__nav-item'}
+                      onClick={() => {
+                        setActiveTab(id);
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      <Icon />
+                      <span>{label}</span>
+                      {id === 'inventory' && invSummary.lowStockCount + invSummary.outOfStockCount > 0 && (
+                        <span style={{ marginLeft: 'auto', background: '#EF4444', color: '#fff', fontSize: '10px', padding: '1px 6px', borderRadius: '10px', fontWeight: 800 }}>
+                          {invSummary.lowStockCount + invSummary.outOfStockCount}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
+          </nav>
 
           <div className="admin-sidebar__footer">
             <button className="admin-sidebar__logout" onClick={handleAdminLogout}>
@@ -1328,7 +1108,6 @@ const Admin = () => {
           </div>
         </aside>
 
-        {/* Backdrop for mobile menu drawer */}
         {mobileMenuOpen && (
           <div className="admin-sidebar-backdrop" onClick={() => setMobileMenuOpen(false)} />
         )}
@@ -1338,7 +1117,12 @@ const Admin = () => {
           <header className="admin-main-header">
             <div>
               <span className="admin-main-eyebrow">Control Panel / {activeTab.replace('-', ' ')}</span>
-              <h1>{activeTab === 'dashboard' ? 'Overview Management' : activeTab.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</h1>
+              <h1>
+                {activeTab === 'dashboard' && 'Overview Management'}
+                {activeTab === 'inventory' && 'Grocery Inventory Hub'}
+                {activeTab === 'sales-stats' && 'Product Sales & Analytics'}
+                {activeTab !== 'dashboard' && activeTab !== 'inventory' && activeTab !== 'sales-stats' && activeTab.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+              </h1>
             </div>
             
             <div className="admin-main-header__actions">
@@ -1348,7 +1132,7 @@ const Admin = () => {
             </div>
           </header>
 
-          {/* Quick stats section (only visible on Overview / dashboard tab!) */}
+          {/* Quick stats on dashboard */}
           {activeTab === 'dashboard' && (
             <section className="admin__stats">
               {stats.map(stat => (
@@ -1361,22 +1145,769 @@ const Admin = () => {
             </section>
           )}
 
+          {/* =========================================================================
+             GROCERY INVENTORY MANAGEMENT MODULE
+             ========================================================================= */}
+          {activeTab === 'inventory' && (
+            <div className="admin-inventory-page">
+              {/* Critical Stock / Expiry Alerts Banners */}
+              <div className="inventory-alerts-container">
+                {invSummary.outOfStockCount > 0 && (
+                  <div className="inventory-alert-banner inventory-alert-banner--danger">
+                    <div className="inventory-alert-banner__content">
+                      <FiAlertCircle size={20} />
+                      <span><strong>Out of Stock Alert:</strong> {invSummary.outOfStockCount} grocery product(s) have 0 available units and are marked out of stock.</span>
+                    </div>
+                    <button className="inventory-alert-banner__btn" onClick={() => setInventoryFilter('out-of-stock')}>View Out of Stock Items</button>
+                  </div>
+                )}
+                {invSummary.lowStockCount > 0 && (
+                  <div className="inventory-alert-banner inventory-alert-banner--warning">
+                    <div className="inventory-alert-banner__content">
+                      <FiAlertTriangle size={20} />
+                      <span><strong>Low Stock Alert:</strong> {invSummary.lowStockCount} product(s) are at or below their configured reorder threshold.</span>
+                    </div>
+                    <button className="inventory-alert-banner__btn" onClick={() => setInventoryFilter('low-stock')}>View Low Stock Items</button>
+                  </div>
+                )}
+                {(invSummary.expiredCount > 0 || invSummary.nearExpiryCount > 0) && (
+                  <div className="inventory-alert-banner inventory-alert-banner--warning" style={{ background: '#FFF7ED', borderColor: '#FDBA74', color: '#C2410C' }}>
+                    <div className="inventory-alert-banner__content">
+                      <FiClock size={20} />
+                      <span>
+                        <strong>Expiry Warning:</strong> {invSummary.expiredCount} expired product(s) & {invSummary.nearExpiryCount} item(s) expiring within 30 days.
+                      </span>
+                    </div>
+                    <button className="inventory-alert-banner__btn" onClick={() => setInventoryFilter(invSummary.expiredCount > 0 ? 'expired' : 'near-expiry')}>
+                      View Expiry Warnings
+                    </button>
+                  </div>
+                )}
+              </div>
 
+              {/* Top KPI Metrics Overview */}
+              <section className="inventory-kpi-grid">
+                <div className="inventory-kpi-card">
+                  <div className="inventory-kpi-card__header">
+                    <span className="inventory-kpi-card__label">Total Inventory Valuation</span>
+                    <FiDollarSign className="inventory-kpi-card__icon" />
+                  </div>
+                  <strong>{formatPrice(invSummary.totalValuation)}</strong>
+                  <small>Retail Value: {formatPrice(invSummary.totalRetailValuation)}</small>
+                </div>
+
+                <div className="inventory-kpi-card">
+                  <div className="inventory-kpi-card__header">
+                    <span className="inventory-kpi-card__label">Total Stock Units</span>
+                    <FiPackage className="inventory-kpi-card__icon" />
+                  </div>
+                  <strong>{invSummary.totalAvailableUnits.toLocaleString('en-IN')}</strong>
+                  <small>{invSummary.totalReservedUnits} units currently reserved in orders</small>
+                </div>
+
+                <div className={`inventory-kpi-card ${invSummary.lowStockCount > 0 ? 'inventory-kpi-card--warning' : ''}`}>
+                  <div className="inventory-kpi-card__header">
+                    <span className="inventory-kpi-card__label">Low Stock Alerts</span>
+                    <FiAlertTriangle className="inventory-kpi-card__icon" style={{ color: invSummary.lowStockCount > 0 ? '#F59E0B' : undefined }} />
+                  </div>
+                  <strong style={{ color: invSummary.lowStockCount > 0 ? '#B45309' : undefined }}>{invSummary.lowStockCount}</strong>
+                  <small>Below configured reorder level</small>
+                </div>
+
+                <div className={`inventory-kpi-card ${invSummary.outOfStockCount > 0 ? 'inventory-kpi-card--danger' : ''}`}>
+                  <div className="inventory-kpi-card__header">
+                    <span className="inventory-kpi-card__label">Out of Stock</span>
+                    <FiAlertCircle className="inventory-kpi-card__icon" style={{ color: invSummary.outOfStockCount > 0 ? '#EF4444' : undefined }} />
+                  </div>
+                  <strong style={{ color: invSummary.outOfStockCount > 0 ? '#B91C1C' : undefined }}>{invSummary.outOfStockCount}</strong>
+                  <small>0 available units</small>
+                </div>
+              </section>
+
+              {/* Secondary Status Breakdown Bar */}
+              <div className="inventory-breakdown-bar">
+                <span className="inventory-breakdown-title">Stock Status:</span>
+                <span className="inventory-pill inventory-pill--available">Available: {invSummary.totalAvailableUnits}</span>
+                <span className="inventory-pill inventory-pill--reserved">Reserved in Orders: {invSummary.totalReservedUnits}</span>
+                <span className="inventory-pill inventory-pill--damaged">Damaged: {invSummary.totalDamagedUnits}</span>
+                <span className="inventory-pill inventory-pill--returned">Returned: {invSummary.totalReturnedUnits}</span>
+                <span className="inventory-pill inventory-pill--expired">Expired: {invSummary.totalExpiredUnits}</span>
+                <span className="inventory-pill inventory-pill--incoming">Incoming Shipment: {invSummary.totalIncomingUnits}</span>
+              </div>
+
+              {/* Toolbar & Filter Tabs */}
+              <div className="admin-card admin-card--wide" style={{ padding: '16px 20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div className="inventory-filters-tabs">
+                    <button
+                      className={`inventory-filter-btn ${inventoryFilter === 'all' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setInventoryFilter('all')}
+                    >
+                      All Items <span className="inventory-badge-count">{inventoryData?.items?.length || 0}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${inventoryFilter === 'low-stock' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setInventoryFilter('low-stock')}
+                    >
+                      ⚠️ Low Stock <span className="inventory-badge-count">{invSummary.lowStockCount}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${inventoryFilter === 'out-of-stock' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setInventoryFilter('out-of-stock')}
+                    >
+                      ❌ Out of Stock <span className="inventory-badge-count">{invSummary.outOfStockCount}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${inventoryFilter === 'near-expiry' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setInventoryFilter('near-expiry')}
+                    >
+                      ⏳ Near Expiry <span className="inventory-badge-count">{invSummary.nearExpiryCount}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${inventoryFilter === 'expired' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setInventoryFilter('expired')}
+                    >
+                      ⛔ Expired <span className="inventory-badge-count">{invSummary.expiredCount}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${inventoryFilter === 'incoming' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setInventoryFilter('incoming')}
+                    >
+                      📦 Incoming <span className="inventory-badge-count">{invSummary.totalIncomingUnits}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${inventoryFilter === 'logs' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setInventoryFilter('logs')}
+                    >
+                      📋 Movement & Adjustments Log
+                    </button>
+                  </div>
+
+                  {inventoryFilter !== 'logs' && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: '10px', flex: 1, minWidth: '280px', maxWidth: '600px' }}>
+                        <div className="admin-search-label" style={{ flex: 1 }}>
+                          <FiSearch />
+                          <input
+                            placeholder="Search item name, brand, SKU or batch..."
+                            value={inventorySearch}
+                            onChange={(e) => setInventorySearch(e.target.value)}
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                        <select
+                          className="admin-input-box"
+                          style={{ width: '160px', height: '38px', borderRadius: '10px' }}
+                          value={inventoryCategory}
+                          onChange={(e) => setInventoryCategory(e.target.value)}
+                        >
+                          <option value="all">All Categories</option>
+                          {(dbCategories.length ? dbCategories : categories).map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button className="admin__ghost" onClick={loadInventory} style={{ height: '38px', padding: '0 12px', fontSize: '12px' }}>
+                          <FiRefreshCw size={13} /> Refresh
+                        </button>
+                        <button className="admin__primary" onClick={exportInventoryCsv} style={{ height: '38px', padding: '0 14px', fontSize: '12px' }}>
+                          📥 Export CSV
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Main Table Content */}
+              {inventoryFilter !== 'logs' ? (
+                <div className="inventory-table-wrap">
+                  <table className="inventory-table">
+                    <thead>
+                      <tr>
+                        <th>ITEM / BATCH DETAILS</th>
+                        <th>CATEGORY</th>
+                        <th>AVAILABLE</th>
+                        <th>RESERVED</th>
+                        <th>DAMAGED / RETURNED</th>
+                        <th>INCOMING</th>
+                        <th>UNIT COST / VALUE</th>
+                        <th>REORDER LEVEL</th>
+                        <th>EXPIRY DATE</th>
+                        <th style={{ textAlign: 'center' }}>ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {inventoryLoading ? (
+                        <tr>
+                          <td colSpan="10" style={{ textAlign: 'center', padding: '36px', color: '#687466' }}>
+                            Loading live inventory tracking...
+                          </td>
+                        </tr>
+                      ) : filteredInventoryItems.length === 0 ? (
+                        <tr>
+                          <td colSpan="10" style={{ textAlign: 'center', padding: '36px', color: '#687466' }}>
+                            No inventory items matching your filter/search.
+                          </td>
+                        </tr>
+                      ) : filteredInventoryItems.map(item => (
+                        <tr key={item.productId}>
+                          {/* Item details */}
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <img src={toWebpImage(item.image)} alt={item.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', background: '#F7F4EE' }} />
+                              <div>
+                                <strong style={{ fontSize: '13px', color: '#111827' }}>{item.name}</strong>
+                                <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>
+                                  {item.brand ? `${item.brand} · ` : ''}{item.weight}{item.unit} · SKU #{item.productId}
+                                </span>
+                                {item.batchNumber && (
+                                  <span style={{ fontSize: '10px', background: '#F3F4F6', color: '#374151', padding: '1px 5px', borderRadius: '4px', display: 'inline-block', marginTop: '2px' }}>
+                                    Batch: {item.batchNumber}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Category */}
+                          <td>
+                            <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'capitalize', color: '#2D5016' }}>
+                              {item.category}
+                            </span>
+                            {item.isWholesale && (
+                              <span style={{ display: 'block', fontSize: '10px', color: '#FF6B35', fontWeight: '800' }}>Wholesale</span>
+                            )}
+                          </td>
+
+                          {/* Available Stock */}
+                          <td>
+                            <span className={`inventory-pill ${item.isOutOfStock ? 'inventory-pill--out' : (item.isLowStock ? 'inventory-pill--low' : 'inventory-pill--available')}`}>
+                              {item.availableStock} units
+                            </span>
+                          </td>
+
+                          {/* Reserved Stock */}
+                          <td>
+                            {item.reservedStock > 0 ? (
+                              <span className="inventory-pill inventory-pill--reserved">{item.reservedStock} units</span>
+                            ) : (
+                              <span style={{ color: '#9CA3AF', fontSize: '12px' }}>0</span>
+                            )}
+                          </td>
+
+                          {/* Damaged & Returned */}
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px' }}>
+                              {item.damagedStock > 0 && <span style={{ color: '#9D174D' }}>Damaged: <strong>{item.damagedStock}</strong></span>}
+                              {item.returnedStock > 0 && <span style={{ color: '#6B21A8' }}>Returned: <strong>{item.returnedStock}</strong></span>}
+                              {item.expiredStock > 0 && <span style={{ color: '#7F1D1D' }}>Expired: <strong>{item.expiredStock}</strong></span>}
+                              {item.damagedStock === 0 && item.returnedStock === 0 && item.expiredStock === 0 && <span style={{ color: '#9CA3AF' }}>0</span>}
+                            </div>
+                          </td>
+
+                          {/* Incoming Stock */}
+                          <td>
+                            {item.incomingStock > 0 ? (
+                              <span className="inventory-pill inventory-pill--incoming">+{item.incomingStock}</span>
+                            ) : (
+                              <span style={{ color: '#9CA3AF', fontSize: '12px' }}>0</span>
+                            )}
+                          </td>
+
+                          {/* Cost & Valuation */}
+                          <td>
+                            <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>Cost: {formatPrice(item.costPrice)}</span>
+                            <span style={{ fontSize: '11px', color: '#2D5016', display: 'block' }}>Sell: {formatPrice(item.price)}</span>
+                            <strong style={{ fontSize: '12px', color: '#111827' }}>Val: {formatPrice(item.stockValuation)}</strong>
+                          </td>
+
+                          {/* Reorder Level */}
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span style={{ fontSize: '12px', fontWeight: '700' }}>{item.reorderLevel} units</span>
+                              {item.isLowStock && (
+                                <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '800' }}>⚠️ Reorder Now</span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Expiry Date */}
+                          <td>
+                            {item.expiryDate ? (
+                              <div>
+                                <span style={{ fontSize: '11.5px', fontWeight: '600' }}>{item.expiryDate}</span>
+                                {item.isExpired ? (
+                                  <span style={{ display: 'block', fontSize: '10px', color: '#DC2626', fontWeight: '800' }}>⛔ Expired</span>
+                                ) : item.isNearExpiry ? (
+                                  <span style={{ display: 'block', fontSize: '10px', color: '#EA580C', fontWeight: '800' }}>
+                                    ⏳ {item.daysUntilExpiry}d left
+                                  </span>
+                                ) : (
+                                  <span style={{ display: 'block', fontSize: '10px', color: '#16A34A', fontWeight: '700' }}>Good</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span style={{ color: '#9CA3AF', fontSize: '11px' }}>Not Set</span>
+                            )}
+                          </td>
+
+                          {/* Action Buttons */}
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                              <button
+                                className="admin__primary"
+                                style={{ height: '32px', padding: '0 10px', fontSize: '11px', borderRadius: '6px' }}
+                                title="Adjust product stock count"
+                                onClick={() => {
+                                  setAdjustModalItem(item);
+                                  setAdjustForm({
+                                    changeType: 'ADD',
+                                    quantity: '',
+                                    targetField: 'availableStock',
+                                    reason: 'Purchase / New Stock Received',
+                                    notes: ''
+                                  });
+                                }}
+                              >
+                                Adjust
+                              </button>
+
+                              <button
+                                className="admin__ghost"
+                                style={{ height: '32px', padding: '0 8px', fontSize: '11px', borderRadius: '6px' }}
+                                title="Configure reorder threshold, expiry date and batch number"
+                                onClick={() => {
+                                  setReorderModalItem(item);
+                                  setReorderForm({
+                                    reorderLevel: item.reorderLevel,
+                                    costPrice: item.costPrice,
+                                    expiryDate: item.expiryDate || '',
+                                    batchNumber: item.batchNumber || '',
+                                    location: item.location || 'Main Shelf',
+                                    incomingStock: item.incomingStock || 0
+                                  });
+                                }}
+                              >
+                                <FiSliders size={13} />
+                              </button>
+
+                              <button
+                                className="admin__ghost"
+                                style={{ height: '32px', padding: '0 8px', fontSize: '11px', borderRadius: '6px' }}
+                                title="View stock movement & transaction history"
+                                onClick={() => openProductHistory(item)}
+                              >
+                                <FiActivity size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                /* Inventory Movement & Adjustment Logs Tab */
+                <div className="admin-card admin-card--wide">
+                  <div className="admin-card__toolbar">
+                    <div>
+                      <h2 style={{ margin: 0 }}>Stock Movement & Adjustment History</h2>
+                      <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
+                        Complete audit trail of all manual adjustments, purchase deliveries, and status changes.
+                      </p>
+                    </div>
+                    <button className="admin__ghost" onClick={loadInventoryLogs}>
+                      <FiRefreshCw size={13} /> Refresh Logs
+                    </button>
+                  </div>
+
+                  {logsLoading ? (
+                    <p style={{ color: '#687466', padding: '24px 0', textAlign: 'center' }}>Loading audit logs...</p>
+                  ) : inventoryLogs.length === 0 ? (
+                    <p style={{ color: '#687466', padding: '24px 0', textAlign: 'center' }}>No stock movement logs recorded yet.</p>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="inventory-table">
+                        <thead>
+                          <tr>
+                            <th>DATE & TIME</th>
+                            <th>PRODUCT</th>
+                            <th>ACTION / EVENT</th>
+                            <th>QTY</th>
+                            <th>STOCK BEFORE ➔ AFTER</th>
+                            <th>REASON</th>
+                            <th>NOTES</th>
+                            <th>ADMIN USER</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {inventoryLogs.map(log => (
+                            <tr key={log.id}>
+                              <td style={{ fontSize: '11.5px', color: '#687466', whiteSpace: 'nowrap' }}>
+                                {new Date(log.createdAt).toLocaleString('en-IN')}
+                              </td>
+                              <td>
+                                <strong>{log.productName}</strong>
+                                <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>ID #{log.productId}</span>
+                              </td>
+                              <td>
+                                <span style={{
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '10.5px',
+                                  fontWeight: '800',
+                                  background: log.changeType === 'ADD' ? '#ECFDF5' : (log.changeType === 'DAMAGE' || log.changeType === 'EXPIRED' ? '#FEF2F2' : '#F3F4F6'),
+                                  color: log.changeType === 'ADD' ? '#065F46' : (log.changeType === 'DAMAGE' || log.changeType === 'EXPIRED' ? '#991B1B' : '#374151')
+                                }}>
+                                  {log.changeType}
+                                </span>
+                              </td>
+                              <td style={{ fontWeight: '800', fontSize: '13px', color: '#111827' }}>
+                                {log.quantity > 0 ? `+${log.quantity}` : log.quantity}
+                              </td>
+                              <td>
+                                <span style={{ fontSize: '12px', fontWeight: '700', color: '#2D5016' }}>
+                                  {log.stockBefore} ➔ {log.stockAfter}
+                                </span>
+                              </td>
+                              <td style={{ fontSize: '12px' }}>{log.reason}</td>
+                              <td style={{ fontSize: '11px', color: '#687466' }}>{log.notes || '—'}</td>
+                              <td style={{ fontSize: '12px', fontWeight: '600' }}>{log.adminName}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* =========================================================
+                 MODAL 1: STOCK ADJUSTMENT
+                 ========================================================= */}
+              {adjustModalItem && (
+                <div className="inventory-modal-backdrop" onClick={() => setAdjustModalItem(null)}>
+                  <div className="inventory-modal" onClick={e => e.stopPropagation()}>
+                    <div className="inventory-modal__header">
+                      <h2>Adjust Stock — {adjustModalItem.name}</h2>
+                      <button className="inventory-modal__close" onClick={() => setAdjustModalItem(null)}>✕</button>
+                    </div>
+
+                    <form onSubmit={handleStockAdjustment}>
+                      <div className="inventory-modal__body">
+                        {/* Current info pill */}
+                        <div style={{ display: 'flex', gap: '10px', background: '#FAFFF6', padding: '12px', borderRadius: '10px', border: '1px solid #DCE3D8' }}>
+                          <img src={toWebpImage(adjustModalItem.image)} alt={adjustModalItem.name} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />
+                          <div>
+                            <strong style={{ fontSize: '13px', color: '#111827' }}>{adjustModalItem.name}</strong>
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '12px', color: '#687466' }}>
+                              <span>Available Stock: <strong style={{ color: '#2D5016' }}>{adjustModalItem.availableStock}</strong></span>
+                              <span>Reserved: <strong>{adjustModalItem.reservedStock}</strong></span>
+                              <span>Reorder Level: <strong>{adjustModalItem.reorderLevel}</strong></span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Adjustment Type / Reason */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>
+                            Adjustment Reason & Type
+                          </label>
+                          <select
+                            className="admin-input-box"
+                            value={adjustForm.reason}
+                            onChange={(e) => {
+                              const r = e.target.value;
+                              let cType = 'ADD';
+                              let tField = 'availableStock';
+
+                              if (r.includes('Purchase') || r.includes('New Stock') || r.includes('Supplier')) {
+                                cType = 'ADD';
+                                tField = 'availableStock';
+                              } else if (r.includes('Damaged')) {
+                                cType = 'DAMAGE';
+                                tField = 'damagedStock';
+                              } else if (r.includes('Return')) {
+                                cType = 'RETURN';
+                                tField = 'returnedStock';
+                              } else if (r.includes('Expired')) {
+                                cType = 'EXPIRED';
+                                tField = 'expiredStock';
+                              } else if (r.includes('Audit') || r.includes('Physical Count')) {
+                                cType = 'SET';
+                                tField = 'availableStock';
+                              } else if (r.includes('Deduction') || r.includes('Loss')) {
+                                cType = 'SUBTRACT';
+                                tField = 'availableStock';
+                              }
+
+                              setAdjustForm(prev => ({
+                                ...prev,
+                                reason: r,
+                                changeType: cType,
+                                targetField: tField
+                              }));
+                            }}
+                          >
+                            <option value="Purchase / New Stock Received">Purchase / New Stock Received (+ Available Stock)</option>
+                            <option value="Damaged in Store / Warehouse">Damaged in Store / Warehouse (- Available, + Damaged)</option>
+                            <option value="Customer Return">Customer Return (+ Returned, + Available)</option>
+                            <option value="Expired Stock Removal">Expired Stock Removal (- Available, + Expired)</option>
+                            <option value="Physical Inventory Count Audit">Physical Inventory Count Audit (Set Exact Count)</option>
+                            <option value="Supplier Shipment Received">Supplier Shipment Received (Convert Incoming to Available)</option>
+                            <option value="Internal Stock Correction / Write-off">Internal Stock Deduction / Write-off (- Available)</option>
+                          </select>
+                        </div>
+
+                        {/* Quantity input */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>
+                            {adjustForm.changeType === 'SET' ? 'New Total Stock Count' : 'Quantity to Change (Units)'}
+                          </label>
+                          <input
+                            type="number"
+                            className="admin-input-box"
+                            placeholder="e.g. 25"
+                            required
+                            min="1"
+                            value={adjustForm.quantity}
+                            onChange={(e) => setAdjustForm(prev => ({ ...prev, quantity: e.target.value }))}
+                          />
+                        </div>
+
+                        {/* Live calculation preview */}
+                        {adjustForm.quantity && (
+                          <div style={{ padding: '10px 14px', background: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0', fontSize: '12.5px' }}>
+                            <span>Preview: Current Available Stock (<strong>{adjustModalItem.availableStock}</strong>) ➔ New Available Stock (
+                              <strong style={{ color: '#15803D' }}>
+                                {(() => {
+                                  const q = parseInt(adjustForm.quantity, 10) || 0;
+                                  if (adjustForm.changeType === 'SET') return q;
+                                  if (adjustForm.changeType === 'ADD' || adjustForm.changeType === 'RETURN' || adjustForm.changeType === 'RECEIVE_INCOMING') {
+                                    return adjustModalItem.availableStock + q;
+                                  }
+                                  return Math.max(0, adjustModalItem.availableStock - q);
+                                })()}
+                              </strong> units)
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Notes */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>
+                            Notes / Reference (Optional)
+                          </label>
+                          <textarea
+                            rows={2}
+                            className="admin-input-box"
+                            style={{ height: 'auto', padding: '8px 12px' }}
+                            placeholder="e.g., Invoice #INV-8492 from supplier, or audit verification notes"
+                            value={adjustForm.notes}
+                            onChange={(e) => setAdjustForm(prev => ({ ...prev, notes: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="inventory-modal__footer">
+                        <button type="button" className="admin__ghost" onClick={() => setAdjustModalItem(null)}>
+                          Cancel
+                        </button>
+                        <button type="submit" className="admin__primary" disabled={adjustLoading}>
+                          {adjustLoading ? 'Updating Stock...' : 'Confirm Stock Adjustment'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* =========================================================
+                 MODAL 2: REORDER LEVEL & BATCH CONFIGURATION
+                 ========================================================= */}
+              {reorderModalItem && (
+                <div className="inventory-modal-backdrop" onClick={() => setReorderModalItem(null)}>
+                  <div className="inventory-modal" onClick={e => e.stopPropagation()}>
+                    <div className="inventory-modal__header">
+                      <h2>Inventory & Reorder Settings — {reorderModalItem.name}</h2>
+                      <button className="inventory-modal__close" onClick={() => setReorderModalItem(null)}>✕</button>
+                    </div>
+
+                    <form onSubmit={handleReorderConfigSave}>
+                      <div className="inventory-modal__body">
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
+                              Reorder Threshold (Min Units)
+                            </label>
+                            <input
+                              type="number"
+                              className="admin-input-box"
+                              placeholder="e.g. 10"
+                              value={reorderForm.reorderLevel}
+                              onChange={(e) => setReorderForm(prev => ({ ...prev, reorderLevel: e.target.value }))}
+                            />
+                            <span style={{ fontSize: '11px', color: '#687466' }}>Triggers Low Stock warning when stock is below this.</span>
+                          </div>
+
+                          <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
+                              Cost Price (₹ per unit)
+                            </label>
+                            <input
+                              type="number"
+                              className="admin-input-box"
+                              placeholder="e.g. 85"
+                              value={reorderForm.costPrice}
+                              onChange={(e) => setReorderForm(prev => ({ ...prev, costPrice: e.target.value }))}
+                            />
+                            <span style={{ fontSize: '11px', color: '#687466' }}>Used for total stock valuation calculation.</span>
+                          </div>
+
+                          <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
+                              Batch / Lot Number
+                            </label>
+                            <input
+                              type="text"
+                              className="admin-input-box"
+                              placeholder="e.g. BAT-2026-09"
+                              value={reorderForm.batchNumber}
+                              onChange={(e) => setReorderForm(prev => ({ ...prev, batchNumber: e.target.value }))}
+                            />
+                          </div>
+
+                          <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
+                              Expiry Date
+                            </label>
+                            <input
+                              type="date"
+                              className="admin-input-box"
+                              value={reorderForm.expiryDate}
+                              onChange={(e) => setReorderForm(prev => ({ ...prev, expiryDate: e.target.value }))}
+                            />
+                          </div>
+
+                          <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
+                              Storage Location
+                            </label>
+                            <input
+                              type="text"
+                              className="admin-input-box"
+                              placeholder="e.g. Aisle 2, Rack C"
+                              value={reorderForm.location}
+                              onChange={(e) => setReorderForm(prev => ({ ...prev, location: e.target.value }))}
+                            />
+                          </div>
+
+                          <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
+                              Incoming Expected Stock (Units)
+                            </label>
+                            <input
+                              type="number"
+                              className="admin-input-box"
+                              placeholder="e.g. 50"
+                              value={reorderForm.incomingStock}
+                              onChange={(e) => setReorderForm(prev => ({ ...prev, incomingStock: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="inventory-modal__footer">
+                        <button type="button" className="admin__ghost" onClick={() => setReorderModalItem(null)}>
+                          Cancel
+                        </button>
+                        <button type="submit" className="admin__primary" disabled={reorderLoading}>
+                          {reorderLoading ? 'Saving...' : 'Save Settings'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* =========================================================
+                 MODAL 3: PRODUCT STOCK MOVEMENT HISTORY
+                 ========================================================= */}
+              {historyModalItem && (
+                <div className="inventory-modal-backdrop" onClick={() => setHistoryModalItem(null)}>
+                  <div className="inventory-modal" onClick={e => e.stopPropagation()}>
+                    <div className="inventory-modal__header">
+                      <h2>Movement History — {historyModalItem.name}</h2>
+                      <button className="inventory-modal__close" onClick={() => setHistoryModalItem(null)}>✕</button>
+                    </div>
+
+                    <div className="inventory-modal__body">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: '#FAF9F6', borderRadius: '8px', fontSize: '12px' }}>
+                        <span>Current Available: <strong style={{ color: '#2D5016' }}>{historyModalItem.availableStock}</strong> units</span>
+                        <span>Reserved in Orders: <strong>{historyModalItem.reservedStock}</strong> units</span>
+                        <span>Reorder Level: <strong>{historyModalItem.reorderLevel}</strong></span>
+                      </div>
+
+                      {historyLoading ? (
+                        <p style={{ textAlign: 'center', padding: '24px 0', color: '#687466' }}>Loading transaction history...</p>
+                      ) : historyLogs.length === 0 ? (
+                        <p style={{ textAlign: 'center', padding: '24px 0', color: '#687466' }}>No adjustment transactions recorded yet for this product.</p>
+                      ) : (
+                        <div className="inventory-timeline">
+                          {historyLogs.map(log => (
+                            <div key={log.id} className="inventory-timeline-item">
+                              <div className="inventory-timeline-item__header">
+                                <span style={{ fontSize: '12px', fontWeight: '800', color: '#1C4B12' }}>
+                                  {log.reason} ({log.changeType})
+                                </span>
+                                <span style={{ fontSize: '11px', color: '#687466' }}>
+                                  {new Date(log.createdAt).toLocaleString('en-IN')}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: '2px' }}>
+                                <span>Quantity: <strong>{log.quantity > 0 ? `+${log.quantity}` : log.quantity}</strong></span>
+                                <span>Stock Transition: <strong>{log.stockBefore} ➔ {log.stockAfter}</strong></span>
+                              </div>
+                              {log.notes && (
+                                <span style={{ fontSize: '11px', color: '#4B5563', marginTop: '2px', fontStyle: 'italic' }}>
+                                  Note: {log.notes}
+                                </span>
+                              )}
+                              <span style={{ fontSize: '10.5px', color: '#9CA3AF' }}>By: {log.adminName}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="inventory-modal__footer">
+                      <button className="admin__primary" onClick={() => setHistoryModalItem(null)}>
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Store links banner */}
           {(activeTab === 'retail-products' || activeTab === 'retail-content') && (
             <div className="admin__mode-bar" style={{ marginBottom: '20px' }}>
               <span className="admin__mode-label">🛍️ Retail</span>
-              <span className="admin__mode-desc">Products visible to retail customers at the home page in Retail mode</span>
+              <span className="admin__mode-desc">Products visible to retail customers in Retail mode</span>
               <a href="/home" target="_blank" rel="noopener noreferrer" className="admin__store-link">
                 View Retail Store →
               </a>
             </div>
           )}
           {(activeTab === 'wholesale-products' || activeTab === 'wholesale-content') && (
-            <div className="admin__mode-bar admin__mode-bar--wholesale" style={{ marginBottom: '20px' }}>
+            <div className="admin__mode-bar" style={{ marginBottom: '20px' }}>
               <span className="admin__mode-label">📦 Wholesale</span>
-              <span className="admin__mode-desc">Products visible to wholesale customers at the home page in Wholesale mode</span>
+              <span className="admin__mode-desc">Products visible to wholesale customers in Wholesale mode</span>
               <a href="/home" target="_blank" rel="noopener noreferrer" className="admin__store-link">
                 View Wholesale Store →
               </a>
@@ -1444,15 +1975,14 @@ const Admin = () => {
                   <input value={productDraft.price} onChange={(e) => setProductDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="Price" type="number" required />
                   <input value={productDraft.mrp} onChange={(e) => setProductDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="MRP" type="number" />
                   <input value={productDraft.discount} onChange={(e) => setProductDraft(prev => ({ ...prev, discount: e.target.value }))} placeholder="Discount %" type="number" />
-                  <label className="admin-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#2D5016', fontWeight: 600, cursor: 'pointer', gridColumn: 'span 1' }}>
+                  <label className="admin-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#2D5016', fontWeight: 600, cursor: 'pointer' }}>
                     <input type="checkbox" checked={Boolean(productDraft.isBestseller)} onChange={(e) => setProductDraft(prev => ({ ...prev, isBestseller: e.target.checked }))} style={{ width: 'auto', margin: 0 }} />
                     <span>Best Seller</span>
                   </label>
-                  <label className="admin-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#2D5016', fontWeight: 600, cursor: 'pointer', gridColumn: 'span 1' }}>
+                  <label className="admin-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#2D5016', fontWeight: 600, cursor: 'pointer' }}>
                     <input type="checkbox" checked={Boolean(productDraft.isTodaysDeal)} onChange={(e) => setProductDraft(prev => ({ ...prev, isTodaysDeal: e.target.checked }))} style={{ width: 'auto', margin: 0 }} />
                     <span>Today's Deal</span>
                   </label>
-                  {/* Wholesale-only extra fields */}
                   {activeTab === 'wholesale-products' && (
                     <>
                       <input value={productDraft.wholesalePrice || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, wholesalePrice: e.target.value }))} placeholder="Wholesale price" type="number" />
@@ -1470,16 +2000,14 @@ const Admin = () => {
                   )}
                   <input value={productDraft.image} onChange={(e) => setProductDraft(prev => ({ ...prev, image: e.target.value }))} placeholder="Image URL" />
                   <label className="admin-file-input">
-                    <span>Or upload image from Downloads/device</span>
+                    <span>Or upload image from device</span>
                     <input type="file" accept="image/*" onChange={handleImageUpload} />
                   </label>
                   <textarea value={productDraft.description} onChange={(e) => setProductDraft(prev => ({ ...prev, description: e.target.value }))} placeholder="Description" rows="3" />
                 </div>
 
-                {/* ── Variant quantity builder ── */}
                 <div className="admin-variants-section">
                   <h3>Quantities / Variants</h3>
-                  <p className="admin-variants-hint">Tick the sizes you want to offer, then enter a price for each. Add custom sizes below.</p>
                   <div className="admin-variants-grid">
                     {defaultVariantOptions.map(opt => (
                       <label key={opt} className={`admin-variant-check ${checkedVariants.includes(opt) ? 'admin-variant-check--active' : ''}`}>
@@ -1548,7 +2076,7 @@ const Admin = () => {
 
                 <div className="admin-form__actions" style={{ alignItems: 'center' }}>
                   <button type="submit" className="admin__primary" disabled={apiLoading}>
-                    {apiLoading ? <div className="admin-spinner" /> : <FiSave />} Save item
+                    {apiLoading ? 'Saving...' : <><FiSave /> Save item</>}
                   </button>
                   {productDraft.id && (
                     <button type="button" className="admin__ghost" onClick={() => { setProductDraft(activeTab === 'wholesale-products' ? blankWholesaleProduct : blankProduct); setCheckedVariants([]); setVariantPrices({}); setCustomVariants([{ label: '', price: '' }]); }}>
@@ -1556,17 +2084,16 @@ const Admin = () => {
                     </button>
                   )}
                   {saveToast && (
-                    <div style={{ marginLeft: 'auto', padding: '8px 12px', borderRadius: '6px', fontSize: '14px', background: saveToast.type === 'error' ? '#fee' : '#e6f4ea', color: saveToast.type === 'error' ? '#c00' : '#1e8e3e' }}>
+                    <div style={{ marginLeft: 'auto', padding: '8px 12px', borderRadius: '6px', fontSize: '13px', background: saveToast.type === 'error' ? '#fee' : '#e6f4ea', color: saveToast.type === 'error' ? '#c00' : '#1e8e3e' }}>
                       {saveToast.msg}
                     </div>
                   )}
                 </div>
               </form>
 
-              {/* ── Add new category ── */}
+              {/* Add new category card */}
               <div className="admin-card admin-new-cat">
                 <h2>Add New Category</h2>
-                <p className="admin-muted" style={{marginBottom:12}}>New category will appear in the website sidebar and shop page.</p>
                 <div className="admin-form__grid">
                   <input
                     className="admin-input-box"
@@ -1576,46 +2103,15 @@ const Admin = () => {
                   />
                   <input
                     className="admin-input-box"
-                    placeholder="Image URL (from Unsplash or any link)"
+                    placeholder="Image URL"
                     value={newCat.image.startsWith('data:') ? '' : newCat.image}
                     onChange={(e) => setNewCat(prev => ({ ...prev, image: e.target.value }))}
                   />
-                  <label className="admin-file-input">
-                    <span>Or select image from your device</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        const reader = new FileReader();
-                        reader.onload = () => setNewCat(prev => ({ ...prev, image: reader.result }));
-                        reader.readAsDataURL(file);
-                        e.target.value = '';
-                      }}
-                    />
-                  </label>
-                  {newCat.image && (
-                    <div style={{display:'flex',alignItems:'center',gap:10}}>
-                      <img src={newCat.image} alt="preview" style={{width:52,height:52,borderRadius:10,objectFit:'cover',border:'1px solid rgba(45,80,22,0.2)'}} />
-                      <div style={{display:'flex',flexDirection:'column',gap:4}}>
-                        <span style={{fontSize:12,color:'#687466'}}>Image preview</span>
-                        <button
-                          type="button"
-                          className="admin-danger"
-                          style={{fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:6,height:'auto'}}
-                          onClick={() => setNewCat(prev => ({ ...prev, image: '' }))}
-                        >
-                          <FiTrash2 size={12} /> Delete image
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
                 <button
                   type="button"
                   className="admin__primary"
-                  style={{marginTop:12}}
+                  style={{ marginTop: 12 }}
                   onClick={async () => {
                     if (!newCat.name.trim()) return;
                     try {
@@ -1633,45 +2129,12 @@ const Admin = () => {
                 >
                   <FiPlus /> Add Category
                 </button>
-
-                {dbCategories.length > 0 && (
-                  <div style={{marginTop:16}}>
-                    <strong style={{fontSize:12,color:'#687466',display:'block',marginBottom:8}}>Categories</strong>
-                    {dbCategories.map(cat => (
-                      <div key={cat.id} className="admin-row admin-row--plain" style={{marginTop:6,padding:'8px 10px',borderRadius:10,border:'1px solid rgba(45,80,22,0.1)',background:'#FAFFF6'}}>
-                        {cat.image && <img src={cat.image} alt={cat.name} style={{width:38,height:38,borderRadius:8,objectFit:'cover',flexShrink:0}} />}
-                        <span style={{flex:1}}>
-                          {cat.name}
-                          <small style={{marginLeft:8,color:'#687466',fontSize:11}}>{cat.id}</small>
-                        </span>
-                        <button
-                          className="admin-danger"
-                          style={{display:'flex',alignItems:'center',gap:4,fontSize:12,padding:'4px 10px',borderRadius:7,height:'auto'}}
-                          onClick={async () => {
-                            if (!window.confirm(`Delete "${cat.name}" and all its products?`)) return;
-                            try {
-                              await adminApi.deleteCategory(cat.id);
-                              setDbCategories(prev => prev.filter(c => c.id !== cat.id));
-                              persistRetailProducts(retailProducts.filter(p => p.category !== cat.id));
-                              persistWholesaleProducts(wholesaleProducts.filter(p => p.category !== cat.id));
-                            } catch (err) {
-                              alert(err.message);
-                            }
-                          }}
-                        >
-                          <FiTrash2 size={13} /> Delete
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
               <div className="admin-card admin-card--wide">
                 <div className="admin-card__toolbar">
                   <h2>Items</h2>
                   <div className="admin-card__actions">
-                    <button onClick={exportItems}>Download items</button>
                     <label><FiSearch /><input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search items" /></label>
                   </div>
                 </div>
@@ -1689,24 +2152,6 @@ const Admin = () => {
                         <option>Only 10 left</option>
                         <option>Out of stock</option>
                       </select>
-                      <label className="admin-toggle-column" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                        <span style={{ fontSize: 10, textTransform: 'uppercase', color: '#687466', fontWeight: 600 }}>Best Seller</span>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(product.isBestseller)}
-                          onChange={() => toggleProductFlag(product.id, 'isBestseller', product.isBestseller, adminMode === 'wholesale')}
-                          style={{ width: 18, height: 18, cursor: 'pointer', margin: 0 }}
-                        />
-                      </label>
-                      <label className="admin-toggle-column" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                        <span style={{ fontSize: 10, textTransform: 'uppercase', color: '#687466', fontWeight: 600 }}>Today's Deal</span>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(product.isTodaysDeal)}
-                          onChange={() => toggleProductFlag(product.id, 'isTodaysDeal', product.isTodaysDeal, adminMode === 'wholesale')}
-                          style={{ width: 18, height: 18, cursor: 'pointer', margin: 0 }}
-                        />
-                      </label>
                       <button onClick={() => editProduct(product)}><FiEdit2 /></button>
                       <button className="admin-danger" onClick={() => removeProduct(product.id)}><FiTrash2 /></button>
                     </div>
@@ -1771,76 +2216,6 @@ const Admin = () => {
                 <input value={couponDraft.minOrder} onChange={(e) => setCouponDraft(prev => ({ ...prev, minOrder: e.target.value }))} placeholder="Minimum order value (₹)" type="number" />
                 <button className="admin__primary"><FiPlus /> Add coupon</button>
               </form>
-
-              {/* All Offers — unified list */}
-              <div className="admin-card admin-card--wide" style={{gridColumn:'1 / -1'}}>
-                <div className="admin-card__toolbar">
-                  <h2>All Offers ({offers.length})</h2>
-                </div>
-                <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                  {offers.map(offer => (
-                    <div key={offer.id} className="admin-row admin-row--plain admin-row--offer" style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',borderRadius:10,border:'1px solid rgba(45,80,22,0.1)',background:'#FAFFF6'}}>
-                      {offer.image
-                        ? <img src={toWebpImage(offer.image)} alt={offer.title} style={{width:52,height:40,objectFit:'cover',borderRadius:8,flexShrink:0}} />
-                        : <div style={{width:52,height:40,borderRadius:8,background:'#E8F5E9',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><FiGift /></div>
-                      }
-                      <div style={{flex:1,minWidth:0}}>
-                        <strong style={{display:'block',fontSize:13,color:'#2D5016'}}>{offer.title}</strong>
-                        <span style={{fontSize:11,color:'#687466'}}>{offer.subtitle} · {offer.badge}</span>
-                        {offer.price > 0 && <span style={{fontSize:11,color:'#3A6B1A',marginLeft:8}}>₹{offer.price}</span>}
-                      </div>
-                      <span style={{fontSize:10,fontWeight:800,padding:'3px 8px',borderRadius:6,background: offer.group === 'festival' ? '#FFF8E1' : '#E8F5E9',color: offer.group === 'festival' ? '#F57F17' : '#2D5016',flexShrink:0}}>
-                        {offer.group === 'festival' ? 'Festive' : 'Daily'}
-                      </span>
-                      <button
-                        style={{padding:'4px 10px',borderRadius:7,border:'1px solid rgba(45,80,22,0.2)',background: offer.active ? '#E8F5E9' : '#F5F5F5',color: offer.active ? '#2D5016' : '#9ca3af',fontSize:11,fontWeight:800,flexShrink:0,cursor:'pointer'}}
-                        onClick={async () => {
-                          try {
-                            const updated = normalizeOffer(await adminApi.updateOffer(offer.id, { active: !offer.active }));
-                            setOffers(prev => prev.map(item => item.id === offer.id ? updated : item));
-                          } catch (err) { alert(err.message); }
-                        }}
-                      >
-                        {offer.active ? 'Live' : 'Paused'}
-                      </button>
-                      <button className="admin-danger" style={{flexShrink:0,width:32,height:32,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={async () => {
-                        try {
-                          await adminApi.deleteOffer(offer.id);
-                          setOffers(prev => prev.filter(item => item.id !== offer.id));
-                        } catch (err) { alert(err.message); }
-                      }}>
-                        <FiTrash2 size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Coupons */}
-              <div className="admin-card">
-                <h2>Coupons</h2>
-                {coupons.map(coupon => (
-                  <div key={coupon.id} className="admin-row admin-row--plain">
-                    <FiTag />
-                    <span>
-                      {coupon.code} — {coupon.type === 'percent' ? `${coupon.value}% off` : coupon.type === 'freeDelivery' ? 'Free delivery' : `₹${coupon.value} off`}
-                      {coupon.minOrder > 0 && <small> Min ₹{coupon.minOrder} · {coupon.customerType}</small>}
-                    </span>
-                    <button onClick={async () => {
-                      try {
-                        const updated = await adminApi.updateCoupon(coupon.id, { active: !coupon.active });
-                        setCoupons(prev => prev.map(item => item.id === coupon.id ? updated : item));
-                      } catch (err) { alert(err.message); }
-                    }}>{coupon.active ? 'Active' : 'Off'}</button>
-                    <button className="admin-danger" onClick={async () => {
-                      try {
-                        await adminApi.deleteCoupon(coupon.id);
-                        setCoupons(prev => prev.filter(item => item.id !== coupon.id));
-                      } catch (err) { alert(err.message); }
-                    }}><FiTrash2 /></button>
-                  </div>
-                ))}
-              </div>
             </section>
           )}
 
@@ -1853,44 +2228,24 @@ const Admin = () => {
                   <input value={bestsellerSearch} onChange={(e) => setBestsellerSearch(e.target.value)} placeholder="Search products..." />
                 </label>
               </div>
-              <p className="admin-muted" style={{ marginBottom: 12 }}>
-                Tick a product to feature it in the Bestsellers row on the home page and the Bestsellers page. Untick to remove it.
-              </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {allProducts
-                  .filter(p =>
-                    p.name.toLowerCase().includes(bestsellerSearch.toLowerCase()) ||
-                    (p.brand || '').toLowerCase().includes(bestsellerSearch.toLowerCase())
-                  )
+                  .filter(p => p.name.toLowerCase().includes(bestsellerSearch.toLowerCase()) || (p.brand || '').toLowerCase().includes(bestsellerSearch.toLowerCase()))
                   .map(product => (
                     <div key={product.id} className="admin-row admin-row--plain" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
-                      <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />
+                      <div style={{ flex: 1 }}>
                         <strong>{product.name}</strong>
-                        <span style={{ fontSize: 12, color: '#687466' }}>
-                          {product.brand} / {product.weight}{product.unit} / {formatPrice(product.price)}
-                          {product.wholesalePrice ? <strong style={{ marginLeft: 8, color: '#FF6B35' }}>(Wholesale)</strong> : null}
-                        </span>
+                        <span style={{ fontSize: 12, color: '#687466' }}>{product.brand} / {product.weight}{product.unit} / {formatPrice(product.price)}</span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <button
-                          type="button"
-                          className="admin__ghost"
-                          onClick={() => editProduct(product)}
-                          style={{ padding: '6px 10px', height: 'auto', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', border: '1px solid rgba(45,80,22,0.2)' }}
-                        >
-                          <FiEdit2 size={13} /> Edit
-                        </button>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: product.isBestseller ? '#2D5016' : '#687466', cursor: 'pointer', flexShrink: 0, margin: 0 }}>
-                          <input
-                            type="checkbox"
-                            checked={Boolean(product.isBestseller)}
-                            onChange={() => toggleProductFlag(product.id, 'isBestseller', product.isBestseller, Boolean(product.wholesalePrice))}
-                            style={{ margin: 0, width: 'auto' }}
-                          />
-                          {product.isBestseller ? 'Bestseller' : 'Add'}
-                        </label>
-                      </div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: product.isBestseller ? '#2D5016' : '#687466', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(product.isBestseller)}
+                          onChange={() => toggleProductFlag(product.id, 'isBestseller', product.isBestseller, Boolean(product.wholesalePrice))}
+                        />
+                        {product.isBestseller ? 'Bestseller' : 'Add'}
+                      </label>
                     </div>
                   ))}
               </div>
@@ -1906,44 +2261,24 @@ const Admin = () => {
                   <input value={dealSearch} onChange={(e) => setDealSearch(e.target.value)} placeholder="Search products..." />
                 </label>
               </div>
-              <p className="admin-muted" style={{ marginBottom: 12 }}>
-                Tick a product to feature it in Today's Deals on the home page and the Today's Deals page. Untick to remove it.
-              </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {allProducts
-                  .filter(p =>
-                    p.name.toLowerCase().includes(dealSearch.toLowerCase()) ||
-                    (p.brand || '').toLowerCase().includes(dealSearch.toLowerCase())
-                  )
+                  .filter(p => p.name.toLowerCase().includes(dealSearch.toLowerCase()) || (p.brand || '').toLowerCase().includes(dealSearch.toLowerCase()))
                   .map(product => (
                     <div key={product.id} className="admin-row admin-row--plain" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
-                      <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />
+                      <div style={{ flex: 1 }}>
                         <strong>{product.name}</strong>
-                        <span style={{ fontSize: 12, color: '#687466' }}>
-                          {product.brand} / {product.weight}{product.unit} / {formatPrice(product.price)}
-                          {product.wholesalePrice ? <strong style={{ marginLeft: 8, color: '#FF6B35' }}>(Wholesale)</strong> : null}
-                        </span>
+                        <span style={{ fontSize: 12, color: '#687466' }}>{product.brand} / {product.weight}{product.unit} / {formatPrice(product.price)}</span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <button
-                          type="button"
-                          className="admin__ghost"
-                          onClick={() => editProduct(product)}
-                          style={{ padding: '6px 10px', height: 'auto', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', border: '1px solid rgba(45,80,22,0.2)' }}
-                        >
-                          <FiEdit2 size={13} /> Edit
-                        </button>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: product.isTodaysDeal ? '#2D5016' : '#687466', cursor: 'pointer', flexShrink: 0, margin: 0 }}>
-                          <input
-                            type="checkbox"
-                            checked={Boolean(product.isTodaysDeal)}
-                            onChange={() => toggleProductFlag(product.id, 'isTodaysDeal', product.isTodaysDeal, Boolean(product.wholesalePrice))}
-                            style={{ margin: 0, width: 'auto' }}
-                          />
-                          {product.isTodaysDeal ? "Today's Deal" : 'Add'}
-                        </label>
-                      </div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: product.isTodaysDeal ? '#2D5016' : '#687466', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(product.isTodaysDeal)}
+                          onChange={() => toggleProductFlag(product.id, 'isTodaysDeal', product.isTodaysDeal, Boolean(product.wholesalePrice))}
+                        />
+                        {product.isTodaysDeal ? "Today's Deal" : 'Add'}
+                      </label>
                     </div>
                   ))}
               </div>
@@ -1954,12 +2289,9 @@ const Admin = () => {
             <section className="admin-card admin-card--wide">
               <div className="admin-card__toolbar">
                 <h2>Customers</h2>
-                <button className="admin__ghost" onClick={exportCustomers}>Download customers</button>
               </div>
               {liveCustomers === null ? (
                 <p className="admin-muted">Loading customers...</p>
-              ) : liveCustomers.length === 0 ? (
-                <p className="admin-muted">No customers yet. New user signups will appear here automatically.</p>
               ) : liveCustomers.map(customer => (
                 <div key={customer.email} className="admin-customer admin-customer--readonly">
                   <div><strong>{customer.name}</strong><span>{customer.phone} / {customer.email}</span></div>
@@ -1978,10 +2310,6 @@ const Admin = () => {
                   ↻ Refresh
                 </button>
               </div>
-              {liveOrders === null && <p className="admin-muted">Loading orders & bills…</p>}
-              {liveOrders !== null && liveOrders.length === 0 && (
-                <p className="admin-muted">No orders yet. Orders placed by customers will appear here.</p>
-              )}
               <div style={{ overflowX: 'auto' }}>
                 <div className="admin-order-list" style={{ minWidth: '1150px' }}>
                   {[...(liveOrders || [])].reverse().map(order => {
@@ -1996,15 +2324,11 @@ const Admin = () => {
                     return (
                       <div key={order.id} className="admin-order-card" style={{ display: 'grid', gridTemplateColumns: '48px 1fr 1.2fr 0.9fr 1.1fr 1.1fr 0.8fr 1fr', gap: '12px', alignItems: 'center' }}>
                         <FiTruck />
-                        
-                        {/* Column 1: IDs & Customer */}
                         <div>
                           <strong style={{ fontSize: '13px' }}>Order #{order.id}</strong>
                           <span style={{ fontSize: '12px', color: '#2D5016', fontWeight: 'bold' }}>BILL-{order.id + 7820}</span>
                           <span style={{ fontSize: '11px', color: '#687466' }}>{customerName}</span>
                         </div>
-
-                        {/* Column 2: Items Summary List */}
                         <div>
                           <strong>Items Summary</strong>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
@@ -2013,83 +2337,41 @@ const Admin = () => {
                                 • {item.name} {item.weight ? `(${formatWeightUnit(item.weight, item.unit)})` : ''} <strong>x{item.quantity || 1}</strong>
                               </span>
                             ))}
-                            {(order.items || []).length === 0 && <span style={{ fontSize: '11px', color: '#9ca3af' }}>—</span>}
                           </div>
                         </div>
-
-                        {/* Column 3: Delivery Address */}
                         <div>
                           <strong>Delivery Address</strong>
                           <span style={{ fontSize: '11px', lineHeight: '1.3' }}>{order.deliveryAddress || '—'}</span>
                         </div>
-
-                        {/* Column 4: Bill Summary (Delivery Cost & Summary) */}
                         <div>
                           <strong>Bill Summary</strong>
                           <span style={{ fontSize: '11px' }}>Subtotal: {formatPrice(subtotal)}</span>
                           <span style={{ fontSize: '11px', color: '#2D5016', fontWeight: '600' }}>Delivery Fee: {formatPrice(deliveryFee)}</span>
-                          <span style={{ fontSize: '12px', fontWeight: '900', marginTop: '2px', color: '#111827' }}>Total: {formatPrice(order.total)}</span>
+                          <span style={{ fontSize: '12px', fontWeight: '900', color: '#111827' }}>Total: {formatPrice(order.total)}</span>
                         </div>
-
-                        {/* Column 5: Payment & Transaction */}
                         <div>
                           <strong>Payment & Txn</strong>
                           <span style={{ fontSize: '11px' }}>Mode: {order.paymentMethod === 'cod' ? 'Cash on Delivery' : (order.paymentMethod || '—')}</span>
                           <span style={{ fontSize: '11px', color: '#687466', fontFamily: 'monospace' }}>Ref: {transactionId}</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                            <span style={{ fontSize: '11px', color: isPaid ? '#2D5016' : '#FF6B35', fontWeight: 'bold' }}>
-                              {isPaid ? 'Paid' : 'Pending'}
-                            </span>
-                            {!isPaid && (
-                              <button
-                                type="button"
-                                style={{
-                                  padding: '2px 6px',
-                                  fontSize: '10px',
-                                  background: '#FFF8DF',
-                                  border: '1px solid #2D5016',
-                                  borderRadius: '4px',
-                                  color: '#2D5016',
-                                  cursor: 'pointer',
-                                  fontWeight: '700'
-                                }}
-                                onClick={async () => {
-                                  try {
-                                    await adminApi.updateOrderStatus(order.id, 'Paid');
-                                    setLiveOrders(prev => prev.map(o =>
-                                      o.id === order.id ? { ...o, status: 'Paid' } : o
-                                    ));
-                                  } catch (err) {
-                                    alert('Failed to mark as paid: ' + err.message);
-                                  }
-                                }}
-                              >
-                                Mark Paid
-                              </button>
-                            )}
-                          </div>
+                          <span style={{ fontSize: '11px', color: isPaid ? '#2D5016' : '#FF6B35', fontWeight: 'bold' }}>
+                            {isPaid ? 'Paid' : 'Pending'}
+                          </span>
                         </div>
-
-                        {/* Column 6: Date Placed */}
                         <div>
                           <strong>Placed On</strong>
                           <span style={{ fontSize: '11px' }}>{order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN') : '—'}</span>
                         </div>
-
-                        {/* Column 7: Status Action */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div>
                           <strong>Status</strong>
                           <select
                             value={order.status}
                             className="admin-status-select"
-                            style={{ height: '32px', fontSize: '12px', padding: '0 4px', width: '100%' }}
                             onChange={async (e) => {
                               const newStatus = e.target.value;
                               try {
                                 await adminApi.updateOrderStatus(order.id, newStatus);
-                                setLiveOrders(prev => prev.map(o =>
-                                  o.id === order.id ? { ...o, status: newStatus } : o
-                                ));
+                                setLiveOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: newStatus } : o));
+                                loadInventory(); // update reserved stock calculations
                               } catch (err) {
                                 alert('Failed to update status: ' + err.message);
                               }
@@ -2161,10 +2443,9 @@ const Admin = () => {
                     });
                     const linePath = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
                     const areaPath = `${linePath} L ${points[points.length - 1].x} ${top + innerHeight} L ${points[0].x} ${top + innerHeight} Z`;
-                    const tickValues = [0, 0.25, 0.5, 0.75, 1];
                     return (
-                      <svg className="sales-line-chart" viewBox={`0 0 ${chartWidth} ${chartHeight}`} role="img" aria-label="Revenue for the last 30 days">
-                        {tickValues.map((tick) => {
+                      <svg className="sales-line-chart" viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
+                        {[0, 0.25, 0.5, 0.75, 1].map((tick) => {
                           const y = top + innerHeight - tick * innerHeight;
                           return (
                             <g key={tick}>
@@ -2175,30 +2456,9 @@ const Admin = () => {
                         })}
                         <path d={areaPath} className="sales-chart-area" />
                         <path d={linePath} className="sales-chart-line" />
-                        {points.filter((_, index) => index === 0 || index === 7 || index === 14 || index === 21 || index === 29).map(point => (
-                          <text key={point.label} x={point.x} y={chartHeight - 10} textAnchor={point.x === left ? 'start' : point.x === chartWidth - right ? 'end' : 'middle'} className="sales-chart-axis">{point.label}</text>
-                        ))}
                       </svg>
                     );
                   })()}
-                </div>
-              </section>
-
-              <section className="sales-mini-grid">
-                <div className="sales-mini-card">
-                  <span>TOTAL UNITS SOLD</span>
-                  <strong>{salesLast30.units.toLocaleString('en-IN')}</strong>
-                  <small>Last 30 days</small>
-                </div>
-                <div className="sales-mini-card">
-                  <span>TOP PRODUCT</span>
-                  <strong>{topProductStats[0]?.name || 'No sales yet'}</strong>
-                  <small>{topProductStats[0] ? `${topProductStats[0].quantitySold} units sold` : 'Waiting for sales data'}</small>
-                </div>
-                <div className="sales-mini-card">
-                  <span>TOP SALES AREA</span>
-                  <strong>{topProductStats[0] ? getTopAreaForProduct(topProductStats[0].id) : '—'}</strong>
-                  <small>For the best-selling product</small>
                 </div>
               </section>
 
@@ -2208,107 +2468,55 @@ const Admin = () => {
                     <div className="sales-section-label">TOP PRODUCTS</div>
                     <span>Last 30 days</span>
                   </div>
-                  {topProductStats.length === 0 ? (
-                    <div className="sales-empty">No sales data available.</div>
-                  ) : (
-                    <div className="sales-product-list">
-                      {topProductStats.map((product, index) => {
-                        const max = Math.max(topProductStats[0]?.totalRevenue || 1, 1);
-                        return (
-                          <div className="sales-product-row" key={product.id}>
-                            <div className="sales-product-meta">
-                              <span>{index + 1}. {product.name}</span>
-                              <strong>{formatPrice(product.totalRevenue)}</strong>
-                            </div>
-                            <div className="sales-product-bar"><i style={{ width: `${Math.max(4, (product.totalRevenue / max) * 100)}%` }} /></div>
-                            <small>{product.quantitySold} units · {product.ordersCount} orders</small>
+                  <div className="sales-product-list">
+                    {topProductStats.map((product, index) => {
+                      const max = Math.max(topProductStats[0]?.totalRevenue || 1, 1);
+                      return (
+                        <div className="sales-product-row" key={product.id}>
+                          <div className="sales-product-meta">
+                            <span>{index + 1}. {product.name}</span>
+                            <strong>{formatPrice(product.totalRevenue)}</strong>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                          <div className="sales-product-bar"><i style={{ width: `${Math.max(4, (product.totalRevenue / max) * 100)}%` }} /></div>
+                          <small>{product.quantitySold} units · {product.ordersCount} orders</small>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div className="sales-simple-card">
                   <div className="sales-card-heading">
-                    <div className="sales-section-label">SALES BY TYPE</div>
-                    <span>Lifetime filtered data</span>
+                    <div className="sales-section-label">INVENTORY VALUATION SUMMARY</div>
                   </div>
-                  <div className="sales-category-list">
-                    {categorySalesStats.map(item => (
-                      <div className="sales-category-row" key={item.category}>
-                        <div>
-                          <strong>{item.category}</strong>
-                          <small>{item.units} units · {item.orders} orders</small>
-                        </div>
-                        <strong>{formatPrice(item.revenue)}</strong>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-
-              <section className="sales-simple-card sales-table-card">
-                <div className="sales-card-heading sales-table-heading">
-                  <div>
-                    <div className="sales-section-label">PRODUCT PERFORMANCE</div>
-                    <p>Detailed product sales performance and highest-purchasing area.</p>
-                  </div>
-                  <div className="sales-search-wrap">
-                    <FiSearch />
-                    <input
-                      type="text"
-                      placeholder="Search products..."
-                      value={productSearchQuery}
-                      onChange={(e) => setProductSearchQuery(e.target.value)}
-                    />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '10px' }}>
+                    <div>
+                      <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase' }}>Cost-Based Stock Value</span>
+                      <strong style={{ display: 'block', fontSize: '22px', color: '#2D5016' }}>{formatPrice(invSummary.totalValuation)}</strong>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase' }}>Potential Retail Value</span>
+                      <strong style={{ display: 'block', fontSize: '20px', color: '#111827' }}>{formatPrice(invSummary.totalRetailValuation)}</strong>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase' }}>Total Available Quantity</span>
+                      <strong style={{ display: 'block', fontSize: '18px', color: '#111827' }}>{invSummary.totalAvailableUnits} units</strong>
+                    </div>
                   </div>
                 </div>
-                {liveOrders === null ? (
-                  <div className="sales-empty">Loading sales data…</div>
-                ) : filteredSalesStats.length === 0 ? (
-                  <div className="sales-empty">No products found matching your search.</div>
-                ) : (
-                  <div className="sales-table-scroll">
-                    <table className="sales-simple-table">
-                      <thead>
-                        <tr>
-                          <th>PRODUCT</th>
-                          <th>CATEGORY</th>
-                          <th>ORDERS</th>
-                          <th>UNITS SOLD</th>
-                          <th>REVENUE</th>
-                          <th>TOP AREA</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredSalesStats.map(sale => (
-                          <tr key={sale.id}>
-                            <td><strong>{sale.name}</strong>{sale.weight ? <small>{formatWeightUnit(sale.weight, sale.unit)}</small> : null}</td>
-                            <td>{sale.category}</td>
-                            <td>{sale.ordersCount}</td>
-                            <td>{sale.quantitySold}</td>
-                            <td><strong>{formatPrice(sale.totalRevenue)}</strong></td>
-                            <td>{getTopAreaForProduct(sale.id)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
               </section>
             </div>
           )}
 
           {activeTab === 'broadcast' && (
             <section className="admin-card admin-card--wide" style={{ maxWidth: '800px', margin: '0 auto' }}>
-              <div className="admin-card__toolbar" style={{ borderBottom: '1px solid var(--color-border-light)', paddingBottom: '12px', marginBottom: '20px' }}>
+              <div className="admin-card__toolbar" style={{ borderBottom: '1px solid #E1E6DC', paddingBottom: '12px', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <FiMail size={24} style={{ color: '#2D5016' }} />
                   <div>
                     <h2 style={{ margin: 0 }}>Mail Broadcast Campaign</h2>
                     <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
-                      Send promotions, festive offers, or store announcements to all registered customer emails for free.
+                      Send promotions, festive offers, or announcements to registered customers.
                     </p>
                   </div>
                 </div>
@@ -2322,8 +2530,7 @@ const Admin = () => {
                   fontSize: '13px',
                   fontWeight: 'bold',
                   background: broadcastStatus.type === 'success' ? '#ECFDF5' : '#FEF2F2',
-                  color: broadcastStatus.type === 'success' ? '#065F46' : '#991B1B',
-                  border: broadcastStatus.type === 'success' ? '1px solid #A7F3D0' : '1px solid #FCA5A5'
+                  color: broadcastStatus.type === 'success' ? '#065F46' : '#991B1B'
                 }}>
                   {broadcastStatus.msg}
                 </div>
@@ -2331,30 +2538,16 @@ const Admin = () => {
 
               <form onSubmit={async (e) => {
                 e.preventDefault();
-                if (!broadcastSubject.trim() || !broadcastMessage.trim()) {
-                  setBroadcastStatus({ type: 'error', msg: 'Please fill out both the Subject and Message fields.' });
-                  return;
-                }
-
-                if (selectedBroadcastEmails.length === 0) {
-                  setBroadcastStatus({ type: 'error', msg: 'Please select at least one customer recipient.' });
-                  return;
-                }
-
-                if (!confirm(`Are you sure you want to send this email campaign to the ${selectedBroadcastEmails.length} selected customer(s)?`)) {
-                  return;
-                }
-
+                if (!broadcastSubject.trim() || !broadcastMessage.trim()) return;
                 setBroadcastSending(true);
                 setBroadcastStatus(null);
-
                 try {
                   const res = await adminApi.sendBroadcast({
                     subject: broadcastSubject,
                     messageText: broadcastMessage,
                     recipients: selectedBroadcastEmails
                   });
-                  setBroadcastStatus({ type: 'success', msg: `Campaign sent successfully! Received by ${res.count} customers.` });
+                  setBroadcastStatus({ type: 'success', msg: `Campaign sent successfully to ${res.count} customers.` });
                   setBroadcastSubject('');
                   setBroadcastMessage('');
                 } catch (err) {
@@ -2363,149 +2556,30 @@ const Admin = () => {
                   setBroadcastSending(false);
                 }
               }}>
-                <div style={{ marginBottom: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#111827', margin: 0 }}>
-                      Recipients ({selectedBroadcastEmails.length} selected)
-                    </label>
-                    {liveCustomers && liveCustomers.length > 0 && (
-                      <label style={{ fontSize: '12px', fontWeight: '600', color: '#2D5016', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', userSelect: 'none' }}>
-                        <input
-                          type="checkbox"
-                          checked={selectedBroadcastEmails.length === liveCustomers.filter(c => c.email).length}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              const allEmails = liveCustomers.map(c => c.email).filter(Boolean);
-                              setSelectedBroadcastEmails(allEmails);
-                            } else {
-                              setSelectedBroadcastEmails([]);
-                            }
-                          }}
-                        />
-                        Select All
-                      </label>
-                    )}
-                  </div>
-                  
-                  <div style={{
-                    maxHeight: '180px',
-                    overflowY: 'auto',
-                    border: '1px solid var(--color-border-light)',
-                    borderRadius: '8px',
-                    padding: '8px 12px',
-                    background: '#FAF9F6'
-                  }}>
-                    {liveCustomers === null ? (
-                      <p style={{ margin: 0, fontSize: '12px', color: '#687466' }}>Loading customers…</p>
-                    ) : liveCustomers.length === 0 ? (
-                      <p style={{ margin: 0, fontSize: '12px', color: '#687466' }}>No registered customers found.</p>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {liveCustomers.map(customer => {
-                          if (!customer.email) return null;
-                          const isSelected = selectedBroadcastEmails.includes(customer.email);
-                          return (
-                            <label
-                              key={customer.id || customer.email}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                fontSize: '12px',
-                                color: '#111827',
-                                cursor: 'pointer',
-                                padding: '4px 0',
-                                borderBottom: '1px solid #F3F4F6',
-                                userSelect: 'none'
-                              }}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => {
-                                  if (isSelected) {
-                                    setSelectedBroadcastEmails(prev => prev.filter(e => e !== customer.email));
-                                  } else {
-                                    setSelectedBroadcastEmails(prev => [...prev, customer.email]);
-                                  }
-                                }}
-                              />
-                              <span>
-                                <strong>{customer.name || 'Customer'}</strong> ({customer.email})
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#111827', marginBottom: '6px' }}>
-                    Email Subject Line
-                  </label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '6px' }}>Email Subject</label>
                   <input
                     type="text"
                     required
-                    disabled={broadcastSending}
-                    placeholder="e.g., Special Festive Offer: 10% Off All Groceries!"
+                    className="admin-input-box"
+                    placeholder="e.g. Special Offer: 10% Off on All Grocery Items!"
                     value={broadcastSubject}
                     onChange={(e) => setBroadcastSubject(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--color-border-light)',
-                      fontSize: '14px',
-                      outline: 'none'
-                    }}
                   />
                 </div>
-
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#111827', marginBottom: '6px' }}>
-                    Email Message Body (Plain text, supports line breaks)
-                  </label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '6px' }}>Message Body</label>
                   <textarea
                     required
-                    disabled={broadcastSending}
-                    rows={8}
-                    placeholder={`Dear Customers,\n\nWe are excited to bring you a special discount on all orders placed today!\nUse coupon code FESTIVE10 at checkout to get 10% discount.\n\nThank you for shopping with us!\nSiri Traders`}
+                    rows={6}
+                    className="admin-input-box"
+                    style={{ height: 'auto', padding: '10px 12px' }}
                     value={broadcastMessage}
                     onChange={(e) => setBroadcastMessage(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--color-border-light)',
-                      fontSize: '14px',
-                      lineHeight: '1.5',
-                      outline: 'none',
-                      fontFamily: 'inherit',
-                      resize: 'vertical'
-                    }}
                   />
                 </div>
-
-                <button
-                  type="submit"
-                  disabled={broadcastSending}
-                  className="admin__primary"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    opacity: broadcastSending ? 0.7 : 1
-                  }}
-                >
-                  {broadcastSending ? 'Sending Campaign Emails...' : '🚀 Send Broadcast Email to All Customers'}
+                <button type="submit" disabled={broadcastSending} className="admin__primary" style={{ width: '100%' }}>
+                  {broadcastSending ? 'Sending Campaign...' : '🚀 Send Broadcast Email'}
                 </button>
               </form>
             </section>
@@ -2538,47 +2612,19 @@ const Admin = () => {
                   <span>Description</span>
                 </div>
 
-                {filteredContentProducts.length === 0 ? (
-                  <div className="admin-content-empty">
-                    <FiPackage size={32} />
-                    <p>{contentSearch ? 'No products match your search.' : `Add products in the ${activeTab === 'retail-content' ? 'Retail Items' : 'Wholesale Items'} tab first.`}</p>
-                  </div>
-                ) : filteredContentProducts.map(product => {
+                {filteredContentProducts.map(product => {
                   const isWS = activeTab === 'wholesale-content';
                   return (
                     <div key={product.id} className={`admin-content-editor ${isWS ? 'admin-content-editor--ws' : ''}`}>
                       <img src={toWebpImage(product.image)} alt={product.name} />
-                      <input
-                        value={product.name || ''}
-                        onChange={(e) => updateProductField(product.id, 'name', e.target.value, isWS)}
-                        placeholder="Item name"
-                      />
-                      <input
-                        value={product.mrp || ''}
-                        onChange={(e) => updateProductField(product.id, 'mrp', e.target.value, isWS)}
-                        type="number"
-                        placeholder="MRP"
-                      />
-                      <input
-                        value={product.price || ''}
-                        onChange={(e) => updateProductField(product.id, 'price', e.target.value, isWS)}
-                        type="number"
-                        placeholder="Discounted price"
-                      />
-                      <input
-                        value={product.discount || ''}
-                        onChange={(e) => updateProductField(product.id, 'discount', e.target.value, isWS)}
-                        type="number"
-                        placeholder="% off"
-                      />
-                      <select
-                        value={product.stockNote || 'In stock'}
-                        onChange={(e) => updateProductField(product.id, 'stockNote', e.target.value, isWS)}
-                      >
+                      <input value={product.name || ''} onChange={(e) => updateProductField(product.id, 'name', e.target.value, isWS)} placeholder="Item name" />
+                      <input value={product.mrp || ''} onChange={(e) => updateProductField(product.id, 'mrp', e.target.value, isWS)} type="number" placeholder="MRP" />
+                      <input value={product.price || ''} onChange={(e) => updateProductField(product.id, 'price', e.target.value, isWS)} type="number" placeholder="Price" />
+                      <input value={product.discount || ''} onChange={(e) => updateProductField(product.id, 'discount', e.target.value, isWS)} type="number" placeholder="% off" />
+                      <select value={product.stockNote || 'In stock'} onChange={(e) => updateProductField(product.id, 'stockNote', e.target.value, isWS)}>
                         <option>In stock</option>
                         <option>Only few left</option>
                         <option>Only 10 left</option>
-                        <option>Only 12 left</option>
                         <option>Out of stock</option>
                       </select>
                       <input
@@ -2592,49 +2638,12 @@ const Admin = () => {
                         }}
                         placeholder="e.g. 500 g"
                       />
-                      {isWS && (
-                        <input
-                          value={product.wholesalePrice || ''}
-                          onChange={(e) => updateProductField(product.id, 'wholesalePrice', e.target.value, true)}
-                          type="number"
-                          placeholder="WS price"
-                        />
-                      )}
-                      {isWS && (
-                        <input
-                          value={product.bulkPackLabel || ''}
-                          onChange={(e) => updateProductField(product.id, 'bulkPackLabel', e.target.value, true)}
-                          placeholder="e.g. 10 kg bulk"
-                        />
-                      )}
-                      {isWS && (
-                        <input
-                          value={product.bulkPackPrice || ''}
-                          onChange={(e) => updateProductField(product.id, 'bulkPackPrice', e.target.value, true)}
-                          type="number"
-                          placeholder="Bulk pack price"
-                        />
-                      )}
-                      {isWS && (
-                        <input
-                          value={product.wholesaleCaseLabel || ''}
-                          onChange={(e) => updateProductField(product.id, 'wholesaleCaseLabel', e.target.value, true)}
-                          placeholder="e.g. 25 kg case"
-                        />
-                      )}
-                      {isWS && (
-                        <input
-                          value={product.wholesaleCasePrice || ''}
-                          onChange={(e) => updateProductField(product.id, 'wholesaleCasePrice', e.target.value, true)}
-                          type="number"
-                          placeholder="WS case price"
-                        />
-                      )}
-                      <input
-                        value={product.description || ''}
-                        onChange={(e) => updateProductField(product.id, 'description', e.target.value, isWS)}
-                        placeholder="Description"
-                      />
+                      {isWS && <input value={product.wholesalePrice || ''} onChange={(e) => updateProductField(product.id, 'wholesalePrice', e.target.value, true)} type="number" placeholder="WS price" />}
+                      {isWS && <input value={product.bulkPackLabel || ''} onChange={(e) => updateProductField(product.id, 'bulkPackLabel', e.target.value, true)} placeholder="Bulk label" />}
+                      {isWS && <input value={product.bulkPackPrice || ''} onChange={(e) => updateProductField(product.id, 'bulkPackPrice', e.target.value, true)} type="number" placeholder="Bulk price" />}
+                      {isWS && <input value={product.wholesaleCaseLabel || ''} onChange={(e) => updateProductField(product.id, 'wholesaleCaseLabel', e.target.value, true)} placeholder="Case label" />}
+                      {isWS && <input value={product.wholesaleCasePrice || ''} onChange={(e) => updateProductField(product.id, 'wholesaleCasePrice', e.target.value, true)} type="number" placeholder="Case price" />}
+                      <input value={product.description || ''} onChange={(e) => updateProductField(product.id, 'description', e.target.value, isWS)} placeholder="Description" />
                     </div>
                   );
                 })}
@@ -2647,33 +2656,20 @@ const Admin = () => {
               <div className="admin-card__toolbar">
                 <h2>Delivery Zones</h2>
               </div>
-
-              {/* Shop address info */}
-              <div style={{padding:'12px 14px',borderRadius:10,background:'#F1F8E9',border:'1px solid rgba(45,80,22,0.18)',marginBottom:18,display:'flex',gap:10,alignItems:'flex-start'}}>
-                <FiMapPin size={18} style={{color:'#2D5016',marginTop:2,flexShrink:0}} />
-                <div>
-                  <p style={{fontSize:13,fontWeight:800,color:'#2D5016',marginBottom:2}}>Shop Address (Siri Traders)</p>
-                  <p style={{fontSize:12,color:'#687466',lineHeight:1.5}}>H.No 10-152, Nagarjuna Colony Road No 12, Chitkul, Isnapur Municipality, Hyderabad — 502307</p>
-                </div>
-              </div>
-
-              {/* Add new zone form */}
-              <div style={{background:'#FAFFF6',border:'1px solid rgba(45,80,22,0.12)',borderRadius:12,padding:14,marginBottom:18}}>
-                <p style={{fontSize:13,fontWeight:800,color:'#2D5016',marginBottom:10}}>Add / Update Zone</p>
-                <div className="admin-form__grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+              <div style={{ background: '#FAFFF6', border: '1px solid rgba(45,80,22,0.12)', borderRadius: 12, padding: 14, marginBottom: 18 }}>
+                <p style={{ fontSize: 13, fontWeight: 800, color: '#2D5016', marginBottom: 10 }}>Add Delivery Zone</p>
+                <div className="admin-form__grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
                   <input className="admin-input-box" placeholder="Area name e.g. Kukatpally" value={newZone.area} onChange={e => setNewZone(p => ({...p, area: e.target.value}))} />
                   <input className="admin-input-box" placeholder="Pincode e.g. 500072" value={newZone.pincode} onChange={e => setNewZone(p => ({...p, pincode: e.target.value}))} />
                   <select className="admin-input-box" value={newZone.time} onChange={e => setNewZone(p => ({...p, time: e.target.value}))}>
-                    {['10 mins','15 mins','20 mins','25 mins','30 mins','35 mins','40 mins','45 mins','50 mins','55 mins','60 mins','75 mins','90 mins','2 hours','3 hours','Same day'].map(t => <option key={t}>{t}</option>)}
+                    {['10 mins','15 mins','20 mins','30 mins','45 mins','60 mins','Same day'].map(t => <option key={t}>{t}</option>)}
                   </select>
-                  <input className="admin-input-box" placeholder="Distance e.g. ~16 km (optional)" value={newZone.distance} onChange={e => setNewZone(p => ({...p, distance: e.target.value}))} />
                   <input className="admin-input-box" type="number" placeholder="Delivery Fee (₹)" value={newZone.deliveryFee || ''} onChange={e => setNewZone(p => ({...p, deliveryFee: Number(e.target.value) || 0}))} />
-                  <input className="admin-input-box" type="number" placeholder="Handling Charge (₹)" value={newZone.handlingCharge || ''} onChange={e => setNewZone(p => ({...p, handlingCharge: Number(e.target.value) || 0}))} />
                 </div>
                 <button
                   type="button"
                   className="admin__primary"
-                  style={{marginTop:10}}
+                  style={{ marginTop: 10 }}
                   onClick={async () => {
                     if (!newZone.area.trim() || !newZone.pincode.trim()) return;
                     try {
@@ -2689,102 +2685,27 @@ const Admin = () => {
                 </button>
               </div>
 
-              {/* Zones table */}
-              <div style={{overflowX:'auto'}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
-                    <tr style={{background:'#F1F8E9'}}>
-                      {['Area','Pincode','Delivery Time','Distance','Fee (₹)','Handling (₹)','Action'].map(h => (
-                        <th key={h} style={{padding:'10px 12px',textAlign:'left',fontWeight:800,color:'#2D5016',fontSize:11,textTransform:'uppercase',borderBottom:'1px solid rgba(45,80,22,0.12)'}}>{h}</th>
+                    <tr style={{ background: '#F1F8E9' }}>
+                      {['Area','Pincode','Delivery Time','Fee (₹)','Action'].map(h => (
+                        <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 800, color: '#2D5016', fontSize: 11 }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {deliveryZones.map(zone => (
-                      <tr key={zone.id} style={{borderBottom:'1px solid rgba(45,80,22,0.07)'}}>
-                        <td style={{padding:'10px 12px',fontWeight:600,color:'#1c1c1c'}}>{zone.area}</td>
-                        <td style={{padding:'10px 12px',color:'#687466'}}>{zone.pincode}</td>
-                        <td style={{padding:'10px 12px'}}>
-                          <select
-                            value={zone.time}
-                            onChange={e => {
-                              const time = e.target.value;
-                              setDeliveryZones(prev => prev.map(z => z.id === zone.id ? { ...z, time } : z));
-                            }}
-                            style={{padding:'4px 8px',borderRadius:7,border:'1px solid rgba(45,80,22,0.2)',background:'#F1F8E9',color:'#2D5016',fontWeight:700,fontSize:12,cursor:'pointer'}}
-                          >
-                            {['10 mins','15 mins','20 mins','25 mins','30 mins','35 mins','40 mins','45 mins','50 mins','55 mins','60 mins','75 mins','90 mins','2 hours','3 hours','Same day'].map(t => <option key={t}>{t}</option>)}
-                          </select>
-                        </td>
-                        <td style={{padding:'10px 12px',color:'#687466',fontSize:12}}>{zone.distance}</td>
-                        
-                        {/* Delivery Fee Input */}
-                        <td style={{padding:'10px 12px'}}>
-                          <input
-                            type="number"
-                            value={zone.deliveryFee === 0 ? '' : zone.deliveryFee}
-                            placeholder="0"
-                            onChange={e => {
-                              const val = Number(e.target.value) || 0;
-                              setDeliveryZones(prev => prev.map(z => z.id === zone.id ? { ...z, deliveryFee: val } : z));
-                            }}
-                            style={{ width: '65px', padding: '4px 6px', borderRadius: '6px', border: '1px solid rgba(45,80,22,0.2)', fontSize: '12px' }}
-                          />
-                        </td>
-
-                        {/* Handling Charge Input */}
-                        <td style={{padding:'10px 12px'}}>
-                          <input
-                            type="number"
-                            value={zone.handlingCharge === 0 ? '' : zone.handlingCharge}
-                            placeholder="0"
-                            onChange={e => {
-                              const val = Number(e.target.value) || 0;
-                              setDeliveryZones(prev => prev.map(z => z.id === zone.id ? { ...z, handlingCharge: val } : z));
-                            }}
-                            style={{ width: '65px', padding: '4px 6px', borderRadius: '6px', border: '1px solid rgba(45,80,22,0.2)', fontSize: '12px' }}
-                          />
-                        </td>
-
-                        <td style={{padding:'10px 12px', display:'flex', gap:'6px'}}>
-                          <button
-                            style={{
-                              width: '30px',
-                              height: '30px',
-                              borderRadius: '7px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              background: savedZoneIds[zone.id] ? '#1e8e3e' : '#2D5016',
-                              border: 'none',
-                              color: '#fff',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease',
-                              padding: 0
-                            }}
-                            title="Save changes to website"
-                            onClick={async () => {
-                              try {
-                                const updated = await adminApi.updateDeliveryZone(zone.id, {
-                                  time: zone.time,
-                                  deliveryFee: zone.deliveryFee,
-                                  handlingCharge: zone.handlingCharge
-                                });
-                                setDeliveryZones(prev => prev.map(z => z.id === zone.id ? updated : z));
-                                setSavedZoneIds(prev => ({ ...prev, [zone.id]: true }));
-                                setTimeout(() => {
-                                  setSavedZoneIds(prev => ({ ...prev, [zone.id]: false }));
-                                }, 2000);
-                              } catch (err) { alert(err.message); }
-                            }}
-                          >
-                            {savedZoneIds[zone.id] ? <FiCheck size={14} /> : <FiSave size={13} />}
-                          </button>
+                      <tr key={zone.id} style={{ borderBottom: '1px solid rgba(45,80,22,0.07)' }}>
+                        <td style={{ padding: '10px 12px', fontWeight: 600 }}>{zone.area}</td>
+                        <td style={{ padding: '10px 12px', color: '#687466' }}>{zone.pincode}</td>
+                        <td style={{ padding: '10px 12px' }}>{zone.time}</td>
+                        <td style={{ padding: '10px 12px' }}>₹{zone.deliveryFee}</td>
+                        <td style={{ padding: '10px 12px' }}>
                           <button
                             className="admin-danger"
-                            style={{width:30,height:30,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center'}}
+                            style={{ width: 30, height: 30, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             onClick={async () => {
-                              if (!window.confirm(`Are you sure you want to delete the zone "${zone.area}"?`)) return;
                               try {
                                 await adminApi.deleteDeliveryZone(zone.id);
                                 setDeliveryZones(prev => prev.filter(z => z.id !== zone.id));
@@ -2799,44 +2720,40 @@ const Admin = () => {
                   </tbody>
                 </table>
               </div>
-              <p style={{fontSize:11,color:'#687466',marginTop:12}}>
-                💡 These settings are specific to each delivery zone and are applied dynamically at checkout based on the customer's selected area. Changes apply instantly.
-              </p>
             </section>
           )}
 
           {activeTab === 'admins' && (
-  <section className="admin-grid">
-    <form className="admin-form" onSubmit={saveAdmin}>
-      <h2>Add admin user</h2>
-      <input value={adminDraft.name} onChange={(e) => setAdminDraft(prev => ({ ...prev, name: e.target.value }))} placeholder="Full name" required />
-      <input value={adminDraft.email} onChange={(e) => setAdminDraft(prev => ({ ...prev, email: e.target.value }))} placeholder="Email" type="email" required />
-      <input value={adminDraft.password} onChange={(e) => setAdminDraft(prev => ({ ...prev, password: e.target.value }))} placeholder="Password (min 8 characters)" type="password" minLength={8} required />
-      <select value={adminDraft.role} onChange={(e) => setAdminDraft(prev => ({ ...prev, role: e.target.value }))}>
-        <option value="Owner">Owner</option>
-        <option value="Super Admin">Super Admin</option>
-        <option value="Product Manager">Product Manager</option>
-        <option value="Order Manager">Order Manager</option>
-        <option value="Marketing Manager">Marketing Manager</option>
-        <option value="Content Manager">Content Manager</option>
-        <option value="Customer Support">Customer Support</option>
-        <option value="Viewer">Viewer</option>
-      </select>
-      {adminError && <p style={{color:'#FF6B35',fontSize:13,fontWeight:700}}>{adminError}</p>}
-      <button type="submit" className="admin__primary"><FiPlus /> Add admin</button>
-    </form>
-    <div className="admin-card">
-      <h2>Admin accounts</h2>
-      {adminAccounts.map(account => (
-        <div key={account.id} className="admin-row admin-row--plain">
-          <FiLock />
-          <span>{account.name}<small>{account.email} / {account.role}</small></span>
-        </div>
-      ))}
-    </div>
-  </section>
-)}
-
+            <section className="admin-grid">
+              <form className="admin-form" onSubmit={saveAdmin}>
+                <h2>Add admin user</h2>
+                <input value={adminDraft.name} onChange={(e) => setAdminDraft(prev => ({ ...prev, name: e.target.value }))} placeholder="Full name" required />
+                <input value={adminDraft.email} onChange={(e) => setAdminDraft(prev => ({ ...prev, email: e.target.value }))} placeholder="Email" type="email" required />
+                <input value={adminDraft.password} onChange={(e) => setAdminDraft(prev => ({ ...prev, password: e.target.value }))} placeholder="Password (min 8 chars)" type="password" minLength={8} required />
+                <select value={adminDraft.role} onChange={(e) => setAdminDraft(prev => ({ ...prev, role: e.target.value }))}>
+                  <option value="Owner">Owner</option>
+                  <option value="Super Admin">Super Admin</option>
+                  <option value="Product Manager">Product Manager</option>
+                  <option value="Order Manager">Order Manager</option>
+                  <option value="Marketing Manager">Marketing Manager</option>
+                  <option value="Content Manager">Content Manager</option>
+                  <option value="Customer Support">Customer Support</option>
+                  <option value="Viewer">Viewer</option>
+                </select>
+                {adminError && <p style={{ color: '#FF6B35', fontSize: 13, fontWeight: 700 }}>{adminError}</p>}
+                <button type="submit" className="admin__primary"><FiPlus /> Add admin</button>
+              </form>
+              <div className="admin-card">
+                <h2>Admin accounts</h2>
+                {adminAccounts.map(account => (
+                  <div key={account.id} className="admin-row admin-row--plain">
+                    <FiLock />
+                    <span>{account.name}<small>{account.email} / {account.role}</small></span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </main>
       </div>
     </div>
