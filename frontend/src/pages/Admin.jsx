@@ -2325,7 +2325,11 @@ const Admin = () => {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <strong style={{ fontSize: '15px', color: '#1C4D12', letterSpacing: '0.5px' }}>{coupon.code}</strong>
                         <span className={`admin-promo-pill admin-promo-pill--${coupon.type}`}>
-                          {coupon.type === 'bogo' ? '🎁 BOGO' : (coupon.type === 'percent' ? `${coupon.value}% OFF` : `₹${coupon.value} OFF`)}
+                          {coupon.type === 'bogo' ? '🎁 BOGO'
+                            : coupon.type === 'buyXgetY' ? `🎁 Buy ${coupon.buyQuantity} Get ${coupon.getQuantity}`
+                            : coupon.type === 'freeDelivery' ? '🚚 FREE Delivery'
+                            : coupon.type === 'percent' ? `${coupon.value}% OFF`
+                            : `₹${coupon.value} OFF`}
                         </span>
                       </div>
 
