@@ -37,7 +37,7 @@ const Cart = () => {
   const suggestions = getProductsForType(customerType).filter(p => p.isBestseller && !cartItems.find(i => i.productId === p.id || i.id === p.id)).slice(0, 6);
 
   const applyCoupon = (code = coupon) => {
-    const result = evaluateCoupon(code, cartTotal, coupons);
+    const result = evaluateCoupon(code, cartTotal, coupons, { cartItems, userEmail: user?.email });
     if (!result.valid) {
       setCouponError(result.error);
       setAppliedCoupon(null);

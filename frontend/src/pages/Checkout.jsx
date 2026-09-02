@@ -143,7 +143,7 @@ const Checkout = () => {
   };
 
   const handleApplyCoupon = () => {
-    const result = applyCoupon(couponInput, cartTotal, coupons);
+    const result = applyCoupon(couponInput, cartTotal, coupons, { cartItems, userEmail: user?.email });
     if (!result.valid) {
       setCouponError(result.error);
       setAppliedCoupon(null);

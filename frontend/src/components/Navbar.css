@@ -793,28 +793,6 @@
   }
 }
 
-/* ── Use current location button ── */
-.navbar__detect-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 11px 14px;
-  border-radius: 10px;
-  background: #F1F8E9;
-  border: 1.5px solid #8AAE5D;
-  color: #2D5016;
-  font-size: 13px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: background 0.15s;
-  margin-bottom: 10px;
-}
-
-.navbar__detect-btn:hover {
-  background: #C8E6C9;
-}
-
 /* ── Serviceable areas dropdown ── */
 .navbar__areas {
   display: flex;

@@ -212,7 +212,7 @@ const Profile = () => {
                 </p>
                 <div className="profile-form-grid">
                   <input value={addressForm.name} onChange={(e) => setAddressForm(prev => ({ ...prev, name: e.target.value }))} placeholder="Name" />
-                  <input value={addressForm.phone} onChange={(e) => setAddressForm(prev => ({ ...prev, phone: e.target.value }))} placeholder="Phone" />
+                  <input type="tel" value={addressForm.phone} onChange={(e) => setAddressForm(prev => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))} placeholder="Phone" />
                   <input value={addressForm.address} onChange={(e) => setAddressForm(prev => ({ ...prev, address: e.target.value }))} placeholder="Flat, street, landmark" />
                   <select className="profile-area-select" value={addressForm.area} onChange={(e) => updateAddressArea(e.target.value)}>
                     <option value="">Select your delivery area</option>

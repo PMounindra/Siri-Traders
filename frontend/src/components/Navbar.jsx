@@ -40,7 +40,6 @@ const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [addressMenuOpen, setAddressMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [mapCoords, setMapCoords] = useState({ lat: 20.5937, lng: 78.9629 }); // default: India centre
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [deliveryError, setDeliveryError] = useState("");
   const flatNoInputRef = useRef(null);
@@ -242,47 +241,6 @@ const Navbar = () => {
                     </button>
                   </div>
 
-                  {/* Use current location button */}
-                  <button
-                    type="button"
-                    className="navbar__detect-btn"
-                    onClick={() => {
-                      if (!navigator.geolocation) {
-                        alert('Geolocation is not supported by your browser.');
-                        return;
-                      }
-                      navigator.geolocation.getCurrentPosition(
-                        (pos) => {
-                          const { latitude, longitude } = pos.coords;
-                          setMapCoords({ lat: latitude, lng: longitude });
-                          fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`)
-                            .then(r => r.json())
-                            .then(data => {
-                              const addr = data.address;
-                              const display = data.display_name?.split(',').slice(0,3).join(',') || 'Current location';
-                              const pincode = addr?.postcode || '';
-                              const lower = display.toLowerCase();
-                              const isServiceable = deliveryZones.some(z => lower.includes(z.area.toLowerCase()) || (pincode && z.pincode === pincode));
-                              if (!isServiceable) {
-                                setDeliveryError("We can't deliver to this area.");
-                                return;
-                              }
-                              setDeliveryError("");
-                              setLocation({ address: display, city: pincode, full: `${display}${pincode ? ', ' + pincode : ''}` });
-                              setAddressMenuOpen(false);
-                            })
-                            .catch(() => {
-                              setDeliveryError("Couldn't detect a serviceable location. Please pick an area below.");
-                            });
-                        },
-                        () => alert('Unable to get your location. Please allow location access.')
-                      );
-                    }}
-                  >
-                    <MapPinIcon size={16} />
-                    Use my current location
-                  </button>
-
                   {/* Serviceable areas — pick one, then fill in your door number below */}
                   <div className="navbar__areas">
                     <p className="navbar__areas-title">WE DELIVER HERE</p>
@@ -332,8 +290,8 @@ const Navbar = () => {
                     )}
                     <input type="text" placeholder="Name" value={addressForm.name}
                       onChange={(e) => setAddressForm((p) => ({ ...p, name: e.target.value }))} />
-                    <input type="text" placeholder="Phone" value={addressForm.phone}
-                      onChange={(e) => setAddressForm((p) => ({ ...p, phone: e.target.value }))} />
+                    <input type="tel" placeholder="Phone" value={addressForm.phone}
+                      onChange={(e) => setAddressForm((p) => ({ ...p, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))} />
                     <input ref={flatNoInputRef} type="text" placeholder="Door / Flat / House No." value={addressForm.flatNo}
                       onChange={(e) => setAddressForm((p) => ({ ...p, flatNo: e.target.value }))} />
                     <input type="text" placeholder="Landmark (optional)" value={addressForm.landmark}
