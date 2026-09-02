@@ -50,9 +50,7 @@ import {
   FiThumbsUp,
   FiThumbsDown,
   FiPieChart,
-  FiCompass,
   FiVolume2,
-  FiExternalLink,
   FiImage,
   FiHelpCircle,
   FiBookOpen
@@ -228,12 +226,12 @@ const downloadCsv = (filename, rows) => {
 };
 
 const ADMIN_ROLE_PERMISSIONS = {
-  Owner: ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','seo','retail-products','wholesale-products','offers','bestsellers','todays-deals','retail-content','wholesale-content','delivery-zones','broadcast','admins'],
-  'Super Admin': ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','seo','retail-products','wholesale-products','offers','bestsellers','todays-deals','retail-content','wholesale-content','delivery-zones','broadcast'],
+  Owner: ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','retail-products','wholesale-products','offers','bestsellers','todays-deals','retail-content','wholesale-content','delivery-zones','broadcast','admins'],
+  'Super Admin': ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','retail-products','wholesale-products','offers','bestsellers','todays-deals','retail-content','wholesale-content','delivery-zones','broadcast'],
   'Product Manager': ['dashboard','inventory','retail-products','wholesale-products','reviews','bestsellers','todays-deals'],
   'Order Manager': ['dashboard','inventory','orders','customers','delivery-zones'],
-  'Marketing Manager': ['dashboard','offers','cms','seo','bestsellers','todays-deals','broadcast','reviews'],
-  'Content Manager': ['dashboard','cms','seo','retail-content','wholesale-content','reviews'],
+  'Marketing Manager': ['dashboard','offers','cms','bestsellers','todays-deals','broadcast','reviews'],
+  'Content Manager': ['dashboard','cms','retail-content','wholesale-content','reviews'],
   'Customer Support': ['dashboard','inventory','customers','orders','reviews','delivery-zones'],
   Viewer: ['dashboard','inventory','sales-stats']
 };
@@ -257,10 +255,9 @@ const ADMIN_NAV_SECTIONS = [
     ]
   },
   {
-    title: 'WEBSITE CMS & SEO',
+    title: 'WEBSITE CONTENT',
     items: [
-      ['cms', 'Website Content (CMS)', FiEdit2],
-      ['seo', 'SEO Management', FiCompass]
+      ['cms', 'Terms & Policy', FiEdit2]
     ]
   },
   {
@@ -339,7 +336,6 @@ const Admin = () => {
   const [selectedBroadcastEmails, setSelectedBroadcastEmails] = useState([]);
 
   // ── CMS State ──
-  const [cmsTab, setCmsTab] = useState('pages');
   const [cmsData, setCmsData] = useState({
     pages: [],
     redirects: [],
@@ -347,34 +343,10 @@ const Admin = () => {
   });
   const [editingPage, setEditingPage] = useState(null);
 
-  // ── SEO State ──
-  const [seoForm, setSeoForm] = useState({
-    metaTitle: 'Siri Traders — Fresh Groceries & Wholesale Supermarket in Hyderabad',
-    metaDescription: 'Order fresh groceries, premium basmati rice, unpolished pulses, cold-pressed edible oils, and daily essentials online from Siri Traders with fast 15-minute delivery.',
-    canonicalUrl: 'https://www.siritrader.com',
-    ogImage: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=1200&q=80',
-    robotsIndex: true,
-    googleSiteVerification: 'google-site-verification-siri-traders-2026',
-    schemaJson: '{"@context":"https://schema.org","@type":"GroceryStore","name":"Siri Traders","image":"https://www.siritrader.com/logo-mark.webp","telephone":"+919849012345","priceRange":"₹₹","address":{"@type":"PostalAddress","streetAddress":"Kukatpally Main Road","addressLocality":"Hyderabad","addressRegion":"Telangana","postalCode":"500072","addressCountry":"IN"}}',
-    sitemapEnabled: true
-  });
-
   const loadCmsData = async () => {
     try {
       const data = await adminApi.fetchCmsAll();
       setCmsData(data);
-      if (data.settings) {
-        setSeoForm({
-          metaTitle: data.settings.metaTitle || seoForm.metaTitle,
-          metaDescription: data.settings.metaDescription || seoForm.metaDescription,
-          canonicalUrl: data.settings.canonicalUrl || seoForm.canonicalUrl,
-          ogImage: data.settings.ogImage || seoForm.ogImage,
-          robotsIndex: data.settings.robotsIndex !== false,
-          googleSiteVerification: data.settings.googleSiteVerification || seoForm.googleSiteVerification,
-          schemaJson: data.settings.schemaJson || seoForm.schemaJson,
-          sitemapEnabled: data.settings.sitemapEnabled !== false
-        });
-      }
     } catch (err) {
       console.error('Failed to load CMS content:', err);
     }
@@ -627,7 +599,7 @@ const Admin = () => {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'cms' || activeTab === 'seo') {
+    if (activeTab === 'cms') {
       loadCmsData();
     } else if (activeTab === 'inventory') {
       loadInventory();
@@ -1613,8 +1585,7 @@ const Admin = () => {
               <span className="admin-main-eyebrow">Control Panel / {activeTab.replace('-', ' ')}</span>
               <h1>
                                 {activeTab === 'dashboard' && 'Overview Management'}
-                {activeTab === 'cms' && 'Website Content Management (CMS)'}
-                {activeTab === 'seo' && 'Search Engine Optimization (SEO)'}
+                {activeTab === 'cms' && 'Terms & Policy'}
                 {activeTab === 'inventory' && 'Grocery Inventory Hub'}
                 {activeTab === 'orders' && 'Order & Payment Management'}
                 {activeTab === 'customers' && 'Customer Management & Segmentation'}
@@ -1847,344 +1818,84 @@ const Admin = () => {
 
 
           {/* =========================================================================
-             MODULE: WEBSITE CONTENT MANAGEMENT (CMS)
+             MODULE: TERMS & POLICY PAGES
              ========================================================================= */}
           {activeTab === 'cms' && (
             <div className="admin-cms-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* STATIC & LEGAL PAGES */}
-              {cmsTab === 'pages' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div className="admin-card admin-card--wide">
-                    <h2 style={{ margin: '0 0 12px' }}>{editingPage ? `Edit Page: ${editingPage.title}` : 'Add New Website / Policy Page'}</h2>
-                    <form onSubmit={async (e) => {
-                      e.preventDefault();
-                      const form = e.target;
-                      const title = form.title.value.trim();
-                      const slug = form.slug.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                      const category = form.category.value;
-                      const content = form.content.value;
-                      const metaTitle = form.metaTitle.value;
-                      const metaDescription = form.metaDescription.value;
-
-                      try {
-                        if (editingPage) {
-                          const updated = await adminApi.updatePage(editingPage.id, { title, slug, category, content, metaTitle, metaDescription, isPublished: true });
-                          setCmsData(prev => ({ ...prev, pages: prev.pages.map(p => p.id === updated.id ? updated : p) }));
-                          setEditingPage(null);
-                        } else {
-                          const saved = await adminApi.savePage({ title, slug, category, content, metaTitle, metaDescription, isPublished: true });
-                          setCmsData(prev => ({ ...prev, pages: [saved, ...prev.pages] }));
-                        }
-                        form.reset();
-                        setSaveToast({ type: 'success', msg: 'Page published successfully' });
-                        setTimeout(() => setSaveToast(null), 3000);
-                      } catch (err) { alert(err.message); }
-                    }}>
-                      <div className="admin-form__grid">
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Page Title *</label>
-                          <input name="title" defaultValue={editingPage?.title || ''} className="admin-input-box" placeholder="e.g. Terms of Trade" required />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>URL Slug *</label>
-                          <input name="slug" defaultValue={editingPage?.slug || ''} className="admin-input-box" placeholder="e.g. terms-of-trade" required />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Category</label>
-                          <select name="category" defaultValue={editingPage?.category || 'general'} className="admin-input-box">
-                            <option value="general">General Page</option>
-                            <option value="legal">Legal Page</option>
-                            <option value="policy">Delivery / Refund Policy</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>SEO Meta Title</label>
-                          <input name="metaTitle" defaultValue={editingPage?.metaTitle || ''} className="admin-input-box" placeholder="Page Title — Siri Traders" />
-                        </div>
+              <div className="admin-card admin-card--wide">
+                <h2 style={{ margin: '0 0 4px' }}>Terms & Policy Pages ({cmsData.pages.length})</h2>
+                <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#687466' }}>
+                  Edit the content shown on each legal, general and policy page of the website.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {cmsData.pages.map(page => (
+                    <div key={page.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: '#FFFFFF', border: '1px solid #E1E6DC', borderRadius: '8px' }}>
+                      <div>
+                        <strong style={{ fontSize: '13.5px', color: '#111827' }}>{page.title}</strong>
+                        <span style={{ fontSize: '11.5px', color: '#687466', display: 'block' }}>
+                          URL: <code>/info?tab={page.slug}</code> · Category: <strong>{page.category}</strong>
+                        </span>
                       </div>
-
-                      <div style={{ marginTop: '10px' }}>
-                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Page Body Content (Markdown / HTML)</label>
-                        <textarea name="content" defaultValue={editingPage?.content || ''} rows={6} className="admin-input-box" style={{ height: 'auto' }} required />
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button className="admin__ghost" style={{ padding: '6px 10px', fontSize: '11.5px' }} onClick={() => setEditingPage(page)}>
+                          <FiEdit2 size={12} /> Edit
+                        </button>
+                        <button className="admin-danger" style={{ padding: '6px 10px', fontSize: '11.5px' }} onClick={async () => {
+                          if (window.confirm(`Delete page "${page.title}"?`)) {
+                            await adminApi.deletePage(page.id);
+                            setCmsData(prev => ({ ...prev, pages: prev.pages.filter(p => p.id !== page.id) }));
+                          }
+                        }}>
+                          <FiTrash2 size={12} />
+                        </button>
                       </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                        <button type="submit" className="admin__primary"><FiSave /> {editingPage ? 'Save Changes' : 'Publish Page'}</button>
-                        {editingPage && <button type="button" className="admin__ghost" onClick={() => setEditingPage(null)}>Cancel</button>}
+              {editingPage && (
+                <div className="inventory-modal-backdrop" onClick={() => setEditingPage(null)}>
+                  <div className="inventory-modal" style={{ maxWidth: '720px' }} onClick={e => e.stopPropagation()}>
+                    <div className="inventory-modal__header">
+                      <h2 style={{ margin: 0 }}>Edit Page: {editingPage.title}</h2>
+                      <button className="inventory-modal__close" onClick={() => setEditingPage(null)}>✕</button>
+                    </div>
+
+                    <div className="inventory-modal__body">
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Page Body Content</label>
+                        <textarea
+                          rows={16}
+                          className="admin-input-box"
+                          style={{ height: 'auto' }}
+                          value={editingPage.content || ''}
+                          onChange={e => setEditingPage(p => ({ ...p, content: e.target.value }))}
+                        />
                       </div>
-                    </form>
-                  </div>
+                    </div>
 
-                  <div className="admin-card admin-card--wide">
-                    <h2>Live Website Pages ({cmsData.pages.length})</h2>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {cmsData.pages.map(page => (
-                        <div key={page.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: '#FFFFFF', border: '1px solid #E1E6DC', borderRadius: '8px' }}>
-                          <div>
-                            <strong style={{ fontSize: '13.5px', color: '#111827' }}>{page.title}</strong>
-                            <span style={{ fontSize: '11.5px', color: '#687466', display: 'block' }}>
-                              URL: <code>/info?tab={page.slug}</code> · Category: <strong>{page.category}</strong>
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <button className="admin__ghost" style={{ padding: '6px 10px', fontSize: '11.5px' }} onClick={() => setEditingPage(page)}>
-                              <FiEdit2 size={12} /> Edit
-                            </button>
-                            <button className="admin-danger" style={{ padding: '6px 10px', fontSize: '11.5px' }} onClick={async () => {
-                              if (window.confirm(`Delete page "${page.title}"?`)) {
-                                await adminApi.deletePage(page.id);
-                                setCmsData(prev => ({ ...prev, pages: prev.pages.filter(p => p.id !== page.id) }));
-                              }
-                            }}>
-                              <FiTrash2 size={12} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="inventory-modal__footer">
+                      <button type="button" className="admin__ghost" onClick={() => setEditingPage(null)}>Cancel</button>
+                      <button
+                        type="button"
+                        className="admin__primary"
+                        onClick={async () => {
+                          try {
+                            const updated = await adminApi.updatePage(editingPage.id, { ...editingPage, isPublished: true });
+                            setCmsData(prev => ({ ...prev, pages: prev.pages.map(p => p.id === updated.id ? updated : p) }));
+                            setEditingPage(null);
+                            setSaveToast({ type: 'success', msg: 'Page content updated' });
+                            setTimeout(() => setSaveToast(null), 3000);
+                          } catch (err) { alert(err.message); }
+                        }}
+                      >
+                        <FiSave /> Save Changes
+                      </button>
                     </div>
                   </div>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* =========================================================================
-             MODULE: SEO MANAGEMENT
-             ========================================================================= */}
-          {activeTab === 'seo' && (
-            <div className="admin-seo-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* Top SEO Audit Checklist Card */}
-              <div className="admin-card admin-card--wide" style={{ padding: '18px 20px', background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ fontSize: '28px' }}>🚀</div>
-                    <div>
-                      <strong style={{ fontSize: '15px', color: '#166534' }}>SEO Health Score: 96 / 100 (Optimal)</strong>
-                      <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#15803D' }}>
-                        Structured Data schema, Canonical URL, Open Graph metadata and XML Sitemap are fully configured.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <a href="/sitemap.xml" target="_blank" rel="noopener noreferrer" className="admin__ghost" style={{ fontSize: '11.5px', background: '#FFFFFF' }}>
-                      <FiExternalLink /> View XML Sitemap
-                    </a>
-                  </div>
-                </div>
-              </div>
-
-              {/* SERP & Social Share Live Previews */}
-              <div className="admin-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                {/* Google Search Result Preview */}
-                <div className="admin-card">
-                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#687466', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
-                    🔍 Google Search Snippet Live Preview
-                  </span>
-                  <div className="admin-serp-preview">
-                    <span className="admin-serp-url">https://www.siritrader.com</span>
-                    <span className="admin-serp-title">{seoForm.metaTitle}</span>
-                    <p className="admin-serp-desc">{seoForm.metaDescription}</p>
-                  </div>
-                </div>
-
-                {/* Social Media Open Graph Preview */}
-                <div className="admin-card">
-                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#687466', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
-                    📱 Social Share (Facebook / WhatsApp / X) Preview
-                  </span>
-                  <div className="admin-og-preview">
-                    <img src={toWebpImage(seoForm.ogImage)} alt="Social preview" />
-                    <div className="admin-og-preview-content">
-                      <span style={{ fontSize: '10.5px', color: '#687466', textTransform: 'uppercase' }}>SIRITRADER.COM</span>
-                      <strong style={{ fontSize: '13px', color: '#111827', display: 'block', margin: '2px 0' }}>{seoForm.metaTitle}</strong>
-                      <p style={{ fontSize: '11.5px', color: '#4B5563', margin: 0 }}>{seoForm.metaDescription.slice(0, 100)}...</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Global SEO Settings Form */}
-              <div className="admin-card admin-card--wide">
-                <h2 style={{ margin: '0 0 14px' }}>Store-Wide Search Engine Optimization (SEO)</h2>
-                <form onSubmit={async (e) => {
-                  e.preventDefault();
-                  try {
-                    const updated = await adminApi.updateSettings({
-                      ...cmsData.settings,
-                      ...seoForm
-                    });
-                    setCmsData(prev => ({ ...prev, settings: updated }));
-                    setSaveToast({ type: 'success', msg: 'SEO settings saved and deployed to metadata headers!' });
-                    setTimeout(() => setSaveToast(null), 3000);
-                  } catch (err) { alert(err.message); }
-                }}>
-                  <div className="admin-form__grid">
-                    <div style={{ gridColumn: '1 / -1' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                        <label style={{ fontSize: '11.5px', fontWeight: 700 }}>Meta Title (Optimal: 50-60 chars)</label>
-                        <span className={`admin-char-count ${seoForm.metaTitle.length >= 40 && seoForm.metaTitle.length <= 65 ? 'admin-char-count--good' : 'admin-char-count--warn'}`}>
-                          {seoForm.metaTitle.length} chars
-                        </span>
-                      </div>
-                      <input
-                        className="admin-input-box"
-                        value={seoForm.metaTitle}
-                        onChange={(e) => setSeoForm(p => ({ ...p, metaTitle: e.target.value }))}
-                        required
-                      />
-                    </div>
-
-                    <div style={{ gridColumn: '1 / -1' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                        <label style={{ fontSize: '11.5px', fontWeight: 700 }}>Meta Description (Optimal: 120-160 chars)</label>
-                        <span className={`admin-char-count ${seoForm.metaDescription.length >= 120 && seoForm.metaDescription.length <= 165 ? 'admin-char-count--good' : 'admin-char-count--warn'}`}>
-                          {seoForm.metaDescription.length} chars
-                        </span>
-                      </div>
-                      <textarea
-                        rows={3}
-                        className="admin-input-box"
-                        style={{ height: 'auto' }}
-                        value={seoForm.metaDescription}
-                        onChange={(e) => setSeoForm(p => ({ ...p, metaDescription: e.target.value }))}
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Canonical Domain URL</label>
-                      <input
-                        className="admin-input-box"
-                        value={seoForm.canonicalUrl}
-                        onChange={(e) => setSeoForm(p => ({ ...p, canonicalUrl: e.target.value }))}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Social Share (OG) Image URL</label>
-                      <input
-                        className="admin-input-box"
-                        value={seoForm.ogImage}
-                        onChange={(e) => setSeoForm(p => ({ ...p, ogImage: e.target.value }))}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Google Search Console Token</label>
-                      <input
-                        className="admin-input-box"
-                        value={seoForm.googleSiteVerification}
-                        onChange={(e) => setSeoForm(p => ({ ...p, googleSiteVerification: e.target.value }))}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Robots Indexing</label>
-                      <select
-                        className="admin-input-box"
-                        value={seoForm.robotsIndex ? 'true' : 'false'}
-                        onChange={(e) => setSeoForm(p => ({ ...p, robotsIndex: e.target.value === 'true' }))}
-                      >
-                        <option value="true">🟢 Index, Follow (Recommended)</option>
-                        <option value="false">🔴 NoIndex, NoFollow</option>
-                      </select>
-                    </div>
-
-                    <div style={{ gridColumn: '1 / -1' }}>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>JSON-LD Structured Data Schema (GroceryStore)</label>
-                      <textarea
-                        rows={4}
-                        className="admin-input-box"
-                        style={{ height: 'auto', fontFamily: 'monospace', fontSize: '11.5px' }}
-                        value={seoForm.schemaJson}
-                        onChange={(e) => setSeoForm(p => ({ ...p, schemaJson: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-
-                  <button type="submit" className="admin__primary" style={{ marginTop: '14px' }}>
-                    <FiSave /> Save & Deploy SEO Settings
-                  </button>
-                </form>
-              </div>
-
-              {/* 301 / 302 URL Redirects Manager */}
-              <div className="admin-card admin-card--wide">
-                <div className="admin-card__toolbar">
-                  <div>
-                    <h2 style={{ margin: 0 }}>301 / 302 URL Redirects Manager</h2>
-                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
-                      Prevent 404 broken links by redirecting old campaign or product paths to new URLs.
-                    </p>
-                  </div>
-                </div>
-
-                <form onSubmit={async (e) => {
-                  e.preventDefault();
-                  const form = e.target;
-                  const sourcePath = form.sourcePath.value.trim();
-                  const targetPath = form.targetPath.value.trim();
-                  const statusCode = Number(form.statusCode.value) || 301;
-
-                  if (!sourcePath || !targetPath) return;
-                  try {
-                    const saved = await adminApi.saveRedirect({ sourcePath, targetPath, statusCode, active: true });
-                    setCmsData(prev => ({ ...prev, redirects: [saved, ...prev.redirects] }));
-                    form.reset();
-                    setSaveToast({ type: 'success', msg: `Redirect for ${sourcePath} created` });
-                    setTimeout(() => setSaveToast(null), 3000);
-                  } catch (err) { alert(err.message); }
-                }} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '14px 0' }}>
-                  <input name="sourcePath" className="admin-input-box" placeholder="Old Path e.g. /rice-deals" style={{ width: '220px' }} required />
-                  <input name="targetPath" className="admin-input-box" placeholder="Target Path e.g. /categories" style={{ width: '220px' }} required />
-                  <select name="statusCode" className="admin-input-box" style={{ width: '140px' }}>
-                    <option value="301">301 (Permanent)</option>
-                    <option value="302">302 (Temporary)</option>
-                  </select>
-                  <button type="submit" className="admin__primary"><FiPlus /> Add Redirect</button>
-                </form>
-
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="inventory-table">
-                    <thead>
-                      <tr>
-                        <th>SOURCE PATH</th>
-                        <th>TARGET DESTINATION</th>
-                        <th>TYPE</th>
-                        <th>HITS</th>
-                        <th>STATUS</th>
-                        <th style={{ textAlign: 'center' }}>ACTION</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cmsData.redirects.map(r => (
-                        <tr key={r.id}>
-                          <td><code>{r.sourcePath}</code></td>
-                          <td><code>{r.targetPath}</code></td>
-                          <td><span style={{ fontWeight: 800, color: '#166534' }}>{r.statusCode}</span></td>
-                          <td>{r.hits || 0} hits</td>
-                          <td>
-                            <span style={{ fontSize: '11px', color: r.active !== false ? '#15803D' : '#9CA3AF', fontWeight: 800 }}>
-                              {r.active !== false ? '🟢 Active' : '⚪ Inactive'}
-                            </span>
-                          </td>
-                          <td style={{ textAlign: 'center' }}>
-                            <button className="admin-danger" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={async () => {
-                              if (window.confirm(`Delete redirect for ${r.sourcePath}?`)) {
-                                await adminApi.deleteRedirect(r.id);
-                                setCmsData(prev => ({ ...prev, redirects: prev.redirects.filter(x => x.id !== r.id) }));
-                              }
-                            }}>
-                              <FiTrash2 size={11} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
             </div>
           )}
 
