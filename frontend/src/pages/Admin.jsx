@@ -1688,17 +1688,293 @@ const Admin = () => {
             </div>
           </header>
 
-          {/* Quick stats on dashboard */}
+          {/* =========================================================================
+             EXECUTIVE DASHBOARD OVERVIEW
+             ========================================================================= */}
           {activeTab === 'dashboard' && (
-            <section className="admin__stats">
-              {stats.map(stat => (
-                <div key={stat.label} className="admin__stat-card">
-                  <stat.icon />
-                  <span>{stat.label}</span>
-                  <strong>{stat.value}</strong>
+            <div className="admin-overview-page" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Top 6 KPI Stat Cards */}
+              <section className="admin__stats">
+                {stats.map(stat => (
+                  <div key={stat.label} className="admin__stat-card">
+                    <stat.icon />
+                    <span>{stat.label}</span>
+                    <strong>{stat.value}</strong>
+                  </div>
+                ))}
+              </section>
+
+              {/* Operational Action Center & Critical Alerts */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+                {/* Pending Orders Action Card */}
+                <div style={{ background: '#FFFFFF', border: '1px solid #E1E6DC', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#687466', textTransform: 'uppercase' }}>Orders To Fulfill</span>
+                    <span style={{ background: '#DCFCE7', color: '#166534', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: 800 }}>
+                      {liveOrders ? liveOrders.filter(o => ['Pending', 'Preparing'].includes(o.status)).length : 0} Pending
+                    </span>
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '20px', color: '#111827' }}>
+                      {liveOrders ? liveOrders.filter(o => ['Pending', 'Preparing'].includes(o.status)).length : 0}
+                    </strong>
+                    <span style={{ fontSize: '12px', color: '#687466', display: 'block', marginTop: '2px' }}>Orders requiring dispatch</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="admin__primary"
+                    style={{ width: '100%', height: '32px', fontSize: '12px', justifyContent: 'center' }}
+                    onClick={() => setActiveTab('orders')}
+                  >
+                    <FiShoppingBag size={12} /> Manage Orders →
+                  </button>
                 </div>
-              ))}
-            </section>
+
+                {/* Stock Alerts Action Card */}
+                <div style={{ background: '#FFFFFF', border: '1px solid #E1E6DC', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#687466', textTransform: 'uppercase' }}>Inventory Alerts</span>
+                    <span style={{ background: '#FEE2E2', color: '#991B1B', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: 800 }}>
+                      {invSummary.lowStockCount + invSummary.outOfStockCount} Low/Out
+                    </span>
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '20px', color: '#111827' }}>
+                      {invSummary.outOfStockCount} Out · {invSummary.lowStockCount} Low
+                    </strong>
+                    <span style={{ fontSize: '12px', color: '#687466', display: 'block', marginTop: '2px' }}>Items needing replenishment</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="admin__ghost"
+                    style={{ width: '100%', height: '32px', fontSize: '12px', justifyContent: 'center' }}
+                    onClick={() => setActiveTab('inventory')}
+                  >
+                    <FiLayers size={12} /> View Stock Hub →
+                  </button>
+                </div>
+
+                {/* Reviews Moderation Action Card */}
+                <div style={{ background: '#FFFFFF', border: '1px solid #E1E6DC', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#687466', textTransform: 'uppercase' }}>Store Rating</span>
+                    <span style={{ background: '#FEF3C7', color: '#92400E', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: 800 }}>
+                      ⭐ {reviewStats.avg} / 5.0
+                    </span>
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '20px', color: '#111827' }}>
+                      {reviewsList.length} Verified Reviews
+                    </strong>
+                    <span style={{ fontSize: '12px', color: '#687466', display: 'block', marginTop: '2px' }}>
+                      {reviewsList.filter(r => r.status === 'Pending').length} pending approval
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="admin__ghost"
+                    style={{ width: '100%', height: '32px', fontSize: '12px', justifyContent: 'center' }}
+                    onClick={() => setActiveTab('reviews')}
+                  >
+                    <FiStar size={12} /> Moderate Reviews →
+                  </button>
+                </div>
+
+                {/* Delivery & Logistics Action Card */}
+                <div style={{ background: '#FFFFFF', border: '1px solid #E1E6DC', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#687466', textTransform: 'uppercase' }}>Delivery Network</span>
+                    <span style={{ background: '#F1F5F9', color: '#334155', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: 800 }}>
+                      {deliveryZones.length} Zones Active
+                    </span>
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '20px', color: '#111827' }}>Hyderabad Hyperlocal</strong>
+                    <span style={{ fontSize: '12px', color: '#687466', display: 'block', marginTop: '2px' }}>15-30 min express delivery active</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="admin__ghost"
+                    style={{ width: '100%', height: '32px', fontSize: '12px', justifyContent: 'center' }}
+                    onClick={() => setActiveTab('delivery-zones')}
+                  >
+                    <FiTruck size={12} /> Delivery Zones & Slots →
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Grid: Recent Orders Feed + Quick Action Hub */}
+              <div className="admin-grid" style={{ gridTemplateColumns: '1.8fr 1fr', gap: '20px' }}>
+                {/* Recent Orders Table */}
+                <div className="admin-card">
+                  <div className="admin-card__toolbar" style={{ marginBottom: '12px' }}>
+                    <div>
+                      <h2 style={{ margin: 0, fontSize: '15px' }}>Recent Customer Orders</h2>
+                      <span style={{ fontSize: '11.5px', color: '#687466' }}>Live incoming grocery delivery orders</span>
+                    </div>
+                    <button className="admin__ghost" style={{ fontSize: '11.5px', padding: '4px 10px' }} onClick={() => setActiveTab('orders')}>
+                      View All Orders ({liveOrders ? liveOrders.length : 0}) →
+                    </button>
+                  </div>
+
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="inventory-table" style={{ fontSize: '12px' }}>
+                      <thead>
+                        <tr>
+                          <th>ORDER #</th>
+                          <th>CUSTOMER</th>
+                          <th>ITEMS</th>
+                          <th>TOTAL (₹)</th>
+                          <th>STATUS</th>
+                          <th style={{ textAlign: 'center' }}>ACTION</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(liveOrders || []).slice(0, 6).map(order => (
+                          <tr key={order.id}>
+                            <td>
+                              <strong>#{order.id}</strong>
+                              <span style={{ fontSize: '10px', color: '#687466', display: 'block' }}>BILL-{order.id + 7820}</span>
+                            </td>
+                            <td>
+                              <strong>{order.customerName || 'Customer'}</strong>
+                              <span style={{ fontSize: '10px', color: '#687466', display: 'block' }}>{order.customerPhone || 'Direct App'}</span>
+                            </td>
+                            <td>{(order.items || []).length} items</td>
+                            <td>
+                              <strong style={{ color: '#166534' }}>{formatPrice(order.total)}</strong>
+                              <span style={{ fontSize: '10px', color: order.paymentStatus === 'Paid' ? '#166534' : '#D97706', display: 'block', fontWeight: 700 }}>
+                                {order.paymentStatus || 'Pending'} ({order.paymentMethod || 'COD'})
+                              </span>
+                            </td>
+                            <td>
+                              <span style={{
+                                fontSize: '10.5px',
+                                padding: '2px 7px',
+                                borderRadius: '6px',
+                                fontWeight: 800,
+                                background: order.status === 'Delivered' ? '#DCFCE7' : (order.status === 'Cancelled' ? '#FEE2E2' : '#FEF3C7'),
+                                color: order.status === 'Delivered' ? '#166534' : (order.status === 'Cancelled' ? '#991B1B' : '#854D0E')
+                              }}>
+                                {order.status}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <button
+                                type="button"
+                                className="admin__ghost"
+                                style={{ padding: '4px 8px', fontSize: '11px' }}
+                                onClick={() => {
+                                  setSelectedOrderModal(order);
+                                  setActiveTab('orders');
+                                }}
+                              >
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {(!liveOrders || liveOrders.length === 0) && (
+                          <tr>
+                            <td colSpan={6} style={{ textAlign: 'center', padding: '20px', color: '#687466' }}>
+                              No orders found.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Quick Executive Action Hub & System Status */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Quick Shortcuts */}
+                  <div className="admin-card">
+                    <h2 style={{ margin: '0 0 12px', fontSize: '15px' }}>⚡ Quick Management Shortcuts</h2>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      <button
+                        type="button"
+                        className="admin__ghost"
+                        style={{ padding: '10px', fontSize: '11.5px', justifyContent: 'flex-start', textAlign: 'left', height: 'auto' }}
+                        onClick={() => {
+                          setProductDraft(blankProduct);
+                          setActiveTab('retail-products');
+                        }}
+                      >
+                        <FiPlus style={{ color: '#2D5016' }} /> Add Retail Item
+                      </button>
+
+                      <button
+                        type="button"
+                        className="admin__ghost"
+                        style={{ padding: '10px', fontSize: '11.5px', justifyContent: 'flex-start', textAlign: 'left', height: 'auto' }}
+                        onClick={() => {
+                          setProductDraft(blankWholesaleProduct);
+                          setActiveTab('wholesale-products');
+                        }}
+                      >
+                        <FiPlus style={{ color: '#2D5016' }} /> Add Wholesale Item
+                      </button>
+
+                      <button
+                        type="button"
+                        className="admin__ghost"
+                        style={{ padding: '10px', fontSize: '11.5px', justifyContent: 'flex-start', textAlign: 'left', height: 'auto' }}
+                        onClick={() => setActiveTab('offers')}
+                      >
+                        <FiGift style={{ color: '#2D5016' }} /> Create Coupon
+                      </button>
+
+                      <button
+                        type="button"
+                        className="admin__ghost"
+                        style={{ padding: '10px', fontSize: '11.5px', justifyContent: 'flex-start', textAlign: 'left', height: 'auto' }}
+                        onClick={() => setActiveTab('sales-stats')}
+                      >
+                        <FiTrendingUp style={{ color: '#2D5016' }} /> Sales Analytics
+                      </button>
+
+                      <button
+                        type="button"
+                        className="admin__ghost"
+                        style={{ padding: '10px', fontSize: '11.5px', justifyContent: 'flex-start', textAlign: 'left', height: 'auto' }}
+                        onClick={() => {
+                          setCmsTab('announcement');
+                          setActiveTab('cms');
+                        }}
+                      >
+                        <FiVolume2 style={{ color: '#2D5016' }} /> Header Banner
+                      </button>
+
+                      <button
+                        type="button"
+                        className="admin__ghost"
+                        style={{ padding: '10px', fontSize: '11.5px', justifyContent: 'flex-start', textAlign: 'left', height: 'auto' }}
+                        onClick={() => setActiveTab('seo')}
+                      >
+                        <FiCompass style={{ color: '#2D5016' }} /> SEO Health
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Top Bestseller Preview */}
+                  <div className="admin-card" style={{ background: '#FAF9F5' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <strong style={{ fontSize: '13px', color: '#111827' }}>🏆 Store Bestsellers ({retailProducts.filter(p => p.isBestseller).length})</strong>
+                      <button className="admin__ghost" style={{ fontSize: '11px', padding: '2px 6px' }} onClick={() => setActiveTab('bestsellers')}>Manage</button>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {retailProducts.filter(p => p.isBestseller).slice(0, 3).map(p => (
+                        <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', background: '#FFFFFF', padding: '6px 10px', borderRadius: '6px', border: '1px solid #E1E6DC' }}>
+                          <span style={{ fontWeight: 600, color: '#111827' }}>{p.name}</span>
+                          <span style={{ color: '#166534', fontWeight: 800 }}>{formatPrice(p.price)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
 
 
