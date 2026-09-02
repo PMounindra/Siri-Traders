@@ -3704,13 +3704,12 @@ const Admin = () => {
 
                             <div>
                               <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Delivery Time Estimate</label>
-                              <select
+                              <input
                                 className="admin-input-box"
+                                placeholder="e.g. 30 mins"
                                 value={editingZoneModal.time}
                                 onChange={e => setEditingZoneModal(p => ({ ...p, time: e.target.value }))}
-                              >
-                                {['10 mins','15 mins','20 mins','30 mins','45 mins','60 mins','Same day'].map(t => <option key={t}>{t}</option>)}
-                              </select>
+                              />
                             </div>
 
                             <div>
@@ -3768,7 +3767,7 @@ const Admin = () => {
                           </div>
 
                           <div style={{ overflowX: 'auto' }}>
-                            <table className="inventory-table">
+                            <table className="inventory-table" style={{ minWidth: 0, width: '100%' }}>
                               <thead>
                                 <tr>
                                   <th>AREA / LOCALITY</th>
@@ -3887,13 +3886,12 @@ const Admin = () => {
 
                         <div>
                           <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Delivery Time Estimate</label>
-                          <select
+                          <input
                             className="admin-input-box"
+                            placeholder="e.g. 30 mins"
                             value={newZone.time}
                             onChange={e => setNewZone(p => ({ ...p, time: e.target.value }))}
-                          >
-                            {['10 mins','15 mins','20 mins','30 mins','45 mins','60 mins','Same day'].map(t => <option key={t}>{t}</option>)}
-                          </select>
+                          />
                         </div>
 
                         <div>
