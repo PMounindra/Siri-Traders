@@ -332,6 +332,139 @@ export async function apiDeleteReview(id) {
   return asJson(res, 'Failed to delete review');
 }
 
+// ── CMS & SEO ───────────────────────────────────────────────────────────
+
+export async function apiFetchCmsAll() {
+  const res = await fetch('/api/settings?action=cms_all', withCreds);
+  if (!res.ok) throw new Error('Failed to load CMS content');
+  return res.json();
+}
+
+export async function apiSaveBanner(data) {
+  const res = await fetch('/api/settings?action=banner', {
+    method: 'POST',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify(data),
+  });
+  return asJson(res, 'Failed to save banner');
+}
+
+export async function apiUpdateBanner(id, data) {
+  const res = await fetch(`/api/settings?action=banner&id=${id}`, {
+    method: 'PUT',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify(data),
+  });
+  return asJson(res, 'Failed to update banner');
+}
+
+export async function apiDeleteBanner(id) {
+  const res = await fetch(`/api/settings?action=banner&id=${id}`, { method: 'DELETE', ...withCreds });
+  return asJson(res, 'Failed to delete banner');
+}
+
+export async function apiSavePage(data) {
+  const res = await fetch('/api/settings?action=page', {
+    method: 'POST',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify(data),
+  });
+  return asJson(res, 'Failed to save page');
+}
+
+export async function apiUpdatePage(id, data) {
+  const res = await fetch(`/api/settings?action=page&id=${id}`, {
+    method: 'PUT',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify(data),
+  });
+  return asJson(res, 'Failed to update page');
+}
+
+export async function apiDeletePage(id) {
+  const res = await fetch(`/api/settings?action=page&id=${id}`, { method: 'DELETE', ...withCreds });
+  return asJson(res, 'Failed to delete page');
+}
+
+export async function apiSaveFaq(data) {
+  const res = await fetch('/api/settings?action=faq', {
+    method: 'POST',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify(data),
+  });
+  return asJson(res, 'Failed to save FAQ');
+}
+
+export async function apiUpdateFaq(id, data) {
+  const res = await fetch(`/api/settings?action=faq&id=${id}`, {
+    method: 'PUT',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify(data),
+  });
+  return asJson(res, 'Failed to update FAQ');
+}
+
+export async function apiDeleteFaq(id) {
+  const res = await fetch(`/api/settings?action=faq&id=${id}`, { method: 'DELETE', ...withCreds });
+  return asJson(res, 'Failed to delete FAQ');
+}
+
+export async function apiSaveBlog(data) {
+  const res = await fetch('/api/settings?action=blog', {
+    method: 'POST',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify(data),
+  });
+  return asJson(res, 'Failed to save blog article');
+}
+
+export async function apiUpdateBlog(id, data) {
+  const res = await fetch(`/api/settings?action=blog&id=${id}`, {
+    method: 'PUT',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify(data),
+  });
+  return asJson(res, 'Failed to update blog article');
+}
+
+export async function apiDeleteBlog(id) {
+  const res = await fetch(`/api/settings?action=blog&id=${id}`, { method: 'DELETE', ...withCreds });
+  return asJson(res, 'Failed to delete blog article');
+}
+
+export async function apiSaveRedirect(data) {
+  const res = await fetch('/api/settings?action=redirect', {
+    method: 'POST',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify(data),
+  });
+  return asJson(res, 'Failed to save redirect');
+}
+
+export async function apiUpdateRedirect(id, data) {
+  const res = await fetch(`/api/settings?action=redirect&id=${id}`, {
+    method: 'PUT',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify(data),
+  });
+  return asJson(res, 'Failed to update redirect');
+}
+
+export async function apiDeleteRedirect(id) {
+  const res = await fetch(`/api/settings?action=redirect&id=${id}`, { method: 'DELETE', ...withCreds });
+  return asJson(res, 'Failed to delete redirect');
+}
+
 // ── Hook ─────────────────────────────────────────────────────────────────
 // Admin.jsx calls adminApi.xxx(), so expose named methods as a plain object.
 export function useAdminApi() {
@@ -382,6 +515,24 @@ export function useAdminApi() {
 
     fetchSettings: apiFetchSettings,
     updateSettings: apiUpdateSettings,
+
+    fetchCmsAll: apiFetchCmsAll,
+    saveBanner: apiSaveBanner,
+    updateBanner: apiUpdateBanner,
+    deleteBanner: apiDeleteBanner,
+    savePage: apiSavePage,
+    updatePage: apiUpdatePage,
+    deletePage: apiDeletePage,
+    saveFaq: apiSaveFaq,
+    updateFaq: apiUpdateFaq,
+    deleteFaq: apiDeleteFaq,
+    saveBlog: apiSaveBlog,
+    updateBlog: apiUpdateBlog,
+    deleteBlog: apiDeleteBlog,
+    saveRedirect: apiSaveRedirect,
+    updateRedirect: apiUpdateRedirect,
+    deleteRedirect: apiDeleteRedirect
   };
 }
+
 

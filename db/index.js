@@ -15,6 +15,11 @@ import { settings } from './schema/settings.js';
 import { inventory } from './schema/inventory.js';
 import { inventoryLogs } from './schema/inventory_logs.js';
 import { reviews } from './schema/reviews.js';
+import { cmsBanners } from './schema/cms_banners.js';
+import { cmsPages } from './schema/cms_pages.js';
+import { cmsFaqs } from './schema/cms_faqs.js';
+import { cmsBlogs } from './schema/cms_blogs.js';
+import { seoRedirects } from './schema/seo_redirects.js';
 
 // Load .env.local first (local dev), fall back to .env
 dotenv.config({ path: '.env.local' });
@@ -37,7 +42,12 @@ const schema = {
   settings,
   inventory,
   inventoryLogs,
-  reviews
+  reviews,
+  cmsBanners,
+  cmsPages,
+  cmsFaqs,
+  cmsBlogs,
+  seoRedirects
 };
 
 const sql = neon(process.env.DATABASE_URL);
@@ -57,4 +67,8 @@ export { settings } from './schema/settings.js';
 export { inventory } from './schema/inventory.js';
 export { inventoryLogs } from './schema/inventory_logs.js';
 export { reviews } from './schema/reviews.js';
-
+export { cmsBanners } from './schema/cms_banners.js';
+export { cmsPages } from './schema/cms_pages.js';
+export { cmsFaqs } from './schema/cms_faqs.js';
+export { cmsBlogs } from './schema/cms_blogs.js';
+export { seoRedirects } from './schema/seo_redirects.js';

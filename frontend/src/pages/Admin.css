@@ -2348,5 +2348,128 @@
   background: #2D5016;
 }
 
+/* ==========================================================
+   SIRI TRADERS — WEBSITE CMS STYLES
+   ========================================================== */
+.admin-cms-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #FAF9F5;
+  border: 1px solid #E1E6DC;
+  padding: 6px;
+  border-radius: 12px;
+}
+
+.admin-cms-nav-btn {
+  border: none;
+  background: transparent;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4B5563;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.admin-cms-nav-btn--active {
+  background: #2D5016;
+  color: #FFFFFF;
+}
+
+.admin-banner-card {
+  background: #FFFFFF;
+  border: 1px solid #E1E6DC;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-banner-card__img {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  background: #F3F4F6;
+}
+
+.admin-announcement-preview {
+  padding: 12px 16px;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* ==========================================================
+   SIRI TRADERS — SEO MANAGEMENT STYLES
+   ========================================================== */
+.admin-serp-preview {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 16px 20px;
+  font-family: Arial, sans-serif;
+}
+
+.admin-serp-url {
+  font-size: 12px;
+  color: #202124;
+  margin-bottom: 2px;
+  display: block;
+}
+
+.admin-serp-title {
+  font-size: 18px;
+  color: #1a0dab;
+  text-decoration: none;
+  font-weight: 400;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.admin-serp-desc {
+  font-size: 13px;
+  color: #4d5156;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.admin-og-preview {
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: 10px;
+  overflow: hidden;
+  max-width: 480px;
+}
+
+.admin-og-preview img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+}
+
+.admin-og-preview-content {
+  padding: 12px 14px;
+}
+
+.admin-char-count {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.admin-char-count--good { color: #16A34A; }
+.admin-char-count--warn { color: #D97706; }
+.admin-char-count--bad { color: #DC2626; }
+
+
 
 
