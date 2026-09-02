@@ -1,4 +1,4 @@
-import { db, settings, cmsBanners, cmsPages, cmsFaqs, cmsBlogs, seoRedirects } from '../db/index.js';
+import { db, settings, deliveryZones, cmsBanners, cmsPages, cmsFaqs, cmsBlogs, seoRedirects } from '../db/index.js';
 import { eq, asc, desc } from 'drizzle-orm';
 import { setCorsHeaders } from './_cors.js';
 import { isAdminRequest } from './_adminAuth.js';
@@ -30,10 +30,89 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const { action, id } = req.query;
+  const { action, resource, id } = req.query;
 
   try {
-    // ── 1. CMS Bulk Fetch: /api/settings?action=cms_all ─────────────────
+    // ── Delivery Zones Sub-handler: /api/delivery_zones or ?resource=delivery_zones
+    if (resource === 'delivery_zones' || action === 'delivery_zones') {
+      if (!id) {
+        if (req.method === 'GET') {
+          const allZones = await db.select().from(deliveryZones);
+          return res.status(200).json(allZones);
+        }
+
+        if (req.method === 'POST') {
+          const adminOk = await isAdminRequest(req);
+          if (!adminOk) return res.status(403).json({ error: 'Forbidden: admin access required' });
+
+          const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+          if (!body.area || !body.pincode) {
+            return res.status(400).json({ error: 'area and pincode are required' });
+          }
+
+          const zoneId = body.id || `zone-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const values = {
+            id: zoneId,
+            area: body.area,
+            pincode: String(body.pincode),
+            time: body.time || '30 mins',
+            distance: body.distance || '',
+            active: body.active !== false,
+            deliveryFee: Number(body.deliveryFee) || 0,
+            freeDeliveryThreshold: Number(body.freeDeliveryThreshold) || 0,
+            handlingCharge: Number(body.handlingCharge) || 0,
+            minOrderValue: Number(body.minOrderValue) || 0,
+            deliverySlots: Array.isArray(body.deliverySlots) ? body.deliverySlots : [
+              'Morning (7:00 AM - 10:00 AM)',
+              'Afternoon (1:00 PM - 4:00 PM)',
+              'Evening (6:00 PM - 9:00 PM)',
+              'Express (15-30 mins)'
+            ],
+            driverAssigned: body.driverAssigned || ''
+          };
+
+          const saved = await db.insert(deliveryZones).values(values).onConflictDoUpdate({
+            target: deliveryZones.id,
+            set: values
+          }).returning();
+
+          return res.status(201).json(saved[0]);
+        }
+      } else {
+        if (req.method === 'PUT') {
+          const adminOk = await isAdminRequest(req);
+          if (!adminOk) return res.status(403).json({ error: 'Forbidden: admin access required' });
+
+          const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+          const patch = {};
+          if (body.area !== undefined) patch.area = body.area;
+          if (body.pincode !== undefined) patch.pincode = String(body.pincode);
+          if (body.time !== undefined) patch.time = body.time;
+          if (body.distance !== undefined) patch.distance = body.distance;
+          if (body.active !== undefined) patch.active = Boolean(body.active);
+          if (body.deliveryFee !== undefined) patch.deliveryFee = Number(body.deliveryFee) || 0;
+          if (body.freeDeliveryThreshold !== undefined) patch.freeDeliveryThreshold = Number(body.freeDeliveryThreshold) || 0;
+          if (body.handlingCharge !== undefined) patch.handlingCharge = Number(body.handlingCharge) || 0;
+          if (body.minOrderValue !== undefined) patch.minOrderValue = Number(body.minOrderValue) || 0;
+          if (body.deliverySlots !== undefined) patch.deliverySlots = body.deliverySlots;
+          if (body.driverAssigned !== undefined) patch.driverAssigned = body.driverAssigned;
+
+          const updated = await db.update(deliveryZones).set(patch).where(eq(deliveryZones.id, id)).returning();
+          return res.status(200).json(updated[0]);
+        }
+
+        if (req.method === 'DELETE') {
+          const adminOk = await isAdminRequest(req);
+          if (!adminOk) return res.status(403).json({ error: 'Forbidden: admin access required' });
+
+          await db.delete(deliveryZones).where(eq(deliveryZones.id, id));
+          return res.status(200).json({ success: true, id });
+        }
+      }
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── CMS Bulk Fetch: /api/settings?action=cms_all ─────────────────
     if (action === 'cms_all' && req.method === 'GET') {
       const [banners, pages, faqs, blogs, redirects, siteSettings] = await Promise.all([
         db.select().from(cmsBanners).orderBy(asc(cmsBanners.sortOrder)),
@@ -54,7 +133,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // ── 2. Banners CRUD: /api/settings?action=banner ─────────────────────
+    // ── Banners CRUD: /api/settings?action=banner ─────────────────────
     if (action === 'banner') {
       if (req.method === 'GET') {
         const rows = await db.select().from(cmsBanners).orderBy(asc(cmsBanners.sortOrder));
@@ -101,7 +180,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── 3. Pages CRUD: /api/settings?action=page ─────────────────────────
+    // ── Pages CRUD: /api/settings?action=page ─────────────────────────
     if (action === 'page') {
       if (req.method === 'GET') {
         const rows = await db.select().from(cmsPages).orderBy(desc(cmsPages.updatedAt));
@@ -145,7 +224,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── 4. FAQs CRUD: /api/settings?action=faq ───────────────────────────
+    // ── FAQs CRUD: /api/settings?action=faq ───────────────────────────
     if (action === 'faq') {
       if (req.method === 'GET') {
         const rows = await db.select().from(cmsFaqs).orderBy(asc(cmsFaqs.sortOrder));
@@ -184,7 +263,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── 5. Blog CRUD: /api/settings?action=blog ──────────────────────────
+    // ── Blog CRUD: /api/settings?action=blog ──────────────────────────
     if (action === 'blog') {
       if (req.method === 'GET') {
         const rows = await db.select().from(cmsBlogs).orderBy(desc(cmsBlogs.createdAt));
@@ -231,7 +310,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── 6. Redirects CRUD: /api/settings?action=redirect ─────────────────
+    // ── Redirects CRUD: /api/settings?action=redirect ─────────────────
     if (action === 'redirect') {
       if (req.method === 'GET') {
         const rows = await db.select().from(seoRedirects).orderBy(desc(seoRedirects.hits));
@@ -270,7 +349,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── 7. Global Settings & SEO: /api/settings ──────────────────────────
+    // ── Global Settings & SEO: /api/settings ──────────────────────────
     if (req.method === 'GET') {
       const rows = await db.select().from(settings).where(eq(settings.id, 'default'));
       return res.status(200).json(rows[0] || DEFAULTS);

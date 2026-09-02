@@ -3,6 +3,11 @@
   "outputDirectory": "frontend/dist",
   "framework": null,
   "rewrites": [
+    { "source": "/api/categories", "destination": "/api/products?resource=categories" },
+    { "source": "/api/coupons", "destination": "/api/offers?resource=coupons" },
+    { "source": "/api/delivery_zones", "destination": "/api/settings?resource=delivery_zones" },
+    { "source": "/api/admin/broadcast", "destination": "/api/admin/orders?resource=broadcast" },
+    { "source": "/api/admin/users", "destination": "/api/admin/orders?resource=users" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "build": {

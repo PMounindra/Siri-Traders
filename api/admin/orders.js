@@ -4,6 +4,7 @@ import { setCorsHeaders } from '../_cors.js';
 import { isAdminRequest } from '../_adminAuth.js';
 import { sendCustomerOrderStatusUpdateEmail } from '../_email.js';
 import { sendCustomerOrderStatusWhatsApp } from '../_whatsapp.js';
+import nodemailer from 'nodemailer';
 
 const VALID_STATUSES = ['Pending', 'Preparing', 'In Transit', 'Delivered', 'Paid', 'Cancelled'];
 const VALID_PAYMENT_STATUSES = ['Pending', 'Paid', 'Failed', 'Refunded', 'Partially Refunded'];
@@ -19,10 +20,143 @@ export default async function handler(req, res) {
   const adminOk = await isAdminRequest(req);
   if (!adminOk) return res.status(403).json({ error: 'Forbidden: admin access required' });
 
-  const { id } = req.query;
+  const { id, resource, action } = req.query;
 
   try {
-    // ── Collection: GET /api/admin/orders ─────────────────────────────────────
+    // ── 1. Users & Customer Segmentation: ?resource=users or ?action=users ─────
+    if (resource === 'users' || action === 'users') {
+      if (req.method === 'GET') {
+        const allUsers = await db.select().from(users).orderBy(desc(users.createdAt));
+        const allOrders = await db.select().from(orders).orderBy(desc(orders.createdAt));
+        const allItems = await db.select().from(orderItems);
+
+        const itemsByOrderId = new Map();
+        for (const it of allItems) {
+          if (!itemsByOrderId.has(it.orderId)) {
+            itemsByOrderId.set(it.orderId, []);
+          }
+          itemsByOrderId.get(it.orderId).push(it);
+        }
+
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+        const enrichedUsers = allUsers.map(user => {
+          const userOrders = allOrders
+            .filter(o => o.userId === user.id)
+            .map(o => ({
+              ...o,
+              items: itemsByOrderId.get(o.id) || []
+            }));
+
+          const totalSpent = userOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+          const orderCount = userOrders.length;
+          const aov = orderCount > 0 ? Math.round(totalSpent / orderCount) : 0;
+          
+          const lastOrder = userOrders[0];
+          const firstOrder = userOrders[userOrders.length - 1];
+          const lastOrderDate = lastOrder ? new Date(lastOrder.createdAt) : null;
+          const firstOrderDate = firstOrder ? new Date(firstOrder.createdAt) : null;
+
+          let segment = 'New';
+          if (orderCount >= 5 || totalSpent >= 5000) {
+            segment = 'VIP';
+          } else if (orderCount >= 2) {
+            segment = lastOrderDate && lastOrderDate < thirtyDaysAgo ? 'Inactive' : 'Returning';
+          } else if (orderCount === 1) {
+            segment = lastOrderDate && lastOrderDate < thirtyDaysAgo ? 'Inactive' : 'New';
+          } else {
+            segment = 'Inactive';
+          }
+
+          return {
+            ...user,
+            ordersCount: orderCount,
+            totalSpent,
+            averageOrderValue: aov,
+            segment,
+            lastOrderDate: lastOrderDate ? lastOrderDate.toISOString() : null,
+            firstOrderDate: firstOrderDate ? firstOrderDate.toISOString() : null,
+            orderHistory: userOrders
+          };
+        });
+
+        return res.status(200).json(enrichedUsers);
+      }
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── 2. Promotional Email Broadcast: ?resource=broadcast or ?action=broadcast ──
+    if (resource === 'broadcast' || action === 'broadcast') {
+      if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      const { subject, messageText, recipients: bodyRecipients } = body;
+
+      if (!subject || !messageText) {
+        return res.status(400).json({ error: 'Subject and message text are required' });
+      }
+
+      let recipients = [];
+      if (Array.isArray(bodyRecipients) && bodyRecipients.length > 0) {
+        recipients = bodyRecipients.filter(Boolean);
+      } else {
+        const allUsers = await db.select().from(users);
+        recipients = allUsers.map(u => u.email).filter(Boolean);
+      }
+
+      if (recipients.length === 0) {
+        return res.status(200).json({ success: true, count: 0, message: 'No recipients available.' });
+      }
+
+      const smtpHost = process.env.SMTP_HOST;
+      const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+      const smtpUser = process.env.SMTP_USER;
+      const smtpPass = process.env.SMTP_PASS;
+      const smtpSender = process.env.SMTP_SENDER || `"Siri Traders" <${smtpUser}>`;
+
+      if (!smtpHost || !smtpUser || !smtpPass) {
+        return res.status(500).json({ error: 'Mail server credentials are not configured on Vercel' });
+      }
+
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: { user: smtpUser, pass: smtpPass }
+      });
+
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #faf9f6;">
+          <div style="text-align: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #2d5016;">
+            <h1 style="color: #2d5016; margin: 0; font-size: 24px; letter-spacing: 0.5px;">SIRI TRADERS</h1>
+            <p style="color: #687466; margin: 4px 0 0; font-size: 13px;">Fast & Reliable Grocery Delivery</p>
+          </div>
+          <div style="color: #1f2937; font-size: 15px; line-height: 1.6; padding: 10px 0;">
+            ${messageText.replace(/\n/g, '<br />')}
+          </div>
+          <div style="text-align: center; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+            <a href="https://www.siritrader.com" style="display: inline-block; background-color: #2d5016; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px;">Visit Our Store</a>
+            <p style="color: #9ca3af; font-size: 11px; margin-top: 20px;">
+              H.No 10-152, Nagarjuna Colony Road No 12, Chitkul, Isnapur Municipality, Hyderabad — 502307<br />
+              You are receiving this email because you are a registered user of Siri Traders.
+            </p>
+          </div>
+        </div>
+      `;
+
+      await transporter.sendMail({
+        from: smtpSender,
+        to: smtpUser,
+        bcc: recipients,
+        subject: subject,
+        html: htmlContent
+      });
+
+      return res.status(200).json({ success: true, count: recipients.length });
+    }
+
+    // ── 3. Orders Collection: GET /api/admin/orders ─────────────────────
     if (!id) {
       if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -49,7 +183,7 @@ export default async function handler(req, res) {
       return res.status(200).json(ordersWithDetails);
     }
 
-    // ── Item: /api/admin/orders?id=:id ─────────────────────────────────────
+    // ── 4. Single Order Item: /api/admin/orders?id=:id ───────────────────
     const parsedId = parseInt(id, 10);
     if (Number.isNaN(parsedId) || parsedId <= 0) {
       return res.status(400).json({ error: 'Invalid order ID' });
@@ -158,7 +292,6 @@ export default async function handler(req, res) {
         .where(eq(orders.id, parsedId))
         .returning();
 
-      // Retrieve customer details to send automated status notifications if status changed
       if (body.status && body.status !== currentOrder.status) {
         try {
           const [customer] = await db.select().from(users).where(eq(users.id, currentOrder.userId));

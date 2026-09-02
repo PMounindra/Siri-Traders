@@ -1,4 +1,4 @@
-import { db, products } from '../db/index.js';
+import { db, products, categories } from '../db/index.js';
 import { eq, and } from 'drizzle-orm';
 import { z } from 'zod';
 import { setCorsHeaders } from './_cors.js';
@@ -48,10 +48,51 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const { id } = req.query;
+  const { id, resource, action } = req.query;
 
   try {
-    // ── Collection: /api/products ──────────────────────────────────────
+    // ── Categories sub-resource: /api/categories or /api/products?resource=categories
+    if (resource === 'categories' || action === 'categories') {
+      if (!id) {
+        if (req.method === 'GET') {
+          const allCategories = await db.select().from(categories);
+          res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+          return res.status(200).json(allCategories);
+        }
+
+        if (req.method === 'POST') {
+          const adminOk = await isAdminRequest(req);
+          if (!adminOk) return res.status(403).json({ error: 'Forbidden: admin access required' });
+
+          const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+          const name = String(body.name || '').trim();
+          if (!name) return res.status(400).json({ error: 'name is required' });
+
+          const catId = body.id || name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+          const saved = await db.insert(categories).values({
+            id: catId,
+            name,
+            image: body.image || '',
+            color: body.color || '#F1F8E9',
+            itemCount: 0
+          }).returning();
+
+          return res.status(201).json(saved[0]);
+        }
+      } else {
+        if (req.method === 'DELETE') {
+          const adminOk = await isAdminRequest(req);
+          if (!adminOk) return res.status(403).json({ error: 'Forbidden: admin access required' });
+
+          await db.delete(products).where(eq(products.category, id));
+          await db.delete(categories).where(eq(categories.id, id));
+          return res.status(200).json({ success: true, id });
+        }
+      }
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // ── Products Collection: /api/products ─────────────────────────────
     if (!id) {
       if (req.method === 'GET') {
         const { category, includeArchived } = req.query;
@@ -71,7 +112,6 @@ export default async function handler(req, res) {
           conditions.push(eq(products.category, category));
         }
 
-        // For public store requests without admin context / without includeArchived, hide archived
         if (includeArchived !== 'true') {
           conditions.push(eq(products.isArchived, false));
         }
@@ -83,7 +123,6 @@ export default async function handler(req, res) {
         }
 
         const allProducts = await query.limit(parsedLimit).offset(parsedOffset);
-
         res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
         return res.status(200).json(allProducts);
       }
@@ -107,7 +146,7 @@ export default async function handler(req, res) {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // ── Item: /api/products?id=:id ─────────────────────────────────────
+    // ── Product Item: /api/products?id=:id ─────────────────────────────
     const parsedId = parseInt(id, 10);
     if (Number.isNaN(parsedId) || parsedId <= 0) {
       return res.status(400).json({ error: 'Invalid product ID' });
