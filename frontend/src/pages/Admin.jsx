@@ -4222,16 +4222,17 @@ const Admin = () => {
                   ))}
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px', marginTop: '14px', maxWidth: '420px' }}>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '14px', alignItems: 'center' }}>
                   <input
                     id="new-slot-input"
                     className="admin-input-box"
+                    style={{ flex: 1 }}
                     placeholder="e.g. Night Express (9:00 PM - 11:00 PM)"
                   />
                   <button
                     type="button"
                     className="admin__primary"
-                    style={{ whiteSpace: 'nowrap' }}
+                    style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
                     onClick={() => {
                       const input = document.getElementById('new-slot-input');
                       if (input && input.value.trim()) {
@@ -5063,7 +5064,8 @@ const Admin = () => {
 
           {/* BROADCAST */}
           {activeTab === 'broadcast' && (
-            <section className="admin-card admin-card--wide" style={{ maxWidth: '800px', margin: '0 auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="admin-card admin-card--wide">
               <div className="admin-card__toolbar" style={{ borderBottom: '1px solid #E1E6DC', paddingBottom: '12px', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <FiMail size={24} style={{ color: '#2D5016' }} />
@@ -5136,7 +5138,8 @@ const Admin = () => {
                   {broadcastSending ? 'Sending Campaign...' : '🚀 Send Broadcast Email'}
                 </button>
               </form>
-            </section>
+              </div>
+            </div>
           )}
 
           {/* ADMIN ACCOUNTS */}
