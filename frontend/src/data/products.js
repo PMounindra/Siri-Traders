@@ -2319,7 +2319,9 @@ const buildBulkVariants = (product) => {
 };
 
 export const toWholesaleProduct = (product) => {
-  const variants = buildBulkVariants(product);
+  const variants = Array.isArray(product.variants) && product.variants.length > 0
+    ? product.variants
+    : buildBulkVariants(product);
   const bulkPrice = variants[variants.length - 1]?.price || product.price;
   return {
     ...product,

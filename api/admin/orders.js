@@ -145,13 +145,22 @@ export default async function handler(req, res) {
         </div>
       `;
 
-      await transporter.sendMail({
-        from: smtpSender,
-        to: smtpUser,
-        bcc: recipients,
-        subject: subject,
-        html: htmlContent
-      });
+      if (recipients.length === 1) {
+        await transporter.sendMail({
+          from: smtpSender,
+          to: recipients[0],
+          subject: subject,
+          html: htmlContent
+        });
+      } else {
+        await transporter.sendMail({
+          from: smtpSender,
+          to: smtpSender,
+          bcc: recipients,
+          subject: subject,
+          html: htmlContent
+        });
+      }
 
       return res.status(200).json({ success: true, count: recipients.length });
     }

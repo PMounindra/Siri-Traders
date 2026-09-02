@@ -318,7 +318,11 @@ const Admin = () => {
   const [productCategoryFilter, setProductCategoryFilter] = useState('all');
   const [expandedVariantId, setExpandedVariantId] = useState(null);
   const [detailedVariants, setDetailedVariants] = useState([]);
-  
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [categoryDraft, setCategoryDraft] = useState({ name: '', image: '', color: '#F1F8E9' });
+  const [categoryLoading, setCategoryLoading] = useState(false);
+
   const [offers, setOffers] = useState([]);
   const [coupons, setCoupons] = useState([]);
   const [productDraft, setProductDraft] = useState(blankProduct);
@@ -1046,6 +1050,53 @@ const Admin = () => {
     navigate('/admin-login');
   };
 
+  // ── Wholesale price range tier rows ──
+  const addVariantRow = (label = '', price = '') => {
+    setDetailedVariants(prev => [...prev, { id: `var-${Date.now()}-${Math.random()}`, label, price, unit: productDraft.unit || 'kg' }]);
+  };
+  const updateVariantRow = (idx, field, value) => {
+    setDetailedVariants(prev => prev.map((v, i) => (i === idx ? { ...v, [field]: value } : v)));
+  };
+  const removeVariantRow = (idx) => setDetailedVariants(prev => prev.filter((_, i) => i !== idx));
+
+  // ── Category management ──
+  const handleCategoryImageUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setCategoryDraft(prev => ({ ...prev, image: reader.result }));
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  };
+
+  const saveCategory = async () => {
+    if (!categoryDraft.name.trim()) return;
+    setCategoryLoading(true);
+    try {
+      const saved = await adminApi.createCategory({
+        name: categoryDraft.name.trim(),
+        image: categoryDraft.image || '',
+        color: categoryDraft.color || '#F1F8E9'
+      });
+      setDbCategories(prev => [...prev, saved]);
+      setCategoryDraft({ name: '', image: '', color: '#F1F8E9' });
+      setSaveToast({ type: 'success', msg: `Category "${saved.name}" added` });
+      setTimeout(() => setSaveToast(null), 3000);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCategoryLoading(false);
+    }
+  };
+
+  const deleteCategoryHandler = async (cat) => {
+    if (!window.confirm(`Delete category "${cat.name}"? This also deletes all products in this category.`)) return;
+    try {
+      await adminApi.deleteCategory(cat.id);
+      setDbCategories(prev => prev.filter(c => c.id !== cat.id));
+    } catch (err) { alert(err.message); }
+  };
+
   const handleImageUpload = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1157,6 +1208,7 @@ const Admin = () => {
       setProductDraft(blankProduct);
     }
     setDetailedVariants([]);
+    setShowProductModal(false);
   };
 
   const editProduct = (product) => {
@@ -1194,10 +1246,7 @@ const Admin = () => {
     }
 
     setActiveTab(targetTab);
-    setTimeout(() => {
-      const editForm = document.querySelector('.admin-workspace .admin-form');
-      editForm?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 150);
+    setShowProductModal(true);
   };
 
   const duplicateProduct = (product) => {
@@ -1235,10 +1284,7 @@ const Admin = () => {
     setDetailedVariants(clonedVariants);
     setActiveTab(targetTab);
     setSaveToast({ type: 'success', msg: `📋 Cloned "${product.name}" into editor draft.` });
-    setTimeout(() => {
-      const editForm = document.querySelector('.admin-workspace .admin-form');
-      editForm?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 150);
+    setShowProductModal(true);
   };
 
   const toggleArchiveProduct = async (product) => {
@@ -3867,7 +3913,7 @@ const Admin = () => {
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                               <button
                                 className="admin__primary"
-                                style={{ height: '32px', padding: '0 10px', fontSize: '11px', borderRadius: '6px' }}
+                                style={{ height: '32px', padding: '0 12px', fontSize: '11px', borderRadius: '6px' }}
                                 onClick={() => {
                                   setAdjustModalItem(item);
                                   setAdjustForm({
@@ -3879,14 +3925,7 @@ const Admin = () => {
                                   });
                                 }}
                               >
-                                Adjust
-                              </button>
-                              <button
-                                className="admin__ghost"
-                                style={{ height: '32px', padding: '0 8px', fontSize: '11px', borderRadius: '6px' }}
-                                onClick={() => openProductHistory(item)}
-                              >
-                                <FiActivity size={13} />
+                                Update Stock
                               </button>
                             </div>
                           </td>
@@ -3934,68 +3973,137 @@ const Admin = () => {
               )}
 
               {/* MODALS FOR INVENTORY */}
-              {adjustModalItem && (
-                <div className="inventory-modal-backdrop" onClick={() => setAdjustModalItem(null)}>
-                  <div className="inventory-modal" onClick={e => e.stopPropagation()}>
-                    <div className="inventory-modal__header">
-                      <h2>Adjust Stock — {adjustModalItem.name}</h2>
-                      <button className="inventory-modal__close" onClick={() => setAdjustModalItem(null)}>✕</button>
-                    </div>
+              {adjustModalItem && (() => {
+                const currentStock = adjustModalItem.availableStock ?? 0;
+                const qty = parseInt(adjustForm.quantity, 10) || 0;
+                const previewStock = adjustForm.changeType === 'ADD'
+                  ? currentStock + qty
+                  : adjustForm.changeType === 'SET'
+                  ? qty
+                  : currentStock;
+                const actionDescriptions = {
+                  ADD: 'Increases the available stock count. Use this when new goods arrive.',
+                  SET: 'Directly sets the stock to the exact number you enter. Use this after a physical count.',
+                  DAMAGE: 'Moves items out of available stock and records them as damaged.',
+                  EXPIRED: 'Moves items out of available stock and records them as expired.',
+                };
+                return (
+                  <div className="inventory-modal-backdrop" onClick={() => setAdjustModalItem(null)}>
+                    <div className="inventory-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', width: '100%' }}>
+                      <div className="inventory-modal__header">
+                        <div>
+                          <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#1C4B12' }}>Update Stock</h2>
+                          <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>{adjustModalItem.name}</p>
+                        </div>
+                        <button className="inventory-modal__close" onClick={() => setAdjustModalItem(null)}>✕</button>
+                      </div>
 
-                    <form onSubmit={handleStockAdjustment}>
-                      <div className="inventory-modal__body">
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      {/* Current Stock Banner */}
+                      <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px', padding: '10px 14px', margin: '14px 16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '12px', color: '#166534', fontWeight: 600 }}>Current Available Stock</span>
+                        <strong style={{ fontSize: '18px', color: '#166534' }}>{currentStock} units</strong>
+                      </div>
+
+                      <form onSubmit={handleStockAdjustment}>
+                        <div className="inventory-modal__body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+                          {/* Action Type */}
                           <div>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '4px' }}>Type</label>
-                            <select
-                              className="admin-input-box"
-                              value={adjustForm.changeType}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setAdjustForm(prev => ({
-                                  ...prev,
-                                  changeType: val,
-                                  targetField: val === 'DAMAGE' ? 'damagedStock' : (val === 'EXPIRED' ? 'expiredStock' : 'availableStock'),
-                                  reason: val === 'ADD' ? 'Purchase / New Stock Received' : (val === 'DAMAGE' ? 'Damaged in transit' : 'Audit Correction')
-                                }));
-                              }}
-                            >
-                              <option value="ADD">➕ Add Stock</option>
-                              <option value="SET">📝 Set Exact Count</option>
-                              <option value="DAMAGE">⚠️ Record Damaged Goods</option>
-                              <option value="EXPIRED">⛔ Record Expired Goods</option>
-                            </select>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#374151' }}>
+                              What do you want to do?
+                            </label>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                              {[
+                                { value: 'ADD', label: '+ Add Stock', emoji: '📦', desc: 'New goods arrived' },
+                                { value: 'SET', label: '= Set Count', emoji: '📝', desc: 'After physical count' },
+                                { value: 'DAMAGE', label: '⚠ Damaged', emoji: '⚠️', desc: 'Goods are damaged' },
+                                { value: 'EXPIRED', label: '⛔ Expired', emoji: '🗑️', desc: 'Goods have expired' },
+                              ].map(opt => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() => setAdjustForm(prev => ({
+                                    ...prev,
+                                    changeType: opt.value,
+                                    targetField: opt.value === 'DAMAGE' ? 'damagedStock' : opt.value === 'EXPIRED' ? 'expiredStock' : 'availableStock',
+                                    reason: opt.value === 'ADD' ? 'Purchase / New Stock Received' : opt.value === 'DAMAGE' ? 'Damaged in transit' : opt.value === 'EXPIRED' ? 'Expired goods' : 'Stock count correction',
+                                  }))}
+                                  style={{
+                                    padding: '10px 8px',
+                                    borderRadius: '8px',
+                                    border: adjustForm.changeType === opt.value ? '2px solid #2D5016' : '1px solid #E1E6DC',
+                                    background: adjustForm.changeType === opt.value ? '#F0FDF4' : '#FAFAF8',
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    transition: 'all 0.15s'
+                                  }}
+                                >
+                                  <div style={{ fontSize: '13px', fontWeight: 700, color: adjustForm.changeType === opt.value ? '#1C4B12' : '#374151' }}>{opt.label}</div>
+                                  <div style={{ fontSize: '11px', color: '#687466', marginTop: '2px' }}>{opt.desc}</div>
+                                </button>
+                              ))}
+                            </div>
+                            <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#687466', fontStyle: 'italic' }}>
+                              {actionDescriptions[adjustForm.changeType]}
+                            </p>
                           </div>
+
+                          {/* Quantity with live preview */}
                           <div>
-                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '4px' }}>Quantity</label>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#374151' }}>
+                              Quantity (number of units)
+                            </label>
                             <input
                               type="number"
                               className="admin-input-box"
+                              min="1"
+                              placeholder="e.g. 50"
                               value={adjustForm.quantity}
                               onChange={(e) => setAdjustForm(prev => ({ ...prev, quantity: e.target.value }))}
+                              required
+                              style={{ fontSize: '15px', fontWeight: 600 }}
+                            />
+                            {adjustForm.quantity && (adjustForm.changeType === 'ADD' || adjustForm.changeType === 'SET') && (
+                              <div style={{ marginTop: '6px', padding: '6px 10px', background: '#EFF6FF', borderRadius: '6px', fontSize: '11.5px', color: '#1E40AF', fontWeight: 600 }}>
+                                {adjustForm.changeType === 'ADD'
+                                  ? `After adding: ${currentStock} + ${qty} = ${previewStock} units`
+                                  : `Stock will be set to exactly: ${qty} units`}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Reason */}
+                          <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px', color: '#374151' }}>
+                              Reason <span style={{ fontWeight: 400, color: '#687466' }}>(for your records)</span>
+                            </label>
+                            <input
+                              type="text"
+                              className="admin-input-box"
+                              placeholder="e.g. Received from supplier"
+                              value={adjustForm.reason}
+                              onChange={(e) => setAdjustForm(prev => ({ ...prev, reason: e.target.value }))}
                               required
                             />
                           </div>
                         </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '4px' }}>Reason</label>
-                          <input
-                            type="text"
-                            className="admin-input-box"
-                            value={adjustForm.reason}
-                            onChange={(e) => setAdjustForm(prev => ({ ...prev, reason: e.target.value }))}
-                            required
-                          />
+
+                        <div className="inventory-modal__footer">
+                          <button type="button" className="admin__ghost" onClick={() => setAdjustModalItem(null)}>Cancel</button>
+                          <button
+                            type="submit"
+                            className="admin__primary"
+                            disabled={adjustLoading || !adjustForm.quantity}
+                            style={{ minWidth: '120px' }}
+                          >
+                            {adjustLoading ? 'Saving...' : '✓ Confirm Update'}
+                          </button>
                         </div>
-                      </div>
-                      <div className="inventory-modal__footer">
-                        <button type="button" className="admin__ghost" onClick={() => setAdjustModalItem(null)}>Cancel</button>
-                        <button type="submit" className="admin__primary" disabled={adjustLoading}>Confirm</button>
-                      </div>
-                    </form>
+                      </form>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {historyModalItem && (
                 <div className="inventory-modal-backdrop" onClick={() => setHistoryModalItem(null)}>
@@ -4029,100 +4137,33 @@ const Admin = () => {
 
           {/* GROCERY PRODUCTS (RETAIL / WHOLESALE) */}
           {(activeTab === 'retail-products' || activeTab === 'wholesale-products') && (
-            <section className="admin-workspace">
-              <form className="admin-form" onSubmit={saveProduct}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <h2>{productDraft.id ? 'Edit Grocery Item' : `Add New ${activeTab === 'wholesale-products' ? 'Wholesale' : 'Retail'} Item`}</h2>
-                  {productDraft.id && (
-                    <span style={{ fontSize: '11px', background: '#F3F4F6', padding: '2px 8px', borderRadius: '6px', fontWeight: 'bold' }}>
-                      Editing ID #{productDraft.id}
-                    </span>
-                  )}
-                </div>
-
-                <div className="admin-form-section">
-                  <h3 className="admin-form-section__title"><FiPackage /> 1. General Product Information</h3>
-                  <div className="admin-form__grid">
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Product Name *</label>
-                      <input value={productDraft.name} onChange={(e) => setProductDraft(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g. Dawat Lovely Gold Biryani Rice" required />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Category *</label>
-                      <select value={productDraft.category} onChange={(e) => setProductDraft(prev => ({ ...prev, category: e.target.value }))}>
-                        {(dbCategories.length ? dbCategories : categories).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Brand</label>
-                      <input value={productDraft.brand || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, brand: e.target.value }))} placeholder="e.g. Daawat, Fortune, Siri Select" required />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Pack Size / Weight</label>
-                      <input value={productDraft.weight || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, weight: e.target.value }))} placeholder="e.g. 500, 1, 5" />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Unit</label>
-                      <select value={productDraft.unit || 'g'} onChange={(e) => setProductDraft(prev => ({ ...prev, unit: e.target.value }))}>
-                        <option value="g">Grams (g)</option>
-                        <option value="kg">Kilograms (kg)</option>
-                        <option value="ml">Millilitres (ml)</option>
-                        <option value="L">Litres (L)</option>
-                        <option value="pcs">Pieces (pcs)</option>
-                      </select>
-                    </div>
+            <div className="admin-products-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="admin-card admin-card--wide">
+                <div className="admin-card__toolbar">
+                  <div>
+                    <h2 style={{ margin: 0 }}>{activeTab === 'wholesale-products' ? 'Wholesale Items' : 'Retail Items'} ({filteredProducts.length})</h2>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
+                      Manage {activeTab === 'wholesale-products' ? 'wholesale bulk' : 'retail'} grocery products and categories.
+                    </p>
                   </div>
-
-                  <div style={{ marginTop: '8px' }}>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Product Image URL</label>
-                    <input value={productDraft.image || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, image: e.target.value }))} placeholder="https://images.unsplash.com/..." />
-                    <label className="admin-file-input" style={{ marginTop: '6px' }}>
-                      <span>Or choose image from device</span>
-                      <input type="file" accept="image/*" onChange={handleImageUpload} />
-                    </label>
-                  </div>
-                </div>
-
-                <div className="admin-form-section">
-                  <h3 className="admin-form-section__title"><FiDollarSign /> 2. Pricing & Cost</h3>
-                  <div className="admin-form__grid">
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Selling Price (₹) *</label>
-                      <input value={productDraft.price} onChange={(e) => setProductDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="420" type="number" required />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>MRP (₹)</label>
-                      <input value={productDraft.mrp} onChange={(e) => setProductDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="490" type="number" />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Cost Price (₹)</label>
-                      <input value={productDraft.costPrice} onChange={(e) => setProductDraft(prev => ({ ...prev, costPrice: e.target.value }))} placeholder="330" type="number" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="admin-form__actions" style={{ alignItems: 'center', marginTop: '10px' }}>
-                  <button type="submit" className="admin__primary" disabled={apiLoading}>
-                    {apiLoading ? 'Saving...' : <><FiSave /> Save item</>}
-                  </button>
-                  {productDraft.id && (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button type="button" className="admin__ghost" onClick={() => setShowCategoryModal(true)}>
+                      <FiLayers /> Add New Category
+                    </button>
                     <button
                       type="button"
-                      className="admin__ghost"
+                      className="admin__primary"
                       onClick={() => {
                         setProductDraft(activeTab === 'wholesale-products' ? blankWholesaleProduct : blankProduct);
                         setDetailedVariants([]);
+                        setShowProductModal(true);
                       }}
                     >
-                      <FiX /> Clear
+                      <FiPlus /> Add New Item
                     </button>
-                  )}
+                  </div>
                 </div>
-              </form>
+              </div>
 
               {/* Listing */}
               <div className="admin-card admin-card--wide">
@@ -4153,7 +4194,212 @@ const Admin = () => {
                   ))}
                 </div>
               </div>
-            </section>
+
+              {showProductModal && (
+                <div className="inventory-modal-backdrop" onClick={() => setShowProductModal(false)}>
+                  <div className="inventory-modal" style={{ maxWidth: '860px' }} onClick={e => e.stopPropagation()}>
+                    <div className="inventory-modal__header">
+                      <div>
+                        <h2 style={{ margin: 0 }}>{productDraft.id ? 'Edit Grocery Item' : `Add New ${activeTab === 'wholesale-products' ? 'Wholesale' : 'Retail'} Item`}</h2>
+                        {productDraft.id && (
+                          <span style={{ fontSize: '11px', color: '#687466' }}>Editing ID #{productDraft.id}</span>
+                        )}
+                      </div>
+                      <button className="inventory-modal__close" onClick={() => setShowProductModal(false)}>✕</button>
+                    </div>
+
+                    <form onSubmit={saveProduct}>
+                      <div className="inventory-modal__body">
+                        <div className="admin-form-section">
+                          <h3 className="admin-form-section__title"><FiPackage /> 1. General Product Information</h3>
+                          <div className="admin-form__grid">
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Product Name *</label>
+                              <input className="admin-input-box" value={productDraft.name} onChange={(e) => setProductDraft(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g. Dawat Lovely Gold Biryani Rice" required />
+                            </div>
+
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Category *</label>
+                              <select className="admin-input-box" value={productDraft.category} onChange={(e) => setProductDraft(prev => ({ ...prev, category: e.target.value }))}>
+                                {(dbCategories.length ? dbCategories : categories).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Brand</label>
+                              <input className="admin-input-box" value={productDraft.brand || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, brand: e.target.value }))} placeholder="e.g. Daawat, Fortune, Siri Select" required />
+                            </div>
+
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Pack Size / Weight</label>
+                              <input className="admin-input-box" value={productDraft.weight || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, weight: e.target.value }))} placeholder="e.g. 500, 1, 5" />
+                            </div>
+
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Unit</label>
+                              <select className="admin-input-box" value={productDraft.unit || 'g'} onChange={(e) => setProductDraft(prev => ({ ...prev, unit: e.target.value }))}>
+                                <option value="g">Grams (g)</option>
+                                <option value="kg">Kilograms (kg)</option>
+                                <option value="ml">Millilitres (ml)</option>
+                                <option value="L">Litres (L)</option>
+                                <option value="pcs">Pieces (pcs)</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div style={{ marginTop: '8px' }}>
+                            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Product Image URL</label>
+                            <input className="admin-input-box" value={productDraft.image || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, image: e.target.value }))} placeholder="https://images.unsplash.com/..." />
+                            <label className="admin-file-input" style={{ marginTop: '6px' }}>
+                              <span>Or choose image from device</span>
+                              <input type="file" accept="image/*" onChange={handleImageUpload} />
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="admin-form-section">
+                          <h3 className="admin-form-section__title"><FiDollarSign /> 2. Pricing & Cost</h3>
+                          <div className="admin-form__grid">
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Selling Price (₹) *</label>
+                              <input className="admin-input-box" value={productDraft.price} onChange={(e) => setProductDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="420" type="number" required />
+                            </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>MRP (₹)</label>
+                              <input className="admin-input-box" value={productDraft.mrp} onChange={(e) => setProductDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="490" type="number" />
+                            </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Cost Price (₹)</label>
+                              <input className="admin-input-box" value={productDraft.costPrice} onChange={(e) => setProductDraft(prev => ({ ...prev, costPrice: e.target.value }))} placeholder="330" type="number" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {activeTab === 'wholesale-products' && (
+                          <div className="admin-form-section">
+                            <h3 className="admin-form-section__title"><FiLayers /> 3. Wholesale Price Ranges</h3>
+                            <p style={{ fontSize: '11.5px', color: '#687466', margin: '0 0 10px' }}>
+                              Define the bulk price tiers shown to wholesale customers (e.g. 1 kg, 5 kg bulk, 10 kg bulk). Leave empty to auto-calculate from the selling price above.
+                            </p>
+
+                            {detailedVariants.map((v, idx) => (
+                              <div key={v.id || idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                                <input
+                                  className="admin-input-box"
+                                  style={{ flex: 2 }}
+                                  placeholder="e.g. 5 kg bulk"
+                                  value={v.label}
+                                  onChange={(e) => updateVariantRow(idx, 'label', e.target.value)}
+                                />
+                                <input
+                                  className="admin-input-box"
+                                  style={{ flex: 1 }}
+                                  type="number"
+                                  placeholder="Price ₹"
+                                  value={v.price}
+                                  onChange={(e) => updateVariantRow(idx, 'price', e.target.value)}
+                                />
+                                <button type="button" className="admin-danger" style={{ padding: '8px', flexShrink: 0 }} onClick={() => removeVariantRow(idx)}>
+                                  <FiTrash2 size={12} />
+                                </button>
+                              </div>
+                            ))}
+
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                              <button type="button" className="admin__ghost" onClick={() => addVariantRow(`${productDraft.weight || '1'} ${productDraft.unit || 'kg'}`, productDraft.price)}>
+                                <FiPlus /> Base ({productDraft.weight || '1'}{productDraft.unit || 'kg'})
+                              </button>
+                              <button type="button" className="admin__ghost" onClick={() => addVariantRow(`5 ${productDraft.unit || 'kg'} bulk`, '')}>
+                                <FiPlus /> 5{productDraft.unit || 'kg'} Bulk
+                              </button>
+                              <button type="button" className="admin__ghost" onClick={() => addVariantRow(`10 ${productDraft.unit || 'kg'} bulk`, '')}>
+                                <FiPlus /> 10{productDraft.unit || 'kg'} Bulk
+                              </button>
+                              <button type="button" className="admin__primary" onClick={() => addVariantRow('', '')}>
+                                <FiPlus /> Custom Price Range
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="inventory-modal__footer">
+                        <button type="button" className="admin__ghost" onClick={() => setShowProductModal(false)}>Cancel</button>
+                        <button type="submit" className="admin__primary" disabled={apiLoading}>
+                          {apiLoading ? 'Saving...' : <><FiSave /> Save Item</>}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {showCategoryModal && (
+                <div className="inventory-modal-backdrop" onClick={() => setShowCategoryModal(false)}>
+                  <div className="inventory-modal" style={{ maxWidth: '620px' }} onClick={e => e.stopPropagation()}>
+                    <div className="inventory-modal__header">
+                      <h2 style={{ margin: 0 }}>Add New Category</h2>
+                      <button className="inventory-modal__close" onClick={() => setShowCategoryModal(false)}>✕</button>
+                    </div>
+
+                    <div className="inventory-modal__body">
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Category Name *</label>
+                        <input
+                          className="admin-input-box"
+                          placeholder="e.g. Snacks & Namkeen"
+                          value={categoryDraft.name}
+                          onChange={(e) => setCategoryDraft(prev => ({ ...prev, name: e.target.value }))}
+                        />
+                      </div>
+
+                      <div style={{ marginTop: '10px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Category Image URL</label>
+                        <input
+                          className="admin-input-box"
+                          placeholder="https://images.unsplash.com/..."
+                          value={categoryDraft.image}
+                          onChange={(e) => setCategoryDraft(prev => ({ ...prev, image: e.target.value }))}
+                        />
+                        <label className="admin-file-input" style={{ marginTop: '6px' }}>
+                          <span>Or choose image from device</span>
+                          <input type="file" accept="image/*" onChange={handleCategoryImageUpload} />
+                        </label>
+                        {categoryDraft.image && (
+                          <img src={toWebpImage(categoryDraft.image)} alt="Category preview" style={{ width: 64, height: 64, borderRadius: 8, objectFit: 'cover', marginTop: '8px' }} />
+                        )}
+                      </div>
+
+                      <div style={{ marginTop: '18px', borderTop: '1px solid #E1E6DC', paddingTop: '12px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#687466', textTransform: 'uppercase' }}>
+                          Existing Categories ({(dbCategories.length ? dbCategories : categories).length})
+                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px', maxHeight: '220px', overflowY: 'auto' }}>
+                          {(dbCategories.length ? dbCategories : categories).map(cat => (
+                            <div key={cat.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: '#FAF9F5', borderRadius: '8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {cat.image && <img src={toWebpImage(cat.image)} alt={cat.name} style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover' }} />}
+                                <span style={{ fontSize: '12.5px', fontWeight: 700 }}>{cat.name}</span>
+                              </div>
+                              <button className="admin-danger" style={{ padding: '4px 8px' }} onClick={() => deleteCategoryHandler(cat)}>
+                                <FiTrash2 size={11} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="inventory-modal__footer">
+                      <button type="button" className="admin__ghost" onClick={() => setShowCategoryModal(false)}>Close</button>
+                      <button type="button" className="admin__primary" disabled={categoryLoading} onClick={saveCategory}>
+                        {categoryLoading ? 'Saving...' : <><FiPlus /> Add Category</>}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {/* BESTSELLERS */}
@@ -4242,9 +4488,22 @@ const Admin = () => {
                 </div>
               )}
 
+              {selectedBroadcastEmails.length > 0 && (
+                <p style={{ fontSize: '11.5px', color: '#687466', margin: '0 0 12px' }}>
+                  Sending to: <strong>{selectedBroadcastEmails.length === 1 ? selectedBroadcastEmails[0] : `${selectedBroadcastEmails.length} customers`}</strong>
+                </p>
+              )}
+
               <form onSubmit={async (e) => {
                 e.preventDefault();
-                if (!broadcastSubject.trim() || !broadcastMessage.trim()) return;
+                if (!broadcastSubject.trim() || !broadcastMessage.trim()) {
+                  setBroadcastStatus({ type: 'error', msg: 'Please fill in both the subject and message body before sending.' });
+                  return;
+                }
+                if (selectedBroadcastEmails.length === 0) {
+                  setBroadcastStatus({ type: 'error', msg: 'No recipients selected — nothing to send.' });
+                  return;
+                }
                 setBroadcastSending(true);
                 setBroadcastStatus(null);
                 try {
@@ -4253,7 +4512,7 @@ const Admin = () => {
                     messageText: broadcastMessage,
                     recipients: selectedBroadcastEmails
                   });
-                  setBroadcastStatus({ type: 'success', msg: `Campaign sent successfully to ${res.count} customers.` });
+                  setBroadcastStatus({ type: 'success', msg: `Campaign sent successfully to ${res.count} customer(s). Ask them to check their spam/promotions folder if it doesn't show up in the inbox.` });
                   setBroadcastSubject('');
                   setBroadcastMessage('');
                 } catch (err) {
