@@ -252,7 +252,7 @@ const ADMIN_NAV_SECTIONS = [
     title: 'INVENTORY & DELIVERY',
     items: [
       ['inventory', 'Inventory Hub', FiLayers],
-      ['delivery-zones', 'Delivery & Slots', FiTruck],
+      ['delivery-zones', 'Delivery Zones', FiTruck],
       ['broadcast', 'Email Broadcast', FiMail]
     ]
   },
@@ -339,19 +339,13 @@ const Admin = () => {
   const [selectedBroadcastEmails, setSelectedBroadcastEmails] = useState([]);
 
   // ── CMS State ──
-  const [cmsTab, setCmsTab] = useState('banners'); // 'banners'|'announcement'|'pages'|'faqs'|'blogs'
+  const [cmsTab, setCmsTab] = useState('pages');
   const [cmsData, setCmsData] = useState({
-    banners: [],
     pages: [],
-    faqs: [],
-    blogs: [],
     redirects: [],
     settings: {}
   });
-  const [editingBanner, setEditingBanner] = useState(null);
   const [editingPage, setEditingPage] = useState(null);
-  const [editingFaq, setEditingFaq] = useState(null);
-  const [editingBlog, setEditingBlog] = useState(null);
 
   // ── SEO State ──
   const [seoForm, setSeoForm] = useState({
@@ -401,7 +395,6 @@ const Admin = () => {
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
   const [selectedOrderModal, setSelectedOrderModal] = useState(null);
   const [invoiceModalOrder, setInvoiceModalOrder] = useState(null);
-  const [packingSlipModalOrder, setPackingSlipModalOrder] = useState(null);
   const [refundForm, setRefundForm] = useState({ amount: '', reason: 'Customer return / out of stock' });
   const [orderNotesText, setOrderNotesText] = useState('');
   const [orderActionLoading, setOrderActionLoading] = useState(false);
@@ -415,18 +408,12 @@ const Admin = () => {
     time: '30 mins',
     distance: '',
     deliveryFee: 0,
-    freeDeliveryThreshold: 500,
     handlingCharge: 5,
-    minOrderValue: 199,
     driverAssigned: ''
   });
   const [editingZoneModal, setEditingZoneModal] = useState(null);
-  const [deliverySlotPresets, setDeliverySlotPresets] = useState([
-    'Morning (7:00 AM - 10:00 AM)',
-    'Afternoon (1:00 PM - 4:00 PM)',
-    'Evening (6:00 PM - 9:00 PM)',
-    'Express (15-30 mins)'
-  ]);
+  const [showZonesModal, setShowZonesModal] = useState(false);
+  const [showAddZoneModal, setShowAddZoneModal] = useState(false);
 
   // ── Customer Management State ──
   const [customerSegmentFilter, setCustomerSegmentFilter] = useState('all');
@@ -442,7 +429,7 @@ const Admin = () => {
   const [inventoryLogs, setInventoryLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(false);
 
-  // Modals for Stock Adjustment, History & Reorder Config
+  // Modals for Stock Adjustment & History
   const [adjustModalItem, setAdjustModalItem] = useState(null);
   const [adjustForm, setAdjustForm] = useState({
     changeType: 'ADD',
@@ -456,17 +443,6 @@ const Admin = () => {
   const [historyModalItem, setHistoryModalItem] = useState(null);
   const [historyLogs, setHistoryLogs] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-
-  const [reorderModalItem, setReorderModalItem] = useState(null);
-  const [reorderForm, setReorderForm] = useState({
-    reorderLevel: 10,
-    costPrice: 0,
-    expiryDate: '',
-    batchNumber: '',
-    location: 'Main Shelf',
-    incomingStock: 0
-  });
-  const [reorderLoading, setReorderLoading] = useState(false);
 
   const [offerDraft, setOfferDraft] = useState(blankOffer);
   const [couponDraft, setCouponDraft] = useState(blankCoupon);
@@ -860,7 +836,7 @@ const Admin = () => {
   const exportInventoryCsv = () => {
     if (!inventoryData?.items) return;
     downloadCsv('siri-traders-inventory-report.csv', [
-      ['Product ID', 'Name', 'Category', 'Brand', 'Weight/Unit', 'Available Stock', 'Reserved Stock', 'Damaged Stock', 'Returned Stock', 'Expired Stock', 'Incoming Stock', 'Reorder Level', 'Cost Price (₹)', 'Selling Price (₹)', 'Stock Valuation (₹)', 'Expiry Date', 'Batch Number', 'Status'],
+      ['Product ID', 'Name', 'Category', 'Brand', 'Weight/Unit', 'Available Stock', 'Damaged Stock', 'Returned Stock', 'Expired Stock', 'Incoming Stock', 'Cost Price (₹)', 'Selling Price (₹)', 'Stock Valuation (₹)', 'Expiry Date', 'Batch Number', 'Status'],
       ...inventoryData.items.map(i => [
         i.productId,
         i.name,
@@ -868,12 +844,10 @@ const Admin = () => {
         i.brand || '',
         `${i.weight || ''} ${i.unit || ''}`.trim(),
         i.availableStock,
-        i.reservedStock,
         i.damagedStock,
         i.returnedStock,
         i.expiredStock,
         i.incomingStock,
-        i.reorderLevel,
         i.costPrice,
         i.price,
         i.stockValuation,
@@ -943,33 +917,6 @@ const Admin = () => {
       alert('Stock adjustment failed: ' + err.message);
     } finally {
       setAdjustLoading(false);
-    }
-  };
-
-  // ── Handle Reorder Level & Batch Configuration Submit ──
-  const handleReorderConfigSave = async (e) => {
-    e.preventDefault();
-    if (!reorderModalItem) return;
-
-    setReorderLoading(true);
-    try {
-      await adminApi.updateInventoryConfig({
-        productId: reorderModalItem.productId,
-        reorderLevel: parseInt(reorderForm.reorderLevel, 10) || 10,
-        costPrice: parseInt(reorderForm.costPrice, 10) || 0,
-        expiryDate: reorderForm.expiryDate,
-        batchNumber: reorderForm.batchNumber,
-        location: reorderForm.location,
-        incomingStock: parseInt(reorderForm.incomingStock, 10) || 0
-      });
-      await loadInventory();
-      setReorderModalItem(null);
-      setSaveToast({ type: 'success', msg: `Reorder & batch settings updated for ${reorderModalItem.name}` });
-      setTimeout(() => setSaveToast(null), 4000);
-    } catch (err) {
-      alert('Failed to update inventory settings: ' + err.message);
-    } finally {
-      setReorderLoading(false);
     }
   };
 
@@ -1215,7 +1162,7 @@ const Admin = () => {
         const saved = await adminApi.createProduct(apiPayload);
         nextProduct = { ...nextProduct, id: saved.id };
       }
-      setSaveToast({ type: 'success', msg: `✅ “${nextProduct.name}” saved to database (SKU: ${nextProduct.sku})` });
+      setSaveToast({ type: 'success', msg: `✅ “${nextProduct.name}” saved to database` });
       setTimeout(() => setSaveToast(null), 5000);
       loadInventory();
     } catch (err) {
@@ -1673,7 +1620,7 @@ const Admin = () => {
                 {activeTab === 'customers' && 'Customer Management & Segmentation'}
                 {activeTab === 'reviews' && 'Customer Reviews & Rating Moderation'}
                 {activeTab === 'offers' && 'Grocery Promotions & Coupon Engine'}
-                {activeTab === 'delivery-zones' && 'Grocery Delivery & Slots'}
+                {activeTab === 'delivery-zones' && 'Delivery Zones & Coverage'}
                 {activeTab === 'retail-products' && 'Grocery Products & Variants'}
                 {activeTab === 'wholesale-products' && 'Wholesale Products & Bulk Packs'}
                 {activeTab === 'sales-stats' && 'Grocery Sales & Performance Analytics'}
@@ -1798,7 +1745,7 @@ const Admin = () => {
                     style={{ width: '100%', height: '32px', fontSize: '12px', justifyContent: 'center' }}
                     onClick={() => setActiveTab('delivery-zones')}
                   >
-                    <FiTruck size={12} /> Delivery Zones & Slots →
+                    <FiTruck size={12} /> Delivery Zones →
                   </button>
                 </div>
               </div>
@@ -1904,240 +1851,7 @@ const Admin = () => {
              ========================================================================= */}
           {activeTab === 'cms' && (
             <div className="admin-cms-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* Sub-Navigation */}
-              <div className="admin-cms-nav">
-                <button
-                  className={`admin-cms-nav-btn ${cmsTab === 'banners' ? 'admin-cms-nav-btn--active' : ''}`}
-                  onClick={() => setCmsTab('banners')}
-                >
-                  <FiImage /> 🎪 Hero Banners ({cmsData.banners.length})
-                </button>
-                <button
-                  className={`admin-cms-nav-btn ${cmsTab === 'announcement' ? 'admin-cms-nav-btn--active' : ''}`}
-                  onClick={() => setCmsTab('announcement')}
-                >
-                  <FiVolume2 size={14} /> 📢 Announcement Bar
-                </button>
-                <button
-                  className={`admin-cms-nav-btn ${cmsTab === 'pages' ? 'admin-cms-nav-btn--active' : ''}`}
-                  onClick={() => setCmsTab('pages')}
-                >
-                  <FiFileText /> 📄 Pages & Policies ({cmsData.pages.length})
-                </button>
-                <button
-                  className={`admin-cms-nav-btn ${cmsTab === 'faqs' ? 'admin-cms-nav-btn--active' : ''}`}
-                  onClick={() => setCmsTab('faqs')}
-                >
-                  <FiHelpCircle /> ❓ FAQs ({cmsData.faqs.length})
-                </button>
-                <button
-                  className={`admin-cms-nav-btn ${cmsTab === 'blogs' ? 'admin-cms-nav-btn--active' : ''}`}
-                  onClick={() => setCmsTab('blogs')}
-                >
-                  <FiBookOpen /> ✍️ Blog & Recipes ({cmsData.blogs.length})
-                </button>
-              </div>
-
-              {/* 1. HERO BANNERS */}
-              {cmsTab === 'banners' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div className="admin-card admin-card--wide">
-                    <h2 style={{ margin: '0 0 12px' }}>{editingBanner ? 'Edit Hero Banner' : 'Add New Hero Banner'}</h2>
-                    <form onSubmit={async (e) => {
-                      e.preventDefault();
-                      const form = e.target;
-                      const title = form.title.value.trim();
-                      const subtitle = form.subtitle.value.trim();
-                      const image = form.image.value.trim();
-                      const ctaText = form.ctaText.value.trim();
-                      const ctaLink = form.ctaLink.value.trim();
-                      const sortOrder = Number(form.sortOrder.value) || 0;
-
-                      if (!title || !image) return;
-                      try {
-                        if (editingBanner) {
-                          const updated = await adminApi.updateBanner(editingBanner.id, { title, subtitle, image, ctaText, ctaLink, sortOrder });
-                          setCmsData(prev => ({ ...prev, banners: prev.banners.map(b => b.id === updated.id ? updated : b) }));
-                          setEditingBanner(null);
-                        } else {
-                          const saved = await adminApi.saveBanner({ title, subtitle, image, ctaText, ctaLink, sortOrder, active: true });
-                          setCmsData(prev => ({ ...prev, banners: [...prev.banners, saved] }));
-                        }
-                        form.reset();
-                        setSaveToast({ type: 'success', msg: 'Hero banner saved successfully' });
-                        setTimeout(() => setSaveToast(null), 3000);
-                      } catch (err) { alert(err.message); }
-                    }}>
-                      <div className="admin-form__grid">
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Headline / Title *</label>
-                          <input name="title" defaultValue={editingBanner?.title || ''} className="admin-input-box" placeholder="e.g. Farm Fresh Groceries at Wholesale Rates" required />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Subheading</label>
-                          <input name="subtitle" defaultValue={editingBanner?.subtitle || ''} className="admin-input-box" placeholder="e.g. Save up to 35% on daily staples" />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Banner Image URL *</label>
-                          <input name="image" defaultValue={editingBanner?.image || ''} className="admin-input-box" placeholder="https://images.unsplash.com/..." required />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>CTA Button Label</label>
-                          <input name="ctaText" defaultValue={editingBanner?.ctaText || 'Shop Now'} className="admin-input-box" placeholder="Shop Now" />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Target Link</label>
-                          <input name="ctaLink" defaultValue={editingBanner?.ctaLink || '/categories'} className="admin-input-box" placeholder="/categories" />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Sort Order</label>
-                          <input name="sortOrder" type="number" defaultValue={editingBanner?.sortOrder || 1} className="admin-input-box" />
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                        <button type="submit" className="admin__primary"><FiPlus /> {editingBanner ? 'Save Banner' : 'Add Banner'}</button>
-                        {editingBanner && <button type="button" className="admin__ghost" onClick={() => setEditingBanner(null)}>Cancel</button>}
-                      </div>
-                    </form>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
-                    {cmsData.banners.map(banner => (
-                      <div key={banner.id} className="admin-banner-card">
-                        <img src={toWebpImage(banner.image)} alt={banner.title} className="admin-banner-card__img" />
-                        <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <strong style={{ fontSize: '13.5px', color: '#111827' }}>{banner.title}</strong>
-                          {banner.subtitle && <span style={{ fontSize: '12px', color: '#687466' }}>{banner.subtitle}</span>}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: '#687466' }}>
-                            <span>CTA: <strong>{banner.ctaText}</strong> ➔ {banner.ctaLink}</span>
-                            <span>Order: #{banner.sortOrder}</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F1F3ED', paddingTop: '8px', marginTop: '4px' }}>
-                            <button
-                              type="button"
-                              style={{
-                                background: banner.active !== false ? '#DCFCE7' : '#F3F4F6',
-                                color: banner.active !== false ? '#166534' : '#6B7280',
-                                border: 'none',
-                                padding: '2px 8px',
-                                borderRadius: '10px',
-                                fontSize: '11px',
-                                fontWeight: 800,
-                                cursor: 'pointer'
-                              }}
-                              onClick={async () => {
-                                const nextActive = banner.active === false ? true : false;
-                                const updated = await adminApi.updateBanner(banner.id, { active: nextActive });
-                                setCmsData(prev => ({ ...prev, banners: prev.banners.map(b => b.id === updated.id ? updated : b) }));
-                              }}
-                            >
-                              {banner.active !== false ? '🟢 Active' : '⚪ Inactive'}
-                            </button>
-                            <div style={{ display: 'flex', gap: '6px' }}>
-                              <button className="admin__ghost" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => setEditingBanner(banner)}>
-                                <FiEdit2 size={11} /> Edit
-                              </button>
-                              <button className="admin-danger" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={async () => {
-                                if (window.confirm('Delete banner?')) {
-                                  await adminApi.deleteBanner(banner.id);
-                                  setCmsData(prev => ({ ...prev, banners: prev.banners.filter(b => b.id !== banner.id) }));
-                                }
-                              }}>
-                                <FiTrash2 size={11} />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 2. ANNOUNCEMENT BAR */}
-              {cmsTab === 'announcement' && (
-                <div className="admin-card admin-card--wide" style={{ maxWidth: '780px' }}>
-                  <h2 style={{ margin: '0 0 12px' }}>Header Announcement Bar Configuration</h2>
-                  
-                  <div style={{ marginBottom: '16px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#687466', display: 'block', marginBottom: '6px' }}>Live Storefront Preview:</span>
-                    <div
-                      className="admin-announcement-preview"
-                      style={{
-                        backgroundColor: cmsData.settings?.announcementBg || '#1C4B12',
-                        color: cmsData.settings?.announcementColor || '#FFFFFF'
-                      }}
-                    >
-                      <span>{cmsData.settings?.announcementText || '⚡ Free 15-min delivery across Hyderabad on orders above ₹499!'}</span>
-                      <a href={cmsData.settings?.announcementLink || '/categories'} style={{ color: '#FCD34D', textDecoration: 'underline', fontSize: '12px' }}>
-                        Shop Now →
-                      </a>
-                    </div>
-                  </div>
-
-                  <form onSubmit={async (e) => {
-                    e.preventDefault();
-                    const form = e.target;
-                    const announcementText = form.announcementText.value;
-                    const announcementBg = form.announcementBg.value;
-                    const announcementColor = form.announcementColor.value;
-                    const announcementLink = form.announcementLink.value;
-                    const announcementActive = form.announcementActive.checked;
-
-                    try {
-                      const updated = await adminApi.updateSettings({
-                        ...cmsData.settings,
-                        announcementText,
-                        announcementBg,
-                        announcementColor,
-                        announcementLink,
-                        announcementActive
-                      });
-                      setCmsData(prev => ({ ...prev, settings: updated }));
-                      setSaveToast({ type: 'success', msg: 'Announcement bar settings published live!' });
-                      setTimeout(() => setSaveToast(null), 3000);
-                    } catch (err) { alert(err.message); }
-                  }}>
-                    <div className="admin-form__grid">
-                      <div style={{ gridColumn: '1 / -1' }}>
-                        <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Announcement Message Text</label>
-                        <input
-                          name="announcementText"
-                          defaultValue={cmsData.settings?.announcementText || '⚡ Free 15-min delivery across Hyderabad on orders above ₹499!'}
-                          className="admin-input-box"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Background Color (Hex)</label>
-                        <input name="announcementBg" defaultValue={cmsData.settings?.announcementBg || '#1C4B12'} className="admin-input-box" />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Text Color (Hex)</label>
-                        <input name="announcementColor" defaultValue={cmsData.settings?.announcementColor || '#FFFFFF'} className="admin-input-box" />
-                      </div>
-                      <div style={{ gridColumn: '1 / -1' }}>
-                        <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Target Link</label>
-                        <input name="announcementLink" defaultValue={cmsData.settings?.announcementLink || '/categories'} className="admin-input-box" />
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '14px' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}>
-                        <input type="checkbox" name="announcementActive" defaultChecked={cmsData.settings?.announcementActive !== false} />
-                        <span>Show Announcement Bar on Storefront</span>
-                      </label>
-                    </div>
-
-                    <button type="submit" className="admin__primary" style={{ marginTop: '14px' }}>
-                      <FiSave /> Save & Publish Announcement Bar
-                    </button>
-                  </form>
-                </div>
-              )}
-
-              {/* 3. STATIC & LEGAL PAGES */}
+              {/* STATIC & LEGAL PAGES */}
               {cmsTab === 'pages' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div className="admin-card admin-card--wide">
@@ -2220,214 +1934,6 @@ const Admin = () => {
                               if (window.confirm(`Delete page "${page.title}"?`)) {
                                 await adminApi.deletePage(page.id);
                                 setCmsData(prev => ({ ...prev, pages: prev.pages.filter(p => p.id !== page.id) }));
-                              }
-                            }}>
-                              <FiTrash2 size={12} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 4. FAQS */}
-              {cmsTab === 'faqs' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div className="admin-card admin-card--wide">
-                    <h2 style={{ margin: '0 0 12px' }}>{editingFaq ? 'Edit FAQ' : 'Add FAQ'}</h2>
-                    <form onSubmit={async (e) => {
-                      e.preventDefault();
-                      const form = e.target;
-                      const question = form.question.value.trim();
-                      const answer = form.answer.value.trim();
-                      const category = form.category.value;
-                      const sortOrder = Number(form.sortOrder.value) || 0;
-
-                      if (!question || !answer) return;
-                      try {
-                        if (editingFaq) {
-                          const updated = await adminApi.updateFaq(editingFaq.id, { question, answer, category, sortOrder });
-                          setCmsData(prev => ({ ...prev, faqs: prev.faqs.map(f => f.id === updated.id ? updated : f) }));
-                          setEditingFaq(null);
-                        } else {
-                          const saved = await adminApi.saveFaq({ question, answer, category, sortOrder, active: true });
-                          setCmsData(prev => ({ ...prev, faqs: [...prev.faqs, saved] }));
-                        }
-                        form.reset();
-                        setSaveToast({ type: 'success', msg: 'FAQ saved successfully' });
-                        setTimeout(() => setSaveToast(null), 3000);
-                      } catch (err) { alert(err.message); }
-                    }}>
-                      <div className="admin-form__grid">
-                        <div style={{ gridColumn: '1 / -1' }}>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Question *</label>
-                          <input name="question" defaultValue={editingFaq?.question || ''} className="admin-input-box" placeholder="e.g. How fast is grocery delivery in Hyderabad?" required />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Category</label>
-                          <select name="category" defaultValue={editingFaq?.category || 'General'} className="admin-input-box">
-                            <option>Delivery</option>
-                            <option>Orders</option>
-                            <option>Payments</option>
-                            <option>Quality</option>
-                            <option>General</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Sort Order</label>
-                          <input name="sortOrder" type="number" defaultValue={editingFaq?.sortOrder || 1} className="admin-input-box" />
-                        </div>
-                        <div style={{ gridColumn: '1 / -1' }}>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Answer *</label>
-                          <textarea name="answer" defaultValue={editingFaq?.answer || ''} rows={3} className="admin-input-box" style={{ height: 'auto' }} required />
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                        <button type="submit" className="admin__primary"><FiPlus /> {editingFaq ? 'Save FAQ' : 'Add FAQ'}</button>
-                        {editingFaq && <button type="button" className="admin__ghost" onClick={() => setEditingFaq(null)}>Cancel</button>}
-                      </div>
-                    </form>
-                  </div>
-
-                  <div className="admin-card admin-card--wide">
-                    <h2>Storefront FAQs ({cmsData.faqs.length})</h2>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {cmsData.faqs.map(faq => (
-                        <div key={faq.id} style={{ padding: '12px 14px', background: '#FFFFFF', border: '1px solid #E1E6DC', borderRadius: '8px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
-                            <div>
-                              <strong style={{ fontSize: '13px', color: '#111827' }}>Q: {faq.question}</strong>
-                              <span style={{ fontSize: '11px', background: '#F1F3ED', padding: '1px 6px', borderRadius: '4px', marginLeft: '8px' }}>
-                                {faq.category}
-                              </span>
-                              <p style={{ fontSize: '12px', color: '#4B5563', margin: '4px 0 0' }}>A: {faq.answer}</p>
-                            </div>
-                            <div style={{ display: 'flex', gap: '6px' }}>
-                              <button className="admin__ghost" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => setEditingFaq(faq)}>
-                                <FiEdit2 size={11} /> Edit
-                              </button>
-                              <button className="admin-danger" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={async () => {
-                                if (window.confirm('Delete FAQ?')) {
-                                  await adminApi.deleteFaq(faq.id);
-                                  setCmsData(prev => ({ ...prev, faqs: prev.faqs.filter(f => f.id !== faq.id) }));
-                                }
-                              }}>
-                                <FiTrash2 size={11} />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 5. BLOG & RECIPES */}
-              {cmsTab === 'blogs' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div className="admin-card admin-card--wide">
-                    <h2 style={{ margin: '0 0 12px' }}>{editingBlog ? 'Edit Blog Article' : 'Write New Blog Article / Recipe'}</h2>
-                    <form onSubmit={async (e) => {
-                      e.preventDefault();
-                      const form = e.target;
-                      const title = form.title.value.trim();
-                      const slug = form.slug.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                      const author = form.author.value.trim();
-                      const category = form.category.value;
-                      const coverImage = form.coverImage.value.trim();
-                      const excerpt = form.excerpt.value.trim();
-                      const tags = form.tags.value.trim();
-                      const content = form.content.value;
-
-                      try {
-                        if (editingBlog) {
-                          const updated = await adminApi.updateBlog(editingBlog.id, { title, slug, author, category, coverImage, excerpt, tags, content, isPublished: true });
-                          setCmsData(prev => ({ ...prev, blogs: prev.blogs.map(b => b.id === updated.id ? updated : b) }));
-                          setEditingBlog(null);
-                        } else {
-                          const saved = await adminApi.saveBlog({ title, slug, author, category, coverImage, excerpt, tags, content, isPublished: true });
-                          setCmsData(prev => ({ ...prev, blogs: [saved, ...prev.blogs] }));
-                        }
-                        form.reset();
-                        setSaveToast({ type: 'success', msg: 'Blog article published!' });
-                        setTimeout(() => setSaveToast(null), 3000);
-                      } catch (err) { alert(err.message); }
-                    }}>
-                      <div className="admin-form__grid">
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Article Title *</label>
-                          <input name="title" defaultValue={editingBlog?.title || ''} className="admin-input-box" placeholder="e.g. How to Choose the Best Basmati Rice" required />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>URL Slug *</label>
-                          <input name="slug" defaultValue={editingBlog?.slug || ''} className="admin-input-box" placeholder="e.g. how-to-choose-best-basmati-rice" required />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Author</label>
-                          <input name="author" defaultValue={editingBlog?.author || 'Siri Traders Team'} className="admin-input-box" />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Category</label>
-                          <select name="category" defaultValue={editingBlog?.category || 'Grocery Tips'} className="admin-input-box">
-                            <option>Recipes</option>
-                            <option>Healthy Eating</option>
-                            <option>Grocery Tips</option>
-                            <option>Company News</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Cover Image URL</label>
-                          <input name="coverImage" defaultValue={editingBlog?.coverImage || ''} className="admin-input-box" placeholder="https://images.unsplash.com/..." />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Tags (Comma-separated)</label>
-                          <input name="tags" defaultValue={editingBlog?.tags || ''} className="admin-input-box" placeholder="Basmati, Biryani, Rice" />
-                        </div>
-                      </div>
-
-                      <div style={{ marginTop: '10px' }}>
-                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Short Summary / Excerpt</label>
-                        <input name="excerpt" defaultValue={editingBlog?.excerpt || ''} className="admin-input-box" placeholder="Brief 1-2 sentence preview" />
-                      </div>
-
-                      <div style={{ marginTop: '10px' }}>
-                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Full Article Body</label>
-                        <textarea name="content" defaultValue={editingBlog?.content || ''} rows={6} className="admin-input-box" style={{ height: 'auto' }} required />
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                        <button type="submit" className="admin__primary"><FiSave /> {editingBlog ? 'Save Article' : 'Publish Article'}</button>
-                        {editingBlog && <button type="button" className="admin__ghost" onClick={() => setEditingBlog(null)}>Cancel</button>}
-                      </div>
-                    </form>
-                  </div>
-
-                  <div className="admin-card admin-card--wide">
-                    <h2>Published Articles ({cmsData.blogs.length})</h2>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {cmsData.blogs.map(blog => (
-                        <div key={blog.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: '#FFFFFF', border: '1px solid #E1E6DC', borderRadius: '8px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            {blog.coverImage && <img src={toWebpImage(blog.coverImage)} alt={blog.title} style={{ width: 50, height: 50, borderRadius: 8, objectFit: 'cover' }} />}
-                            <div>
-                              <strong style={{ fontSize: '13.5px', color: '#111827' }}>{blog.title}</strong>
-                              <span style={{ fontSize: '11.5px', color: '#687466', display: 'block' }}>
-                                By <strong>{blog.author}</strong> · {blog.category} · {new Date(blog.createdAt).toLocaleDateString('en-IN')}
-                              </span>
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <button className="admin__ghost" style={{ padding: '6px 10px', fontSize: '11.5px' }} onClick={() => setEditingBlog(blog)}>
-                              <FiEdit2 size={12} /> Edit
-                            </button>
-                            <button className="admin-danger" style={{ padding: '6px 10px', fontSize: '11.5px' }} onClick={async () => {
-                              if (window.confirm(`Delete article "${blog.title}"?`)) {
-                                await adminApi.deleteBlog(blog.id);
-                                setCmsData(prev => ({ ...prev, blogs: prev.blogs.filter(b => b.id !== blog.id) }));
                               }
                             }}>
                               <FiTrash2 size={12} />
@@ -2813,7 +2319,7 @@ const Admin = () => {
                         <strong style={{ fontSize: '13.5px', color: '#111827', display: 'block' }}>
                           {rev.productName}
                         </strong>
-                        <span style={{ fontSize: '11px', color: '#687466' }}>SKU Product #{rev.productId}</span>
+                        <span style={{ fontSize: '11px', color: '#687466' }}>Product #{rev.productId}</span>
                       </div>
                       <span style={{
                         fontSize: '10.5px',
@@ -2965,22 +2471,15 @@ const Admin = () => {
                     </div>
                   )}
 
-                  {/* Target Scope & Minimum Order */}
-                  <div className="admin-form__grid admin-form__grid--two">
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Minimum Order Value (₹)</label>
-                      <input value={couponDraft.minOrder} onChange={(e) => setCouponDraft(prev => ({ ...prev, minOrder: e.target.value }))} placeholder="e.g. 499" type="number" />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Target Scope</label>
-                      <select value={couponDraft.targetType} onChange={(e) => setCouponDraft(prev => ({ ...prev, targetType: e.target.value }))}>
-                        <option value="all">Entire Store</option>
-                        <option value="category">Specific Category</option>
-                        <option value="product">Specific Product ID</option>
-                        <option value="customer">Specific Customer Email</option>
-                      </select>
-                    </div>
+                  {/* Target Scope */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Target Scope</label>
+                    <select value={couponDraft.targetType} onChange={(e) => setCouponDraft(prev => ({ ...prev, targetType: e.target.value }))}>
+                      <option value="all">Entire Store</option>
+                      <option value="category">Specific Category</option>
+                      <option value="product">Specific Product ID</option>
+                      <option value="customer">Specific Customer Email</option>
+                    </select>
                   </div>
 
                   {couponDraft.targetType === 'category' && (
@@ -3026,8 +2525,8 @@ const Admin = () => {
                     </div>
                   </div>
 
-                  <input value={couponDraft.title} onChange={(e) => setCouponDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Banner title e.g. FLAT ₹50 OFF" />
-                  <input value={couponDraft.description} onChange={(e) => setCouponDraft(prev => ({ ...prev, description: e.target.value }))} placeholder="Banner subtext e.g. On first grocery order above ₹399" />
+                  <input value={couponDraft.title} onChange={(e) => setCouponDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Coupon title e.g. FLAT ₹50 OFF" />
+                  <input value={couponDraft.description} onChange={(e) => setCouponDraft(prev => ({ ...prev, description: e.target.value }))} placeholder="Coupon subtext e.g. On first grocery order" />
 
                   <button className="admin__primary"><FiPlus /> Save & Activate Coupon</button>
                 </form>
@@ -3036,7 +2535,7 @@ const Admin = () => {
                 <form className="admin-form" onSubmit={saveOffer}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <FiTag size={18} style={{ color: '#2D5016' }} />
-                    <h2 style={{ margin: 0 }}>Add Festive / Daily Deal Banner</h2>
+                    <h2 style={{ margin: 0 }}>Add Festive / Daily Deal Promotion</h2>
                   </div>
 
                   <input value={offerDraft.title} onChange={(e) => setOfferDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Deal Title e.g. Diwali Mega Rice Fest" required />
@@ -3055,7 +2554,7 @@ const Admin = () => {
                       <div className="admin-offer-image__empty"><FiGift /></div>
                     )}
                     <div>
-                      <input value={offerDraft.image} onChange={(e) => setOfferDraft(prev => ({ ...prev, image: e.target.value }))} placeholder="Add offer banner image URL" />
+                      <input value={offerDraft.image} onChange={(e) => setOfferDraft(prev => ({ ...prev, image: e.target.value }))} placeholder="Add offer image URL" />
                       <label className="admin-file-input admin-file-input--compact">
                         <span>Or choose file from device</span>
                         <input type="file" accept="image/*" onChange={handleOfferImageUpload} />
@@ -3063,7 +2562,7 @@ const Admin = () => {
                     </div>
                   </div>
 
-                  <button className="admin__primary"><FiPlus /> Publish Promotion Banner</button>
+                  <button className="admin__primary"><FiPlus /> Publish Promotion Deal</button>
                 </form>
               </div>
 
@@ -3077,7 +2576,7 @@ const Admin = () => {
                   {coupons.map(coupon => (
                     <div key={coupon.id} className="admin-promo-card">
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <strong style={{ fontSize: '15px', color: '#1C4B12', letterSpacing: '0.5px' }}>{coupon.code}</strong>
+                        <strong style={{ fontSize: '15px', color: '#1C4D12', letterSpacing: '0.5px' }}>{coupon.code}</strong>
                         <span className={`admin-promo-pill admin-promo-pill--${coupon.type}`}>
                           {coupon.type === 'bogo' ? '🎁 BOGO' : (coupon.type === 'percent' ? `${coupon.value}% OFF` : `₹${coupon.value} OFF`)}
                         </span>
@@ -3088,8 +2587,8 @@ const Admin = () => {
                       </p>
 
                       <div style={{ background: '#FAF9F5', padding: '8px 10px', borderRadius: '8px', fontSize: '11.5px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-                        <span>Min Order: <strong>₹{coupon.minOrder || 0}</strong></span>
                         <span>Scope: <strong>{coupon.targetType || 'All'}</strong></span>
+                        <span>Customer: <strong>{coupon.customerType || 'Retail'}</strong></span>
                         <span>Used: <strong>{coupon.timesUsed || 0} times</strong></span>
                         <span>Discount Given: <strong>₹{coupon.totalDiscountGiven || 0}</strong></span>
                       </div>
@@ -3543,14 +3042,6 @@ const Admin = () => {
                         >
                           <FiPrinter size={12} /> Invoice
                         </button>
-                        <button
-                          className="admin__ghost"
-                          style={{ height: '32px', fontSize: '11.5px', padding: '0 10px', borderRadius: '6px' }}
-                          title="Print Packing Slip"
-                          onClick={() => setPackingSlipModalOrder(order)}
-                        >
-                          <FiFileText size={12} /> Slip
-                        </button>
                       </div>
                     </div>
 
@@ -3926,64 +3417,6 @@ const Admin = () => {
                   </div>
                 </div>
               )}
-
-              {/* MODAL: PACKING SLIP VIEW */}
-              {packingSlipModalOrder && (
-                <div className="inventory-modal-backdrop" onClick={() => setPackingSlipModalOrder(null)}>
-                  <div className="admin-invoice-modal" onClick={e => e.stopPropagation()}>
-                    <div className="admin-invoice-paper">
-                      <div className="admin-invoice-header">
-                        <div>
-                          <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 900, color: '#1C4B12' }}>SIRI TRADERS FULFILLMENT</h1>
-                          <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#4B5563' }}>Warehouse & Order Picking Slip</p>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <strong style={{ fontSize: '14px', color: '#2D5016' }}>PACKING SLIP #{packingSlipModalOrder.id}</strong>
-                          <div style={{ fontSize: '11.5px' }}>Slot: <strong>{packingSlipModalOrder.deliverySlot || 'Morning'}</strong></div>
-                        </div>
-                      </div>
-
-                      <div style={{ background: '#FAF9F5', padding: '10px 14px', borderRadius: '8px', fontSize: '12px', marginBottom: '16px' }}>
-                        <div>Deliver To: <strong>{packingSlipModalOrder.customerName || 'Customer'}</strong> — {packingSlipModalOrder.deliveryAddress}</div>
-                        <div>Phone: <strong>{packingSlipModalOrder.customerPhone || '—'}</strong> | Tracking: <strong>{packingSlipModalOrder.trackingNumber || `TRK-SIRI-${packingSlipModalOrder.id}`}</strong></div>
-                      </div>
-
-                      <table className="admin-invoice-table">
-                        <thead>
-                          <tr>
-                            <th style={{ width: '40px' }}>CHECK</th>
-                            <th>ITEM DESCRIPTION</th>
-                            <th>PACK SIZE</th>
-                            <th>QUANTITY</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(packingSlipModalOrder.items || []).map((it, idx) => (
-                            <tr key={idx}>
-                              <td><input type="checkbox" style={{ width: '16px', height: '16px' }} /></td>
-                              <td><strong>{it.name}</strong></td>
-                              <td>{it.weight ? `${it.weight}${it.unit}` : 'Standard'}</td>
-                              <td><strong style={{ fontSize: '14px' }}>x{it.quantity || 1}</strong></td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '30px', fontSize: '11px', color: '#687466' }}>
-                        <div>Packed by (Staff Name): ___________________</div>
-                        <div>Dispatched on: {new Date().toLocaleTimeString('en-IN')}</div>
-                      </div>
-                    </div>
-
-                    <div className="inventory-modal__footer admin-invoice-actions">
-                      <button className="admin__ghost" onClick={() => setPackingSlipModalOrder(null)}>Close</button>
-                      <button className="admin__primary" onClick={() => window.print()}>
-                        <FiPrinter /> Print Slip
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -4194,314 +3627,333 @@ const Admin = () => {
             </div>
           )}
 
-          {/* GROCERY DELIVERY & SLOTS */}
+          {/* GROCERY DELIVERY ZONES */}
           {activeTab === 'delivery-zones' && (
             <div className="admin-delivery-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="admin-card admin-card--wide">
                 <div className="admin-card__toolbar">
                   <div>
-                    <h2 style={{ margin: 0 }}>Grocery Delivery Slots Configuration</h2>
+                    <h2 style={{ margin: 0 }}>Delivery Zones & Coverage</h2>
                     <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
-                      Configure standard grocery delivery windows for customer checkout.
+                      Manage serviceable areas, pincodes, delivery fees and assigned drivers.
                     </p>
                   </div>
-                </div>
-
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '12px' }}>
-                  {deliverySlotPresets.map((slot, idx) => (
-                    <div key={slot} className="admin-slot-pill">
-                      <span>🕒 {slot}</span>
-                      <button
-                        type="button"
-                        style={{ background: 'transparent', border: 'none', color: '#DC2626', cursor: 'pointer', padding: 0, fontSize: '12px' }}
-                        onClick={() => setDeliverySlotPresets(prev => prev.filter((_, i) => i !== idx))}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px', marginTop: '14px', alignItems: 'center' }}>
-                  <input
-                    id="new-slot-input"
-                    className="admin-input-box"
-                    style={{ flex: 1 }}
-                    placeholder="e.g. Night Express (9:00 PM - 11:00 PM)"
-                  />
-                  <button
-                    type="button"
-                    className="admin__primary"
-                    style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
-                    onClick={() => {
-                      const input = document.getElementById('new-slot-input');
-                      if (input && input.value.trim()) {
-                        setDeliverySlotPresets(prev => [...prev, input.value.trim()]);
-                        input.value = '';
-                      }
-                    }}
-                  >
-                    <FiPlus /> Add Slot
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="admin__ghost"
+                      onClick={() => { setEditingZoneModal(null); setShowZonesModal(true); }}
+                    >
+                      <FiMapPin /> Delivery Zones ({deliveryZones.length})
+                    </button>
+                    <button
+                      type="button"
+                      className="admin__primary"
+                      onClick={() => {
+                        setNewZone({
+                          area: '',
+                          pincode: '',
+                          time: '30 mins',
+                          distance: '',
+                          deliveryFee: 0,
+                          handlingCharge: 5,
+                          driverAssigned: ''
+                        });
+                        setShowAddZoneModal(true);
+                      }}
+                    >
+                      <FiPlus /> Add New Delivery Area
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div className="admin-card admin-card--wide">
-                <h2 style={{ margin: '0 0 12px' }}>{editingZoneModal ? 'Edit Delivery Area & Pincode' : 'Add New Delivery Zone & Pincode'}</h2>
-                <div className="admin-form__grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Area / Locality Name *</label>
-                    <input
-                      className="admin-input-box"
-                      placeholder="e.g. Kukatpally, Madhapur"
-                      value={editingZoneModal ? editingZoneModal.area : newZone.area}
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (editingZoneModal) setEditingZoneModal(p => ({ ...p, area: val }));
-                        else setNewZone(p => ({ ...p, area: val }));
-                      }}
-                    />
-                  </div>
+              {showZonesModal && (
+                <div className="inventory-modal-backdrop" onClick={() => { setShowZonesModal(false); setEditingZoneModal(null); }}>
+                  <div className="inventory-modal" style={{ maxWidth: '980px' }} onClick={e => e.stopPropagation()}>
+                    <div className="inventory-modal__header">
+                      <h2 style={{ margin: 0 }}>
+                        {editingZoneModal ? `Edit ${editingZoneModal.area || 'Delivery Area'}` : `Serviceable Pincodes & Coverage (${deliveryZones.length})`}
+                      </h2>
+                      <button className="inventory-modal__close" onClick={() => { setShowZonesModal(false); setEditingZoneModal(null); }}>✕</button>
+                    </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Pincode *</label>
-                    <input
-                      className="admin-input-box"
-                      placeholder="e.g. 500072"
-                      value={editingZoneModal ? editingZoneModal.pincode : newZone.pincode}
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (editingZoneModal) setEditingZoneModal(p => ({ ...p, pincode: val }));
-                        else setNewZone(p => ({ ...p, pincode: val }));
-                      }}
-                    />
-                  </div>
+                    <div className="inventory-modal__body" style={{ gap: '14px' }}>
+                      {editingZoneModal ? (
+                        <>
+                          <div className="admin-form__grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Area / Locality Name *</label>
+                              <input
+                                className="admin-input-box"
+                                placeholder="e.g. Kukatpally, Madhapur"
+                                value={editingZoneModal.area}
+                                onChange={e => setEditingZoneModal(p => ({ ...p, area: e.target.value }))}
+                              />
+                            </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Delivery Time Estimate</label>
-                    <select
-                      className="admin-input-box"
-                      value={editingZoneModal ? editingZoneModal.time : newZone.time}
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (editingZoneModal) setEditingZoneModal(p => ({ ...p, time: val }));
-                        else setNewZone(p => ({ ...p, time: val }));
-                      }}
-                    >
-                      {['10 mins','15 mins','20 mins','30 mins','45 mins','60 mins','Same day'].map(t => <option key={t}>{t}</option>)}
-                    </select>
-                  </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Pincode *</label>
+                              <input
+                                className="admin-input-box"
+                                placeholder="e.g. 500072"
+                                value={editingZoneModal.pincode}
+                                onChange={e => setEditingZoneModal(p => ({ ...p, pincode: e.target.value }))}
+                              />
+                            </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Min Order Value (₹)</label>
-                    <input
-                      className="admin-input-box"
-                      type="number"
-                      placeholder="e.g. 199"
-                      value={editingZoneModal ? editingZoneModal.minOrderValue : newZone.minOrderValue}
-                      onChange={e => {
-                        const val = Number(e.target.value) || 0;
-                        if (editingZoneModal) setEditingZoneModal(p => ({ ...p, minOrderValue: val }));
-                        else setNewZone(p => ({ ...p, minOrderValue: val }));
-                      }}
-                    />
-                  </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Delivery Time Estimate</label>
+                              <select
+                                className="admin-input-box"
+                                value={editingZoneModal.time}
+                                onChange={e => setEditingZoneModal(p => ({ ...p, time: e.target.value }))}
+                              >
+                                {['10 mins','15 mins','20 mins','30 mins','45 mins','60 mins','Same day'].map(t => <option key={t}>{t}</option>)}
+                              </select>
+                            </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Free Delivery Threshold (₹)</label>
-                    <input
-                      className="admin-input-box"
-                      type="number"
-                      placeholder="e.g. 500"
-                      value={editingZoneModal ? editingZoneModal.freeDeliveryThreshold : newZone.freeDeliveryThreshold}
-                      onChange={e => {
-                        const val = Number(e.target.value) || 0;
-                        if (editingZoneModal) setEditingZoneModal(p => ({ ...p, freeDeliveryThreshold: val }));
-                        else setNewZone(p => ({ ...p, freeDeliveryThreshold: val }));
-                      }}
-                    />
-                  </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Delivery Fee (₹)</label>
+                              <input
+                                className="admin-input-box"
+                                type="number"
+                                placeholder="e.g. 25"
+                                value={editingZoneModal.deliveryFee}
+                                onChange={e => setEditingZoneModal(p => ({ ...p, deliveryFee: Number(e.target.value) || 0 }))}
+                              />
+                            </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Delivery Fee (₹)</label>
-                    <input
-                      className="admin-input-box"
-                      type="number"
-                      placeholder="e.g. 25"
-                      value={editingZoneModal ? editingZoneModal.deliveryFee : newZone.deliveryFee}
-                      onChange={e => {
-                        const val = Number(e.target.value) || 0;
-                        if (editingZoneModal) setEditingZoneModal(p => ({ ...p, deliveryFee: val }));
-                        else setNewZone(p => ({ ...p, deliveryFee: val }));
-                      }}
-                    />
-                  </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Assigned Driver / Partner</label>
+                              <input
+                                className="admin-input-box"
+                                placeholder="e.g. Ramesh Kumar"
+                                value={editingZoneModal.driverAssigned || ''}
+                                onChange={e => setEditingZoneModal(p => ({ ...p, driverAssigned: e.target.value }))}
+                              />
+                            </div>
+                          </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Assigned Driver / Partner</label>
-                    <input
-                      className="admin-input-box"
-                      placeholder="e.g. Ramesh Kumar"
-                      value={editingZoneModal ? (editingZoneModal.driverAssigned || '') : newZone.driverAssigned}
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (editingZoneModal) setEditingZoneModal(p => ({ ...p, driverAssigned: val }));
-                        else setNewZone(p => ({ ...p, driverAssigned: val }));
-                      }}
-                    />
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              type="button"
+                              className="admin__primary"
+                              onClick={async () => {
+                                try {
+                                  const updated = await adminApi.updateDeliveryZone(editingZoneModal.id, editingZoneModal);
+                                  setDeliveryZones(prev => prev.map(z => z.id === updated.id ? updated : z));
+                                  setEditingZoneModal(null);
+                                  setSaveToast({ type: 'success', msg: `Zone ${updated.area} updated successfully` });
+                                  setTimeout(() => setSaveToast(null), 3000);
+                                } catch (err) { alert(err.message); }
+                              }}
+                            >
+                              <FiSave /> Save Changes
+                            </button>
+                            <button type="button" className="admin__ghost" onClick={() => setEditingZoneModal(null)}>
+                              ← Back to List
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="admin-search-label" style={{ width: '260px' }}>
+                            <FiSearch />
+                            <input
+                              placeholder="Search area or pincode..."
+                              value={deliveryZoneSearch}
+                              onChange={(e) => setDeliveryZoneSearch(e.target.value)}
+                            />
+                          </div>
+
+                          <div style={{ overflowX: 'auto' }}>
+                            <table className="inventory-table">
+                              <thead>
+                                <tr>
+                                  <th>AREA / LOCALITY</th>
+                                  <th>PINCODE</th>
+                                  <th>DELIVERY TIME</th>
+                                  <th>FEE (₹)</th>
+                                  <th>DRIVER ASSIGNED</th>
+                                  <th>STATUS</th>
+                                  <th style={{ textAlign: 'center' }}>ACTIONS</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {deliveryZones
+                                  .filter(z => (z.area || '').toLowerCase().includes(deliveryZoneSearch.toLowerCase()) || (z.pincode || '').includes(deliveryZoneSearch))
+                                  .map(zone => (
+                                    <tr key={zone.id}>
+                                      <td><strong>{zone.area}</strong></td>
+                                      <td><span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{zone.pincode}</span></td>
+                                      <td>{zone.time}</td>
+                                      <td>₹{zone.deliveryFee}</td>
+                                      <td>{zone.driverAssigned || <span style={{ color: '#9CA3AF' }}>Unassigned</span>}</td>
+                                      <td>
+                                        <button
+                                          type="button"
+                                          style={{
+                                            background: zone.active !== false ? '#DCFCE7' : '#F3F4F6',
+                                            color: zone.active !== false ? '#166534' : '#6B7280',
+                                            border: 'none',
+                                            padding: '2px 8px',
+                                            borderRadius: '10px',
+                                            fontSize: '11px',
+                                            fontWeight: 800,
+                                            cursor: 'pointer'
+                                          }}
+                                          onClick={async () => {
+                                            const nextActive = zone.active === false ? true : false;
+                                            try {
+                                              const updated = await adminApi.updateDeliveryZone(zone.id, { active: nextActive });
+                                              setDeliveryZones(prev => prev.map(z => z.id === updated.id ? updated : z));
+                                            } catch (err) { alert(err.message); }
+                                          }}
+                                        >
+                                          {zone.active !== false ? '🟢 Active' : '⚪ Inactive'}
+                                        </button>
+                                      </td>
+                                      <td>
+                                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                                          <button
+                                            className="admin__ghost"
+                                            style={{ width: '30px', height: '30px', padding: 0, borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                            onClick={() => setEditingZoneModal(zone)}
+                                          >
+                                            <FiEdit2 size={12} />
+                                          </button>
+                                          <button
+                                            className="admin-danger"
+                                            style={{ width: '30px', height: '30px', padding: 0, borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                            onClick={async () => {
+                                              if (window.confirm(`Delete ${zone.area} pincode zone?`)) {
+                                                try {
+                                                  await adminApi.deleteDeliveryZone(zone.id);
+                                                  setDeliveryZones(prev => prev.filter(z => z.id !== zone.id));
+                                                } catch (err) { alert(err.message); }
+                                              }
+                                            }}
+                                          >
+                                            <FiTrash2 size={12} />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="inventory-modal__footer">
+                      <button className="admin__primary" onClick={() => { setShowZonesModal(false); setEditingZoneModal(null); }}>Close</button>
+                    </div>
                   </div>
                 </div>
+              )}
 
-                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                  {editingZoneModal ? (
-                    <>
+              {showAddZoneModal && (
+                <div className="inventory-modal-backdrop" onClick={() => setShowAddZoneModal(false)}>
+                  <div className="inventory-modal" style={{ maxWidth: '640px' }} onClick={e => e.stopPropagation()}>
+                    <div className="inventory-modal__header">
+                      <h2 style={{ margin: 0 }}>Add New Delivery Area</h2>
+                      <button className="inventory-modal__close" onClick={() => setShowAddZoneModal(false)}>✕</button>
+                    </div>
+
+                    <div className="inventory-modal__body">
+                      <div className="admin-form__grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Area / Locality Name *</label>
+                          <input
+                            className="admin-input-box"
+                            placeholder="e.g. Kukatpally, Madhapur"
+                            value={newZone.area}
+                            onChange={e => setNewZone(p => ({ ...p, area: e.target.value }))}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Pincode *</label>
+                          <input
+                            className="admin-input-box"
+                            placeholder="e.g. 500072"
+                            value={newZone.pincode}
+                            onChange={e => setNewZone(p => ({ ...p, pincode: e.target.value }))}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Delivery Time Estimate</label>
+                          <select
+                            className="admin-input-box"
+                            value={newZone.time}
+                            onChange={e => setNewZone(p => ({ ...p, time: e.target.value }))}
+                          >
+                            {['10 mins','15 mins','20 mins','30 mins','45 mins','60 mins','Same day'].map(t => <option key={t}>{t}</option>)}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Delivery Fee (₹)</label>
+                          <input
+                            className="admin-input-box"
+                            type="number"
+                            placeholder="e.g. 25"
+                            value={newZone.deliveryFee}
+                            onChange={e => setNewZone(p => ({ ...p, deliveryFee: Number(e.target.value) || 0 }))}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Assigned Driver / Partner</label>
+                          <input
+                            className="admin-input-box"
+                            placeholder="e.g. Ramesh Kumar"
+                            value={newZone.driverAssigned}
+                            onChange={e => setNewZone(p => ({ ...p, driverAssigned: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="inventory-modal__footer">
+                      <button type="button" className="admin__ghost" onClick={() => setShowAddZoneModal(false)}>Cancel</button>
                       <button
                         type="button"
                         className="admin__primary"
                         onClick={async () => {
+                          if (!newZone.area.trim() || !newZone.pincode.trim()) return;
                           try {
-                            const updated = await adminApi.updateDeliveryZone(editingZoneModal.id, editingZoneModal);
-                            setDeliveryZones(prev => prev.map(z => z.id === updated.id ? updated : z));
-                            setEditingZoneModal(null);
-                            setSaveToast({ type: 'success', msg: `Zone ${updated.area} updated successfully` });
+                            const saved = await adminApi.saveDeliveryZone({
+                              ...newZone,
+                              area: newZone.area.trim(),
+                              pincode: newZone.pincode.trim()
+                            });
+                            setDeliveryZones(prev => [...prev, saved]);
+                            setNewZone({
+                              area: '',
+                              pincode: '',
+                              time: '30 mins',
+                              distance: '',
+                              deliveryFee: 0,
+                              handlingCharge: 5,
+                              driverAssigned: ''
+                            });
+                            setShowAddZoneModal(false);
+                            setSaveToast({ type: 'success', msg: `Zone ${saved.area} created` });
                             setTimeout(() => setSaveToast(null), 3000);
                           } catch (err) { alert(err.message); }
                         }}
                       >
-                        <FiSave /> Save Changes
+                        <FiPlus /> Add Delivery Zone
                       </button>
-                      <button type="button" className="admin__ghost" onClick={() => setEditingZoneModal(null)}>Cancel</button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      className="admin__primary"
-                      onClick={async () => {
-                        if (!newZone.area.trim() || !newZone.pincode.trim()) return;
-                        try {
-                          const saved = await adminApi.saveDeliveryZone({
-                            ...newZone,
-                            area: newZone.area.trim(),
-                            pincode: newZone.pincode.trim()
-                          });
-                          setDeliveryZones(prev => [...prev, saved]);
-                          setNewZone({
-                            area: '',
-                            pincode: '',
-                            time: '30 mins',
-                            distance: '',
-                            deliveryFee: 0,
-                            freeDeliveryThreshold: 500,
-                            handlingCharge: 5,
-                            minOrderValue: 199,
-                            driverAssigned: ''
-                          });
-                          setSaveToast({ type: 'success', msg: `Zone ${saved.area} created` });
-                          setTimeout(() => setSaveToast(null), 3000);
-                        } catch (err) { alert(err.message); }
-                      }}
-                    >
-                      <FiPlus /> Add Delivery Zone
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="admin-card admin-card--wide">
-                <div className="admin-card__toolbar">
-                  <h2>Serviceable Pincodes & Coverage ({deliveryZones.length})</h2>
-                  <div className="admin-search-label" style={{ width: '260px' }}>
-                    <FiSearch />
-                    <input
-                      placeholder="Search area or pincode..."
-                      value={deliveryZoneSearch}
-                      onChange={(e) => setDeliveryZoneSearch(e.target.value)}
-                    />
+                    </div>
                   </div>
                 </div>
-
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="inventory-table">
-                    <thead>
-                      <tr>
-                        <th>AREA / LOCALITY</th>
-                        <th>PINCODE</th>
-                        <th>DELIVERY TIME</th>
-                        <th>MIN ORDER (₹)</th>
-                        <th>FREE DELIVERY (₹)</th>
-                        <th>FEE (₹)</th>
-                        <th>DRIVER ASSIGNED</th>
-                        <th>STATUS</th>
-                        <th style={{ textAlign: 'center' }}>ACTIONS</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {deliveryZones
-                        .filter(z => (z.area || '').toLowerCase().includes(deliveryZoneSearch.toLowerCase()) || (z.pincode || '').includes(deliveryZoneSearch))
-                        .map(zone => (
-                          <tr key={zone.id}>
-                            <td><strong>{zone.area}</strong></td>
-                            <td><span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{zone.pincode}</span></td>
-                            <td>{zone.time}</td>
-                            <td>₹{zone.minOrderValue || 0}</td>
-                            <td>₹{zone.freeDeliveryThreshold || 0}</td>
-                            <td>₹{zone.deliveryFee}</td>
-                            <td>{zone.driverAssigned || <span style={{ color: '#9CA3AF' }}>Unassigned</span>}</td>
-                            <td>
-                              <button
-                                type="button"
-                                style={{
-                                  background: zone.active !== false ? '#DCFCE7' : '#F3F4F6',
-                                  color: zone.active !== false ? '#166534' : '#6B7280',
-                                  border: 'none',
-                                  padding: '2px 8px',
-                                  borderRadius: '10px',
-                                  fontSize: '11px',
-                                  fontWeight: 800,
-                                  cursor: 'pointer'
-                                }}
-                                onClick={async () => {
-                                  const nextActive = zone.active === false ? true : false;
-                                  try {
-                                    const updated = await adminApi.updateDeliveryZone(zone.id, { active: nextActive });
-                                    setDeliveryZones(prev => prev.map(z => z.id === updated.id ? updated : z));
-                                  } catch (err) { alert(err.message); }
-                                }}
-                              >
-                                {zone.active !== false ? '🟢 Active' : '⚪ Inactive'}
-                              </button>
-                            </td>
-                            <td>
-                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                                <button
-                                  className="admin__ghost"
-                                  style={{ width: '30px', height: '30px', padding: 0, borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                                  onClick={() => setEditingZoneModal(zone)}
-                                >
-                                  <FiEdit2 size={12} />
-                                </button>
-                                <button
-                                  className="admin-danger"
-                                  style={{ width: '30px', height: '30px', padding: 0, borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                                  onClick={async () => {
-                                    if (window.confirm(`Delete ${zone.area} pincode zone?`)) {
-                                      try {
-                                        await adminApi.deleteDeliveryZone(zone.id);
-                                        setDeliveryZones(prev => prev.filter(z => z.id !== zone.id));
-                                      } catch (err) { alert(err.message); }
-                                    }
-                                  }}
-                                >
-                                  <FiTrash2 size={12} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -4522,7 +3974,7 @@ const Admin = () => {
                   <div className="inventory-alert-banner inventory-alert-banner--warning">
                     <div className="inventory-alert-banner__content">
                       <FiAlertTriangle size={20} />
-                      <span><strong>Low Stock Alert:</strong> {invSummary.lowStockCount} product(s) are at or below reorder threshold.</span>
+                      <span><strong>Low Stock Alert:</strong> {invSummary.lowStockCount} product(s) are low in stock.</span>
                     </div>
                     <button className="inventory-alert-banner__btn" onClick={() => setInventoryFilter('low-stock')}>View Low Stock</button>
                   </div>
@@ -4545,7 +3997,7 @@ const Admin = () => {
                     <FiPackage className="inventory-kpi-card__icon" />
                   </div>
                   <strong>{invSummary.totalAvailableUnits.toLocaleString('en-IN')}</strong>
-                  <small>{invSummary.totalReservedUnits} units currently reserved in orders</small>
+                  <small>Available for customer orders</small>
                 </div>
 
                 <div className={`inventory-kpi-card ${invSummary.lowStockCount > 0 ? 'inventory-kpi-card--warning' : ''}`}>
@@ -4554,7 +4006,7 @@ const Admin = () => {
                     <FiAlertTriangle className="inventory-kpi-card__icon" style={{ color: invSummary.lowStockCount > 0 ? '#F59E0B' : undefined }} />
                   </div>
                   <strong style={{ color: invSummary.lowStockCount > 0 ? '#B45309' : undefined }}>{invSummary.lowStockCount}</strong>
-                  <small>Below configured reorder level</small>
+                  <small>Low stock count</small>
                 </div>
 
                 <div className={`inventory-kpi-card ${invSummary.outOfStockCount > 0 ? 'inventory-kpi-card--danger' : ''}`}>
@@ -4602,7 +4054,7 @@ const Admin = () => {
                         <div className="admin-search-label" style={{ flex: 1 }}>
                           <FiSearch />
                           <input
-                            placeholder="Search item name, brand, SKU or batch..."
+                            placeholder="Search item name, brand, or batch..."
                             value={inventorySearch}
                             onChange={(e) => setInventorySearch(e.target.value)}
                             style={{ width: '100%' }}
@@ -4642,24 +4094,22 @@ const Admin = () => {
                         <th>ITEM / BATCH DETAILS</th>
                         <th>CATEGORY</th>
                         <th>AVAILABLE</th>
-                        <th>RESERVED</th>
                         <th>DAMAGED / RETURNED</th>
                         <th>INCOMING</th>
                         <th>UNIT COST / VALUE</th>
-                        <th>REORDER LEVEL</th>
                         <th style={{ textAlign: 'center' }}>ACTIONS</th>
                       </tr>
                     </thead>
                     <tbody>
                       {inventoryLoading ? (
                         <tr>
-                          <td colSpan="9" style={{ textAlign: 'center', padding: '36px', color: '#687466' }}>
+                          <td colSpan="7" style={{ textAlign: 'center', padding: '36px', color: '#687466' }}>
                             Loading live inventory tracking...
                           </td>
                         </tr>
                       ) : filteredInventoryItems.length === 0 ? (
                         <tr>
-                          <td colSpan="9" style={{ textAlign: 'center', padding: '36px', color: '#687466' }}>
+                          <td colSpan="7" style={{ textAlign: 'center', padding: '36px', color: '#687466' }}>
                             No inventory items matching your filter/search.
                           </td>
                         </tr>
@@ -4671,7 +4121,7 @@ const Admin = () => {
                               <div>
                                 <strong style={{ fontSize: '13px', color: '#111827' }}>{item.name}</strong>
                                 <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>
-                                  {item.brand ? `${item.brand} · ` : ''}{item.weight}{item.unit} · SKU #{item.productId}
+                                  {item.brand ? `${item.brand} · ` : ''}{item.weight}{item.unit}
                                 </span>
                               </div>
                             </div>
@@ -4689,8 +4139,6 @@ const Admin = () => {
                             </span>
                           </td>
 
-                          <td>{item.reservedStock > 0 ? `${item.reservedStock} units` : 0}</td>
-
                           <td>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px' }}>
                               {item.damagedStock > 0 && <span style={{ color: '#9D174D' }}>Damaged: {item.damagedStock}</span>}
@@ -4705,8 +4153,6 @@ const Admin = () => {
                             <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>Cost: {formatPrice(item.costPrice)}</span>
                             <span style={{ fontSize: '11px', color: '#2D5016', display: 'block' }}>Sell: {formatPrice(item.price)}</span>
                           </td>
-
-                          <td>{item.reorderLevel} units</td>
 
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
@@ -4920,11 +4366,6 @@ const Admin = () => {
                         <option value="pcs">Pieces (pcs)</option>
                       </select>
                     </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>SKU Code</label>
-                      <input value={productDraft.sku || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, sku: e.target.value }))} placeholder="e.g. SIRI-RIC-0021" />
-                    </div>
                   </div>
 
                   <div style={{ marginTop: '8px' }}>
@@ -5072,7 +4513,7 @@ const Admin = () => {
                   <div>
                     <h2 style={{ margin: 0 }}>Mail Broadcast Campaign</h2>
                     <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
-                      Send promotions, festive offers, or announcements to registered customers.
+                      Send promotions, festive offers, or updates to registered customers.
                     </p>
                   </div>
                 </div>
