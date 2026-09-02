@@ -51,9 +51,7 @@ import {
   FiThumbsDown,
   FiPieChart,
   FiCompass,
-  FiGlobe,
-  FiCode,
-  FiShare2,
+  FiVolume2,
   FiExternalLink,
   FiImage,
   FiHelpCircle,
@@ -189,13 +187,13 @@ const blankOffer = {
 const blankCoupon = {
   id: '',
   code: '',
-  type: 'flat',
+  type: 'flat', // 'flat' | 'percent' | 'bogo' | 'buyXgetY' | 'freeDelivery'
   value: '',
   minOrder: '',
   maxDiscount: '',
   buyQuantity: 1,
   getQuantity: 1,
-  targetType: 'all',
+  targetType: 'all', // 'all' | 'category' | 'product' | 'customer'
   targetCategory: '',
   targetProductId: '',
   targetCustomerEmail: '',
@@ -222,7 +220,7 @@ const downloadCsv = (filename, rows) => {
   const csv = rows.map(row => row.map(csvEscape).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
-  const link = document.createElement('link');
+  const link = document.createElement('a');
   link.href = url;
   link.download = filename;
   link.click();
@@ -234,8 +232,8 @@ const ADMIN_ROLE_PERMISSIONS = {
   'Super Admin': ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','seo','retail-products','wholesale-products','offers','bestsellers','todays-deals','retail-content','wholesale-content','delivery-zones','broadcast'],
   'Product Manager': ['dashboard','inventory','retail-products','wholesale-products','reviews','bestsellers','todays-deals'],
   'Order Manager': ['dashboard','inventory','orders','customers','delivery-zones'],
-  'Marketing Manager': ['dashboard','offers','bestsellers','todays-deals','broadcast','reviews','cms','seo'],
-  'Content Manager': ['dashboard','retail-content','wholesale-content','reviews','cms','seo'],
+  'Marketing Manager': ['dashboard','offers','cms','seo','bestsellers','todays-deals','broadcast','reviews'],
+  'Content Manager': ['dashboard','cms','seo','retail-content','wholesale-content','reviews'],
   'Customer Support': ['dashboard','inventory','customers','orders','reviews','delivery-zones'],
   Viewer: ['dashboard','inventory','sales-stats']
 };
@@ -262,7 +260,12 @@ const ADMIN_NAV_SECTIONS = [
     title: 'WEBSITE CMS & SEO',
     items: [
       ['cms', 'Website Content (CMS)', FiEdit2],
-      ['seo', 'SEO Management', FiCompass],
+      ['seo', 'SEO Management', FiCompass]
+    ]
+  },
+  {
+    title: 'PROMOTIONS & REVIEWS',
+    items: [
       ['offers', 'Promos & Coupons', FiGift],
       ['reviews', 'Customer Reviews', FiStar]
     ]
@@ -335,16 +338,8 @@ const Admin = () => {
   const [broadcastStatus, setBroadcastStatus] = useState(null);
   const [selectedBroadcastEmails, setSelectedBroadcastEmails] = useState([]);
 
-  // ── Reviews & Ratings Management State ──
-  const [reviewsList, setReviewsList] = useState([]);
-  const [reviewFilter, setReviewFilter] = useState('all');
-  const [reviewSearchQuery, setReviewSearchQuery] = useState('');
-
-  // ── Deep Analytics State ──
-  const [analyticsTimeRange, setAnalyticsTimeRange] = useState('30');
-
   // ── CMS State ──
-  const [cmsTab, setCmsTab] = useState('banners'); // 'banners'|'announcement'|'pages'|'faqs'|'blogs'|'media'
+  const [cmsTab, setCmsTab] = useState('banners'); // 'banners'|'announcement'|'pages'|'faqs'|'blogs'
   const [cmsData, setCmsData] = useState({
     banners: [],
     pages: [],
@@ -357,7 +352,6 @@ const Admin = () => {
   const [editingPage, setEditingPage] = useState(null);
   const [editingFaq, setEditingFaq] = useState(null);
   const [editingBlog, setEditingBlog] = useState(null);
-  const [editingRedirect, setEditingRedirect] = useState(null);
 
   // ── SEO State ──
   const [seoForm, setSeoForm] = useState({
@@ -370,6 +364,36 @@ const Admin = () => {
     schemaJson: '{"@context":"https://schema.org","@type":"GroceryStore","name":"Siri Traders","image":"https://www.siritrader.com/logo-mark.webp","telephone":"+919849012345","priceRange":"₹₹","address":{"@type":"PostalAddress","streetAddress":"Kukatpally Main Road","addressLocality":"Hyderabad","addressRegion":"Telangana","postalCode":"500072","addressCountry":"IN"}}',
     sitemapEnabled: true
   });
+
+  const loadCmsData = async () => {
+    try {
+      const data = await adminApi.fetchCmsAll();
+      setCmsData(data);
+      if (data.settings) {
+        setSeoForm({
+          metaTitle: data.settings.metaTitle || seoForm.metaTitle,
+          metaDescription: data.settings.metaDescription || seoForm.metaDescription,
+          canonicalUrl: data.settings.canonicalUrl || seoForm.canonicalUrl,
+          ogImage: data.settings.ogImage || seoForm.ogImage,
+          robotsIndex: data.settings.robotsIndex !== false,
+          googleSiteVerification: data.settings.googleSiteVerification || seoForm.googleSiteVerification,
+          schemaJson: data.settings.schemaJson || seoForm.schemaJson,
+          sitemapEnabled: data.settings.sitemapEnabled !== false
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load CMS content:', err);
+    }
+  };
+
+  // ── Reviews & Ratings Management State ──
+  const [reviewsList, setReviewsList] = useState([]);
+  const [reviewFilter, setReviewFilter] = useState('all'); // 'all'|'5'|'4'|'3'|'low'|'pending'
+  const [reviewSearchQuery, setReviewSearchQuery] = useState('');
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+
+  // ── Deep Analytics State ──
+  const [analyticsTimeRange, setAnalyticsTimeRange] = useState('30'); // '1'|'7'|'30'|'90'|'365'
 
   // ── Orders & Payments Management State ──
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
@@ -453,6 +477,13 @@ const Admin = () => {
   const [bestsellerSearch, setBestsellerSearch] = useState('');
   const [dealSearch, setDealSearch] = useState('');
   const [dbCategories, setDbCategories] = useState([]);
+  const [newCat, setNewCat] = useState({ name: '', image: '', color: '#F7F4EE' });
+
+  const groceryUnitPresets = [
+    '100 g', '250 g', '500 g', '1 kg', '2 kg', '5 kg', '10 kg', '25 kg',
+    '100 ml', '200 ml', '500 ml', '1 L', '2 L', '5 L', '15 L',
+    '1 pc', 'Pack of 2', 'Pack of 4', 'Pack of 6', 'Pack of 12', 'Box (10 pcs)'
+  ];
 
   const playChime = () => {
     try {
@@ -467,6 +498,18 @@ const Admin = () => {
       gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
       osc1.start(audioCtx.currentTime);
       osc1.stop(audioCtx.currentTime + 0.3);
+      setTimeout(() => {
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1109.73, audioCtx.currentTime);
+        gain2.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+        osc2.start(audioCtx.currentTime);
+        osc2.stop(audioCtx.currentTime + 0.4);
+      }, 120);
     } catch (err) {
       console.warn("Failed to play notification audio:", err);
     }
@@ -485,6 +528,7 @@ const Admin = () => {
   const normalizeOffer = (o) => ({ ...o, group: o.groupType || o.group || 'daily' });
   const allowedAdminTabs = ADMIN_ROLE_PERMISSIONS[selectedAdminRole] || ADMIN_ROLE_PERMISSIONS.Viewer;
 
+  // ── Load Orders ──
   const loadOrders = async () => {
     try {
       const ords = await adminApi.fetchAllOrders();
@@ -494,6 +538,7 @@ const Admin = () => {
     }
   };
 
+  // ── Load Customers ──
   const loadCustomers = async () => {
     try {
       const usersList = await adminApi.fetchAllUsers();
@@ -507,36 +552,20 @@ const Admin = () => {
     }
   };
 
+  // ── Load Reviews ──
   const loadReviews = async () => {
+    setReviewsLoading(true);
     try {
       const revs = await adminApi.fetchReviews();
       setReviewsList(revs);
     } catch (err) {
       console.error('Failed to load reviews:', err);
+    } finally {
+      setReviewsLoading(false);
     }
   };
 
-  const loadCmsData = async () => {
-    try {
-      const data = await adminApi.fetchCmsAll();
-      setCmsData(data);
-      if (data.settings) {
-        setSeoForm({
-          metaTitle: data.settings.metaTitle || seoForm.metaTitle,
-          metaDescription: data.settings.metaDescription || seoForm.metaDescription,
-          canonicalUrl: data.settings.canonicalUrl || seoForm.canonicalUrl,
-          ogImage: data.settings.ogImage || seoForm.ogImage,
-          robotsIndex: data.settings.robotsIndex !== false,
-          googleSiteVerification: data.settings.googleSiteVerification || seoForm.googleSiteVerification,
-          schemaJson: data.settings.schemaJson || seoForm.schemaJson,
-          sitemapEnabled: data.settings.sitemapEnabled !== false
-        });
-      }
-    } catch (err) {
-      console.error('Failed to load CMS content:', err);
-    }
-  };
-
+  // ── Load Inventory ──
   const loadInventory = async () => {
     setInventoryLoading(true);
     try {
@@ -549,6 +578,7 @@ const Admin = () => {
     }
   };
 
+  // ── Load Inventory Movement Logs ──
   const loadInventoryLogs = async () => {
     setLogsLoading(true);
     try {
@@ -561,6 +591,7 @@ const Admin = () => {
     }
   };
 
+  // ── Load initial data ──
   useEffect(() => {
     adminApi.fetchProducts(true).then(dbProducts => {
       if (!dbProducts || dbProducts.length === 0) return;
@@ -620,7 +651,9 @@ const Admin = () => {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'inventory') {
+    if (activeTab === 'cms' || activeTab === 'seo') {
+      loadCmsData();
+    } else if (activeTab === 'inventory') {
       loadInventory();
       if (inventoryFilter === 'logs') loadInventoryLogs();
     } else if (activeTab === 'orders') {
@@ -629,8 +662,6 @@ const Admin = () => {
       loadCustomers();
     } else if (activeTab === 'reviews') {
       loadReviews();
-    } else if (activeTab === 'cms' || activeTab === 'seo') {
-      loadCmsData();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, inventoryFilter]);
@@ -671,6 +702,7 @@ const Admin = () => {
 
   const allProducts = useMemo(() => [...retailProducts, ...wholesaleProducts], [retailProducts, wholesaleProducts]);
 
+  // ── Filtered Reviews ──
   const filteredReviews = useMemo(() => {
     return reviewsList.filter(rev => {
       if (reviewFilter === '5' && rev.rating !== 5) return false;
@@ -691,6 +723,7 @@ const Admin = () => {
     });
   }, [reviewsList, reviewFilter, reviewSearchQuery]);
 
+  // Review statistics
   const reviewStats = useMemo(() => {
     const total = reviewsList.length;
     if (total === 0) return { avg: 5.0, total: 0, counts: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }, lowCount: 0 };
@@ -704,6 +737,7 @@ const Admin = () => {
     return { avg, total, counts, lowCount };
   }, [reviewsList]);
 
+  // ── Product filtering ──
   const filterProductList = (productsList) => {
     return productsList.filter(p => {
       if (productStatusFilter === 'published' && (p.isPublished === false || p.isArchived)) return false;
@@ -731,6 +765,7 @@ const Admin = () => {
   const filteredWholesaleProducts = useMemo(() => filterProductList(wholesaleProducts), [wholesaleProducts, searchQuery, productStatusFilter, productCategoryFilter]);
   const filteredProducts = activeTab === 'wholesale-products' ? filteredWholesaleProducts : filteredRetailProducts;
 
+  // ── Filtered Orders ──
   const filteredOrders = useMemo(() => {
     if (!liveOrders) return [];
     return liveOrders.filter(order => {
@@ -762,6 +797,7 @@ const Admin = () => {
     });
   }, [liveOrders, orderStatusFilter, orderPaymentFilter, orderSearchQuery]);
 
+  // ── Filtered Customers ──
   const filteredCustomers = useMemo(() => {
     if (!liveCustomers) return [];
     return liveCustomers.filter(customer => {
@@ -777,6 +813,7 @@ const Admin = () => {
     });
   }, [liveCustomers, customerSegmentFilter, customerSearchQuery]);
 
+  // ── Filtered Inventory Items ──
   const filteredInventoryItems = useMemo(() => {
     if (!inventoryData?.items) return [];
     let list = inventoryData.items;
@@ -812,13 +849,14 @@ const Admin = () => {
 
   const stats = [
     { label: 'Retail products', value: retailProducts.length, icon: FiPackage },
+    { label: 'Wholesale products', value: wholesaleProducts.length, icon: FiPackage },
     { label: 'Total Orders', value: liveOrders ? liveOrders.length : 0, icon: FiShoppingBag },
     { label: 'Registered Customers', value: liveCustomers ? liveCustomers.length : 0, icon: FiUsers },
     { label: 'Customer Reviews', value: reviewsList.length, icon: FiStar },
-    { label: 'Hero Banners', value: cmsData.banners.length, icon: FiImage },
-    { label: 'Active Pages', value: cmsData.pages.length, icon: FiBookOpen }
+    { label: 'Active Coupons', value: coupons.filter(c => c.active !== false).length, icon: FiGift },
   ];
 
+  // ── Export Inventory CSV ──
   const exportInventoryCsv = () => {
     if (!inventoryData?.items) return;
     downloadCsv('siri-traders-inventory-report.csv', [
@@ -846,6 +884,7 @@ const Admin = () => {
     ]);
   };
 
+  // ── Export Orders CSV ──
   const exportOrdersCsv = () => {
     if (!liveOrders) return;
     downloadCsv('siri-traders-orders-report.csv', [
@@ -869,6 +908,7 @@ const Admin = () => {
     ]);
   };
 
+  // ── Handle Stock Adjustment Submit ──
   const handleStockAdjustment = async (e) => {
     e.preventDefault();
     if (!adjustModalItem) return;
@@ -906,6 +946,7 @@ const Admin = () => {
     }
   };
 
+  // ── Handle Reorder Level & Batch Configuration Submit ──
   const handleReorderConfigSave = async (e) => {
     e.preventDefault();
     if (!reorderModalItem) return;
@@ -932,6 +973,7 @@ const Admin = () => {
     }
   };
 
+  // ── Open Product History Modal ──
   const openProductHistory = async (item) => {
     setHistoryModalItem(item);
     setHistoryLoading(true);
@@ -945,6 +987,7 @@ const Admin = () => {
     }
   };
 
+  // ── Handle Order Update (Status / Notes / Refund / Cancel) ──
   const handleUpdateOrder = async (orderId, updatePayload, successMsg) => {
     setOrderActionLoading(true);
     try {
@@ -979,6 +1022,7 @@ const Admin = () => {
     return (order.items || []).reduce((sum, item) => sum + (Number(item.price) || 0) * (parseInt(item.quantity || 1, 10)), 0);
   };
 
+  // ── Comprehensive Analytics Engine ──
   const analyticsSummary = useMemo(() => {
     const days = parseInt(analyticsTimeRange, 10) || 30;
     const now = new Date();
@@ -997,9 +1041,13 @@ const Admin = () => {
     const aov = validOrdersCount > 0 ? Math.round(netRevenue / validOrdersCount) : 0;
     const totalUnitsSold = periodOrders.filter(o => o.status !== 'Cancelled').reduce((sum, o) => sum + (o.items || []).reduce((is, it) => is + parseInt(it.quantity || 1, 10), 0), 0);
 
+    // Category breakdown
     const categorySales = {};
+    // Brand breakdown
     const brandSales = {};
+    // Product sales
     const prodSales = {};
+    // Area breakdown
     const areaSales = {};
 
     periodOrders.filter(o => o.status !== 'Cancelled').forEach(o => {
@@ -1027,7 +1075,11 @@ const Admin = () => {
 
     const fastMoving = Object.values(prodSales).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
     const slowMoving = allProducts.filter(p => !prodSales[p.id] && p.inStock).slice(0, 5);
+
+    // Wastage & Expired losses from inventory
     const wastageLoss = (inventoryData?.items || []).reduce((sum, it) => sum + ((it.damagedStock || 0) + (it.expiredStock || 0)) * (it.costPrice || Math.round(it.price * 0.78)), 0);
+
+    // Customer repeat rate
     const totalCust = liveCustomers?.length || 1;
     const returningCust = (liveCustomers || []).filter(c => (c.ordersCount || 0) >= 2).length;
     const repeatRate = Math.round((returningCust / totalCust) * 100);
@@ -1093,6 +1145,7 @@ const Admin = () => {
     event.target.value = '';
   };
 
+  // ── Save Product ──
   const saveProduct = async (event) => {
     event.preventDefault();
     const isWholesale = activeTab === 'wholesale-products';
@@ -1531,6 +1584,7 @@ const Admin = () => {
             </div>
           </div>
 
+          {/* ADMIN ROLE SELECTOR */}
           <div className="admin-role-selector">
             <label htmlFor="admin-role">SELECT ADMIN ROLE</label>
             <select
@@ -1611,7 +1665,7 @@ const Admin = () => {
             <div>
               <span className="admin-main-eyebrow">Control Panel / {activeTab.replace('-', ' ')}</span>
               <h1>
-                {activeTab === 'dashboard' && 'Overview Management'}
+                                {activeTab === 'dashboard' && 'Overview Management'}
                 {activeTab === 'cms' && 'Website Content Management (CMS)'}
                 {activeTab === 'seo' && 'Search Engine Optimization (SEO)'}
                 {activeTab === 'inventory' && 'Grocery Inventory Hub'}
@@ -1623,7 +1677,7 @@ const Admin = () => {
                 {activeTab === 'retail-products' && 'Grocery Products & Variants'}
                 {activeTab === 'wholesale-products' && 'Wholesale Products & Bulk Packs'}
                 {activeTab === 'sales-stats' && 'Grocery Sales & Performance Analytics'}
-                {activeTab !== 'dashboard' && activeTab !== 'cms' && activeTab !== 'seo' && activeTab !== 'inventory' && activeTab !== 'orders' && activeTab !== 'customers' && activeTab !== 'reviews' && activeTab !== 'offers' && activeTab !== 'delivery-zones' && activeTab !== 'retail-products' && activeTab !== 'wholesale-products' && activeTab !== 'sales-stats' && activeTab.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                {activeTab !== 'dashboard' && activeTab !== 'inventory' && activeTab !== 'orders' && activeTab !== 'customers' && activeTab !== 'reviews' && activeTab !== 'offers' && activeTab !== 'delivery-zones' && activeTab !== 'retail-products' && activeTab !== 'wholesale-products' && activeTab !== 'sales-stats' && activeTab.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
               </h1>
             </div>
             
@@ -1647,8 +1701,9 @@ const Admin = () => {
             </section>
           )}
 
+
           {/* =========================================================================
-             MODULE 1: WEBSITE CONTENT MANAGEMENT (CMS)
+             MODULE: WEBSITE CONTENT MANAGEMENT (CMS)
              ========================================================================= */}
           {activeTab === 'cms' && (
             <div className="admin-cms-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -2191,7 +2246,7 @@ const Admin = () => {
           )}
 
           {/* =========================================================================
-             MODULE 2: SEO MANAGEMENT
+             MODULE: SEO MANAGEMENT
              ========================================================================= */}
           {activeTab === 'seo' && (
             <div className="admin-seo-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -2431,12 +2486,14 @@ const Admin = () => {
           )}
 
           {/* =========================================================================
-             OTHER MODULES: REVIEWS, OFFERS, SALES STATS, ORDERS, CUSTOMERS, ETC.
+             MODULE 1: REVIEWS & RATINGS MANAGEMENT
              ========================================================================= */}
           {activeTab === 'reviews' && (
             <div className="admin-reviews-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Review KPI & Rating Distribution Card */}
               <div className="admin-card admin-card--wide" style={{ padding: '20px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', alignItems: 'center' }}>
+                  {/* Big Average Score */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderRight: '1px solid #E1E6DC', paddingRight: '20px' }}>
                     <div style={{ fontSize: '48px', fontWeight: 900, color: '#2D5016', lineHeight: 1 }}>
                       {reviewStats.avg}
@@ -2453,6 +2510,7 @@ const Admin = () => {
                     </div>
                   </div>
 
+                  {/* Rating Breakdown Bars */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {[5, 4, 3, 2, 1].map(stars => {
                       const count = reviewStats.counts[stars] || 0;
@@ -2469,6 +2527,7 @@ const Admin = () => {
                     })}
                   </div>
 
+                  {/* Low Rating Watchlist Banner */}
                   <div style={{ background: reviewStats.lowCount > 0 ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${reviewStats.lowCount > 0 ? '#FECACA' : '#BBF7D0'}`, borderRadius: '10px', padding: '14px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                       <FiAlertTriangle style={{ color: reviewStats.lowCount > 0 ? '#DC2626' : '#16A34A' }} />
@@ -2478,13 +2537,14 @@ const Admin = () => {
                     </div>
                     <p style={{ fontSize: '11.5px', color: '#4B5563', margin: 0 }}>
                       {reviewStats.lowCount > 0
-                        ? 'Items with 1-2 star ratings require quality check.'
+                        ? 'Items with 1-2 star ratings require quality check or packaging review.'
                         : 'No critical negative reviews found. Over 90% positive store rating.'}
                     </p>
                   </div>
                 </div>
               </div>
 
+              {/* Filters & Search Toolbar */}
               <div className="admin-card admin-card--wide" style={{ padding: '16px 20px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div className="inventory-filters-tabs">
@@ -2543,8 +2603,13 @@ const Admin = () => {
                 </div>
               </div>
 
+              {/* Reviews Cards Grid */}
               <div className="admin-reviews-grid">
-                {filteredReviews.map(rev => (
+                {filteredReviews.length === 0 ? (
+                  <div className="admin-card admin-card--wide" style={{ textAlign: 'center', padding: '36px', color: '#687466', gridColumn: '1 / -1' }}>
+                    No customer reviews found matching your filter criteria.
+                  </div>
+                ) : filteredReviews.map(rev => (
                   <div key={rev.id} className={`admin-review-card ${rev.status === 'Pending' ? 'admin-review-card--pending' : (rev.status === 'Rejected' ? 'admin-review-card--rejected' : '')}`}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
                       <div>
@@ -2585,6 +2650,7 @@ const Admin = () => {
                       <span>{new Date(rev.createdAt).toLocaleDateString('en-IN')}</span>
                     </div>
 
+                    {/* Moderation actions */}
                     <div style={{ display: 'flex', gap: '6px', marginTop: '6px', borderTop: '1px solid #F1F3ED', paddingTop: '8px' }}>
                       {rev.status !== 'Approved' && (
                         <button
@@ -2594,11 +2660,14 @@ const Admin = () => {
                           onClick={async () => {
                             await adminApi.updateReviewStatus(rev.id, 'Approved');
                             setReviewsList(prev => prev.map(r => r.id === rev.id ? { ...r, status: 'Approved' } : r));
+                            setSaveToast({ type: 'success', msg: 'Review approved and published' });
+                            setTimeout(() => setSaveToast(null), 3000);
                           }}
                         >
                           <FiCheck size={12} /> Approve
                         </button>
                       )}
+
                       {rev.status !== 'Rejected' && (
                         <button
                           type="button"
@@ -2607,17 +2676,21 @@ const Admin = () => {
                           onClick={async () => {
                             await adminApi.updateReviewStatus(rev.id, 'Rejected');
                             setReviewsList(prev => prev.map(r => r.id === rev.id ? { ...r, status: 'Rejected' } : r));
+                            setSaveToast({ type: 'success', msg: 'Review rejected & hidden' });
+                            setTimeout(() => setSaveToast(null), 3000);
                           }}
                         >
                           <FiX size={12} /> Reject
                         </button>
                       )}
+
                       <button
                         type="button"
                         className="admin-danger"
                         style={{ width: '30px', height: '30px', padding: 0, borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                        title="Delete Review"
                         onClick={async () => {
-                          if (window.confirm('Delete review?')) {
+                          if (window.confirm('Delete this review permanently?')) {
                             await adminApi.deleteReview(rev.id);
                             setReviewsList(prev => prev.filter(r => r.id !== rev.id));
                           }
@@ -2632,10 +2705,13 @@ const Admin = () => {
             </div>
           )}
 
-          {/* OFFERS & PROMOS */}
+          {/* =========================================================================
+             MODULE 2: GROCERY PROMOTIONS & COUPONS
+             ========================================================================= */}
           {activeTab === 'offers' && (
             <div className="admin-promos-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="admin-grid" style={{ gridTemplateColumns: '1.2fr 1fr' }}>
+                {/* Advanced Coupon Builder Form */}
                 <form className="admin-form" onSubmit={saveCoupon}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <FiGift size={18} style={{ color: '#2D5016' }} />
@@ -2660,41 +2736,45 @@ const Admin = () => {
                     </div>
                   </div>
 
+                  {/* BOGO & Buy X Get Y Quantities */}
                   {(couponDraft.type === 'bogo' || couponDraft.type === 'buyXgetY') && (
                     <div className="admin-form__grid admin-form__grid--two" style={{ background: '#FAF9F5', padding: '10px', borderRadius: '8px' }}>
                       <div>
                         <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Buy Quantity (X)</label>
-                        <input type="number" value={couponDraft.buyQuantity} onChange={(e) => setCouponDraft(prev => ({ ...prev, buyQuantity: e.target.value }))} placeholder="2" />
+                        <input type="number" value={couponDraft.buyQuantity} onChange={(e) => setCouponDraft(prev => ({ ...prev, buyQuantity: e.target.value }))} placeholder="e.g. 2" />
                       </div>
                       <div>
                         <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Get Free Quantity (Y)</label>
-                        <input type="number" value={couponDraft.getQuantity} onChange={(e) => setCouponDraft(prev => ({ ...prev, getQuantity: e.target.value }))} placeholder="1" />
+                        <input type="number" value={couponDraft.getQuantity} onChange={(e) => setCouponDraft(prev => ({ ...prev, getQuantity: e.target.value }))} placeholder="e.g. 1" />
                       </div>
                     </div>
                   )}
 
+                  {/* Discount values */}
                   {couponDraft.type !== 'freeDelivery' && couponDraft.type !== 'bogo' && couponDraft.type !== 'buyXgetY' && (
                     <div className="admin-form__grid admin-form__grid--two">
                       <div>
                         <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>
-                          {couponDraft.type === 'percent' ? 'Discount (%)' : 'Discount (₹)'}
+                          {couponDraft.type === 'percent' ? 'Discount Percentage (%)' : 'Discount Amount (₹)'}
                         </label>
-                        <input value={couponDraft.value} onChange={(e) => setCouponDraft(prev => ({ ...prev, value: e.target.value }))} placeholder="50" type="number" required />
+                        <input value={couponDraft.value} onChange={(e) => setCouponDraft(prev => ({ ...prev, value: e.target.value }))} placeholder={couponDraft.type === 'percent' ? '15' : '50'} type="number" required />
                       </div>
                       {couponDraft.type === 'percent' && (
                         <div>
-                          <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Max Discount (₹)</label>
-                          <input value={couponDraft.maxDiscount || ''} onChange={(e) => setCouponDraft(prev => ({ ...prev, maxDiscount: e.target.value }))} placeholder="150" type="number" />
+                          <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Max Discount Cap (₹)</label>
+                          <input value={couponDraft.maxDiscount || ''} onChange={(e) => setCouponDraft(prev => ({ ...prev, maxDiscount: e.target.value }))} placeholder="e.g. 150 (optional)" type="number" />
                         </div>
                       )}
                     </div>
                   )}
 
+                  {/* Target Scope & Minimum Order */}
                   <div className="admin-form__grid admin-form__grid--two">
                     <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Minimum Order (₹)</label>
-                      <input value={couponDraft.minOrder} onChange={(e) => setCouponDraft(prev => ({ ...prev, minOrder: e.target.value }))} placeholder="499" type="number" />
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Minimum Order Value (₹)</label>
+                      <input value={couponDraft.minOrder} onChange={(e) => setCouponDraft(prev => ({ ...prev, minOrder: e.target.value }))} placeholder="e.g. 499" type="number" />
                     </div>
+
                     <div>
                       <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Target Scope</label>
                       <select value={couponDraft.targetType} onChange={(e) => setCouponDraft(prev => ({ ...prev, targetType: e.target.value }))}>
@@ -2706,21 +2786,65 @@ const Admin = () => {
                     </div>
                   </div>
 
-                  <input value={couponDraft.title} onChange={(e) => setCouponDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Banner title e.g. FLAT ₹50 OFF" />
-                  <input value={couponDraft.description} onChange={(e) => setCouponDraft(prev => ({ ...prev, description: e.target.value }))} placeholder="Banner subtext e.g. On orders above ₹399" />
+                  {couponDraft.targetType === 'category' && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Select Category</label>
+                      <select value={couponDraft.targetCategory} onChange={(e) => setCouponDraft(prev => ({ ...prev, targetCategory: e.target.value }))}>
+                        <option value="">Choose category...</option>
+                        {(dbCategories.length ? dbCategories : categories).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                  )}
 
-                  <button className="admin__primary"><FiPlus /> Save Coupon</button>
+                  {couponDraft.targetType === 'customer' && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Target Customer Email</label>
+                      <input value={couponDraft.targetCustomerEmail || ''} onChange={(e) => setCouponDraft(prev => ({ ...prev, targetCustomerEmail: e.target.value }))} placeholder="customer@gmail.com" />
+                    </div>
+                  )}
+
+                  {/* Scheduling & Limits */}
+                  <div className="admin-form__grid admin-form__grid--two">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Start Date</label>
+                      <input type="date" value={couponDraft.startDate || ''} onChange={(e) => setCouponDraft(prev => ({ ...prev, startDate: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: '700', marginBottom: '3px' }}>End Date (Expiry)</label>
+                      <input type="date" value={couponDraft.endDate || ''} onChange={(e) => setCouponDraft(prev => ({ ...prev, endDate: e.target.value }))} />
+                    </div>
+                  </div>
+
+                  <div className="admin-form__grid admin-form__grid--two">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Total Usage Limit</label>
+                      <input type="number" value={couponDraft.usageLimit} onChange={(e) => setCouponDraft(prev => ({ ...prev, usageLimit: e.target.value }))} placeholder="500" />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Customer Type</label>
+                      <select value={couponDraft.customerType} onChange={(e) => setCouponDraft(prev => ({ ...prev, customerType: e.target.value }))}>
+                        <option value="retail">Retail Store</option>
+                        <option value="wholesale">Wholesale B2B</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <input value={couponDraft.title} onChange={(e) => setCouponDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Banner title e.g. FLAT ₹50 OFF" />
+                  <input value={couponDraft.description} onChange={(e) => setCouponDraft(prev => ({ ...prev, description: e.target.value }))} placeholder="Banner subtext e.g. On first grocery order above ₹399" />
+
+                  <button className="admin__primary"><FiPlus /> Save & Activate Coupon</button>
                 </form>
 
+                {/* Promotional Banners & Sale Deals Form */}
                 <form className="admin-form" onSubmit={saveOffer}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <FiTag size={18} style={{ color: '#2D5016' }} />
-                    <h2 style={{ margin: 0 }}>Add Deal Banner</h2>
+                    <h2 style={{ margin: 0 }}>Add Festive / Daily Deal Banner</h2>
                   </div>
 
                   <input value={offerDraft.title} onChange={(e) => setOfferDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Deal Title e.g. Diwali Mega Rice Fest" required />
                   <input value={offerDraft.subtitle} onChange={(e) => setOfferDraft(prev => ({ ...prev, subtitle: e.target.value }))} placeholder="Subtitle e.g. Flat 20% off on all Basmati Rice" />
-                  <input value={offerDraft.badge} onChange={(e) => setOfferDraft(prev => ({ ...prev, badge: e.target.value }))} placeholder="Badge e.g. Save ₹80" />
+                  <input value={offerDraft.badge} onChange={(e) => setOfferDraft(prev => ({ ...prev, badge: e.target.value }))} placeholder="Badge e.g. Save ₹80 / BOGO" />
 
                   <div className="admin-form__grid admin-form__grid--two">
                     <input value={offerDraft.price} onChange={(e) => setOfferDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="Deal Price (₹)" type="number" />
@@ -2736,31 +2860,80 @@ const Admin = () => {
                     <div>
                       <input value={offerDraft.image} onChange={(e) => setOfferDraft(prev => ({ ...prev, image: e.target.value }))} placeholder="Add offer banner image URL" />
                       <label className="admin-file-input admin-file-input--compact">
-                        <span>Or choose file</span>
+                        <span>Or choose file from device</span>
                         <input type="file" accept="image/*" onChange={handleOfferImageUpload} />
                       </label>
                     </div>
                   </div>
 
-                  <button className="admin__primary"><FiPlus /> Publish Deal Banner</button>
+                  <button className="admin__primary"><FiPlus /> Publish Promotion Banner</button>
                 </form>
               </div>
 
+              {/* Active Coupons Grid with Usage Analytics */}
               <div className="admin-card admin-card--wide">
-                <h2>Active Coupons ({coupons.length})</h2>
+                <div className="admin-card__toolbar">
+                  <h2>Active Coupons & Promo Codes ({coupons.length})</h2>
+                </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
                   {coupons.map(coupon => (
                     <div key={coupon.id} className="admin-promo-card">
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <strong style={{ fontSize: '15px', color: '#1C4B12' }}>{coupon.code}</strong>
+                        <strong style={{ fontSize: '15px', color: '#1C4B12', letterSpacing: '0.5px' }}>{coupon.code}</strong>
                         <span className={`admin-promo-pill admin-promo-pill--${coupon.type}`}>
                           {coupon.type === 'bogo' ? '🎁 BOGO' : (coupon.type === 'percent' ? `${coupon.value}% OFF` : `₹${coupon.value} OFF`)}
                         </span>
                       </div>
-                      <p style={{ margin: 0, fontSize: '12px', color: '#4B5563' }}>{coupon.title || coupon.description || 'Promotional coupon'}</p>
+
+                      <p style={{ margin: 0, fontSize: '12px', color: '#4B5563' }}>
+                        {coupon.title || coupon.description || 'Promotional coupon'}
+                      </p>
+
                       <div style={{ background: '#FAF9F5', padding: '8px 10px', borderRadius: '8px', fontSize: '11.5px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
                         <span>Min Order: <strong>₹{coupon.minOrder || 0}</strong></span>
+                        <span>Scope: <strong>{coupon.targetType || 'All'}</strong></span>
                         <span>Used: <strong>{coupon.timesUsed || 0} times</strong></span>
+                        <span>Discount Given: <strong>₹{coupon.totalDiscountGiven || 0}</strong></span>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                        <button
+                          type="button"
+                          style={{
+                            background: coupon.active !== false ? '#DCFCE7' : '#F3F4F6',
+                            color: coupon.active !== false ? '#166534' : '#6B7280',
+                            border: 'none',
+                            padding: '2px 8px',
+                            borderRadius: '10px',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            cursor: 'pointer'
+                          }}
+                          onClick={async () => {
+                            const nextActive = coupon.active === false ? true : false;
+                            try {
+                              const updated = await adminApi.updateCoupon(coupon.id, { active: nextActive });
+                              setCoupons(prev => prev.map(c => c.id === updated.id ? updated : c));
+                            } catch (err) { alert(err.message); }
+                          }}
+                        >
+                          {coupon.active !== false ? '🟢 Active' : '⚪ Inactive'}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="admin-danger"
+                          style={{ width: '28px', height: '28px', padding: 0, borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          onClick={async () => {
+                            if (window.confirm(`Delete coupon code ${coupon.code}?`)) {
+                              await adminApi.deleteCoupon(coupon.id);
+                              setCoupons(prev => prev.filter(c => c.id !== coupon.id));
+                            }
+                          }}
+                        >
+                          <FiTrash2 size={12} />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -2769,50 +2942,89 @@ const Admin = () => {
             </div>
           )}
 
-          {/* SALES ANALYTICS */}
+          {/* =========================================================================
+             MODULE 3: GROCERY SALES & INVENTORY ANALYTICS
+             ========================================================================= */}
           {activeTab === 'sales-stats' && (
             <div className="sales-analytics-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Header & Range Bar */}
               <div className="admin-card admin-card--wide" style={{ padding: '16px 20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
-                    <h2 style={{ margin: 0 }}>Grocery Sales & Performance Analytics</h2>
+                    <h2 style={{ margin: 0 }}>Grocery Sales & Inventory Analytics</h2>
                     <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
                       Real-time revenue, margins, wastage, turnover, and delivery area analytics.
                     </p>
                   </div>
+
                   <div className="admin-analytics-range-bar">
-                    <button type="button" className={`admin-range-btn ${analyticsTimeRange === '1' ? 'admin-range-btn--active' : ''}`} onClick={() => setAnalyticsTimeRange('1')}>Today</button>
-                    <button type="button" className={`admin-range-btn ${analyticsTimeRange === '7' ? 'admin-range-btn--active' : ''}`} onClick={() => setAnalyticsTimeRange('7')}>7 Days</button>
-                    <button type="button" className={`admin-range-btn ${analyticsTimeRange === '30' ? 'admin-range-btn--active' : ''}`} onClick={() => setAnalyticsTimeRange('30')}>30 Days</button>
-                    <button type="button" className={`admin-range-btn ${analyticsTimeRange === '90' ? 'admin-range-btn--active' : ''}`} onClick={() => setAnalyticsTimeRange('90')}>90 Days</button>
-                    <button type="button" className={`admin-range-btn ${analyticsTimeRange === '365' ? 'admin-range-btn--active' : ''}`} onClick={() => setAnalyticsTimeRange('365')}>1 Year</button>
+                    <button
+                      type="button"
+                      className={`admin-range-btn ${analyticsTimeRange === '1' ? 'admin-range-btn--active' : ''}`}
+                      onClick={() => setAnalyticsTimeRange('1')}
+                    >
+                      Today
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-range-btn ${analyticsTimeRange === '7' ? 'admin-range-btn--active' : ''}`}
+                      onClick={() => setAnalyticsTimeRange('7')}
+                    >
+                      7 Days
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-range-btn ${analyticsTimeRange === '30' ? 'admin-range-btn--active' : ''}`}
+                      onClick={() => setAnalyticsTimeRange('30')}
+                    >
+                      30 Days
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-range-btn ${analyticsTimeRange === '90' ? 'admin-range-btn--active' : ''}`}
+                      onClick={() => setAnalyticsTimeRange('90')}
+                    >
+                      90 Days
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-range-btn ${analyticsTimeRange === '365' ? 'admin-range-btn--active' : ''}`}
+                      onClick={() => setAnalyticsTimeRange('365')}
+                    >
+                      1 Year
+                    </button>
                   </div>
                 </div>
               </div>
 
+              {/* 4-KPI Grid */}
               <div className="admin-analytics-grid-4">
                 <div className="sales-kpi-card">
                   <span>GROSS REVENUE</span>
                   <strong>{formatPrice(analyticsSummary.grossRevenue)}</strong>
-                  <small>Net: {formatPrice(analyticsSummary.netRevenue)}</small>
+                  <small>Net: {formatPrice(analyticsSummary.netRevenue)} (after {formatPrice(analyticsSummary.totalRefunds)} refunds)</small>
                 </div>
+
                 <div className="sales-kpi-card">
                   <span>ORDERS & UNITS</span>
                   <strong>{analyticsSummary.ordersCount} orders</strong>
-                  <small>{analyticsSummary.totalUnitsSold} grocery units</small>
+                  <small>{analyticsSummary.totalUnitsSold} grocery units delivered</small>
                 </div>
+
                 <div className="sales-kpi-card">
-                  <span>AVG ORDER VALUE</span>
+                  <span>AVG ORDER VALUE (AOV)</span>
                   <strong>{formatPrice(analyticsSummary.aov)}</strong>
-                  <small>Repeat Rate: <strong>{analyticsSummary.repeatRate}%</strong></small>
+                  <small>Repeat Customer Rate: <strong>{analyticsSummary.repeatRate}%</strong></small>
                 </div>
+
                 <div className="sales-kpi-card" style={{ background: '#FFFDF7', borderColor: '#FDE68A' }}>
                   <span style={{ color: '#92400E' }}>WASTAGE / EXPIRED LOSSES</span>
                   <strong style={{ color: '#B45309' }}>{formatPrice(analyticsSummary.wastageLoss)}</strong>
-                  <small>Damaged + Expired stock value</small>
+                  <small>Damaged + Expired stock valuation</small>
                 </div>
               </div>
 
+              {/* Revenue Trend SVG Chart */}
               <section className="sales-chart-card">
                 <div className="sales-section-label">REVENUE TREND ({analyticsTimeRange} DAYS)</div>
                 <div className="sales-line-chart-wrap">
@@ -2851,69 +3063,1886 @@ const Admin = () => {
                   })()}
                 </div>
               </section>
+
+              {/* Category & Brand Performance Breakdown Cards */}
+              <div className="admin-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                <div className="admin-breakdown-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ fontSize: '13.5px', color: '#1C4B12' }}>Category Revenue Share</strong>
+                    <FiPieChart size={16} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {analyticsSummary.categorySales.slice(0, 6).map(([cat, rev]) => {
+                      const maxCat = analyticsSummary.categorySales[0]?.[1] || 1;
+                      const pct = Math.round((rev / (analyticsSummary.grossRevenue || 1)) * 100);
+                      return (
+                        <div key={cat} className="admin-breakdown-item">
+                          <span style={{ textTransform: 'capitalize', fontWeight: 600, width: '100px' }}>{cat}</span>
+                          <div className="admin-progress-bar-wrap">
+                            <div className="admin-progress-bar-fill" style={{ width: `${(rev / maxCat) * 100}%` }} />
+                          </div>
+                          <strong>{formatPrice(rev)} ({pct}%)</strong>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="admin-breakdown-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ fontSize: '13.5px', color: '#1C4B12' }}>Brand Performance Share</strong>
+                    <FiTag size={16} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {analyticsSummary.brandSales.slice(0, 6).map(([brand, rev]) => {
+                      const maxBrand = analyticsSummary.brandSales[0]?.[1] || 1;
+                      const pct = Math.round((rev / (analyticsSummary.grossRevenue || 1)) * 100);
+                      return (
+                        <div key={brand} className="admin-breakdown-item">
+                          <span style={{ fontWeight: 600, width: '100px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{brand}</span>
+                          <div className="admin-progress-bar-wrap">
+                            <div className="admin-progress-bar-fill" style={{ width: `${(rev / maxBrand) * 100}%`, background: '#3B82F6' }} />
+                          </div>
+                          <strong>{formatPrice(rev)} ({pct}%)</strong>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Fast-Moving vs Slow-Moving Products */}
+              <div className="admin-grid" style={{ gridTemplateColumns: '1.2fr 1fr' }}>
+                <div className="admin-card">
+                  <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: '#1C4B12', margin: '0 0 10px' }}>
+                    🚀 Fast-Moving Products (Top Sellers)
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {analyticsSummary.fastMoving.map((p, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#FAF9F5', borderRadius: '8px', fontSize: '12px' }}>
+                        <div>
+                          <strong>{idx + 1}. {p.name}</strong>
+                          <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>{p.brand} · {p.category}</span>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <strong style={{ color: '#15803D' }}>{formatPrice(p.revenue)}</strong>
+                          <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>{p.units} units sold</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="admin-card">
+                  <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: '#B45309', margin: '0 0 10px' }}>
+                    ⏳ Slow-Moving / Low Turnover Watchlist
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {analyticsSummary.slowMoving.map((p, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#FFFDF7', border: '1px solid #FEF3C7', borderRadius: '8px', fontSize: '12px' }}>
+                        <div>
+                          <strong>{p.name}</strong>
+                          <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>Stock: {p.stockNote}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="admin__ghost"
+                          style={{ height: '28px', fontSize: '11px' }}
+                          onClick={() => {
+                            setActiveTab('offers');
+                            setCouponDraft(prev => ({
+                              ...prev,
+                              code: `DEAL-${p.category.toUpperCase()}`,
+                              title: `Special Promo on ${p.name}`,
+                              targetType: 'product',
+                              targetProductId: p.id
+                            }));
+                          }}
+                        >
+                          + Create Promo
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Delivery Area & Pincode Performance Table */}
+              <div className="admin-card admin-card--wide">
+                <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: '#1C4B12', margin: '0 0 10px' }}>
+                  🚚 Locality & Delivery Area Performance
+                </h3>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="inventory-table">
+                    <thead>
+                      <tr>
+                        <th>LOCALITY / AREA</th>
+                        <th>ORDERS FULFILLED</th>
+                        <th>REVENUE (₹)</th>
+                        <th>AVG ORDER VALUE (₹)</th>
+                        <th>SHARE (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analyticsSummary.areaSales.map(([area, data]) => {
+                        const pct = Math.round((data.revenue / (analyticsSummary.grossRevenue || 1)) * 100);
+                        return (
+                          <tr key={area}>
+                            <td><strong>{area}</strong></td>
+                            <td>{data.orders}</td>
+                            <td><strong style={{ color: '#15803D' }}>{formatPrice(data.revenue)}</strong></td>
+                            <td>{formatPrice(Math.round(data.revenue / (data.orders || 1)))}</td>
+                            <td>
+                              <span className="admin-dist-bar-fill" style={{ display: 'inline-block', width: `${Math.max(10, pct)}%`, padding: '2px 6px', color: '#fff', fontSize: '10.5px', borderRadius: '4px', textAlign: 'center' }}>
+                                {pct}%
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* RETAIL CONTENT & WHOLESALE CONTENT */}
-          {(activeTab === 'retail-content' || activeTab === 'wholesale-content') && (
-            <section className="admin-card admin-card--wide">
-              <div className="admin-card__toolbar">
-                <h2>{activeTab === 'retail-content' ? 'Retail' : 'Wholesale'} Product Content Editor</h2>
-                <label className="admin-search-label">
-                  <FiSearch />
-                  <input value={contentSearch} onChange={(e) => setContentSearch(e.target.value)} placeholder="Search products..." />
-                </label>
+          {/* =========================================================================
+             OTHER MODULES: ORDERS, CUSTOMERS, INVENTORY, DELIVERY, CATALOG
+             ========================================================================= */}
+          {activeTab === 'orders' && (
+            <div className="admin-orders-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Top Filter and Search Toolbar */}
+              <div className="admin-card admin-card--wide" style={{ padding: '16px 20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div className="inventory-filters-tabs">
+                    <button
+                      className={`inventory-filter-btn ${orderStatusFilter === 'all' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setOrderStatusFilter('all')}
+                    >
+                      All Orders <span className="inventory-badge-count">{liveOrders?.length || 0}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${orderStatusFilter === 'pending' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setOrderStatusFilter('pending')}
+                    >
+                      🟡 Pending / Preparing <span className="inventory-badge-count">{liveOrders?.filter(o => ['Pending', 'Preparing'].includes(o.status)).length || 0}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${orderStatusFilter === 'in-transit' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setOrderStatusFilter('in-transit')}
+                    >
+                      🚚 In Transit <span className="inventory-badge-count">{liveOrders?.filter(o => o.status === 'In Transit').length || 0}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${orderStatusFilter === 'delivered' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setOrderStatusFilter('delivered')}
+                    >
+                      ✅ Delivered <span className="inventory-badge-count">{liveOrders?.filter(o => ['Delivered', 'Paid'].includes(o.status)).length || 0}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${orderStatusFilter === 'cancelled' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setOrderStatusFilter('cancelled')}
+                    >
+                      ❌ Cancelled <span className="inventory-badge-count">{liveOrders?.filter(o => o.status === 'Cancelled').length || 0}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${orderStatusFilter === 'returns' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setOrderStatusFilter('returns')}
+                    >
+                      ↩️ Returns <span className="inventory-badge-count">{liveOrders?.filter(o => o.returnStatus && o.returnStatus !== 'None').length || 0}</span>
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '10px', flex: 1, minWidth: '280px' }}>
+                      <div className="admin-search-label" style={{ flex: 1 }}>
+                        <FiSearch />
+                        <input
+                          placeholder="Search by Order ID, Bill No, Customer Name, Phone, Address or Txn Ref..."
+                          value={orderSearchQuery}
+                          onChange={(e) => setOrderSearchQuery(e.target.value)}
+                          style={{ width: '100%' }}
+                        />
+                      </div>
+                      <select
+                        className="admin-input-box"
+                        style={{ width: '170px', height: '38px', borderRadius: '10px' }}
+                        value={orderPaymentFilter}
+                        onChange={(e) => setOrderPaymentFilter(e.target.value)}
+                      >
+                        <option value="all">All Payments</option>
+                        <option value="paid">🟢 Paid</option>
+                        <option value="pending">🟡 Payment Pending</option>
+                        <option value="refunded">🟣 Refunded</option>
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button className="admin__ghost" onClick={loadOrders} style={{ height: '38px', padding: '0 12px', fontSize: '12px' }}>
+                        <FiRefreshCw size={13} /> Refresh
+                      </button>
+                      <button className="admin__primary" onClick={exportOrdersCsv} style={{ height: '38px', padding: '0 14px', fontSize: '12px' }}>
+                        📥 Export Orders CSV
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="admin-content-list">
-                <div className={`admin-content-header ${activeTab === 'wholesale-content' ? 'admin-content-header--ws' : ''}`}>
-                  <span>Image</span>
-                  <span>Item Name</span>
-                  <span>MRP (₹)</span>
-                  <span>Disc. Price (₹)</span>
-                  <span>% Off</span>
-                  <span>Availability</span>
-                  <span>Quantity</span>
-                  {activeTab === 'wholesale-content' && <span>WS Price (₹)</span>}
-                  <span>Description</span>
-                </div>
+              {/* Order Cards List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {filteredOrders.length === 0 ? (
+                  <div className="admin-card admin-card--wide" style={{ textAlign: 'center', padding: '40px', color: '#687466' }}>
+                    No orders matching your filter or search criteria.
+                  </div>
+                ) : filteredOrders.map(order => (
+                  <div key={order.id} className="admin-order-card-enhanced">
+                    <div className="admin-order-card-header">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: 36, height: 36, borderRadius: '8px', background: '#F1F8E9', color: '#2D5016', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <FiShoppingBag size={18} />
+                        </div>
+                        <div>
+                          <strong style={{ fontSize: '14px', color: '#111827' }}>Order #{order.id}</strong>
+                          <span style={{ fontSize: '12px', color: '#2D5016', fontWeight: '800', marginLeft: '8px' }}>BILL-{order.id + 7820}</span>
+                          <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>
+                            Placed on: {order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN') : '—'}
+                          </span>
+                        </div>
+                      </div>
 
-                {filteredContentProducts.map(product => {
-                  const isWS = activeTab === 'wholesale-content';
-                  return (
-                    <div key={product.id} className={`admin-content-editor ${isWS ? 'admin-content-editor--ws' : ''}`}>
-                      <img src={toWebpImage(product.image)} alt={product.name} />
-                      <input value={product.name || ''} onChange={(e) => updateProductField(product.id, 'name', e.target.value, isWS)} placeholder="Item name" />
-                      <input value={product.mrp || ''} onChange={(e) => updateProductField(product.id, 'mrp', e.target.value, isWS)} type="number" placeholder="MRP" />
-                      <input value={product.price || ''} onChange={(e) => updateProductField(product.id, 'price', e.target.value, isWS)} type="number" placeholder="Price" />
-                      <input value={product.discount || ''} onChange={(e) => updateProductField(product.id, 'discount', e.target.value, isWS)} type="number" placeholder="% off" />
-                      <select value={product.stockNote || 'In stock'} onChange={(e) => updateProductField(product.id, 'stockNote', e.target.value, isWS)}>
-                        <option>In stock</option>
-                        <option>Only few left</option>
-                        <option>Only 10 left</option>
-                        <option>Out of stock</option>
-                      </select>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span className={`admin-order-status-pill admin-order-status-pill--${order.status.toLowerCase().replace(/\s+/g, '-')}`}>
+                          {order.status}
+                        </span>
+                        <span className={`admin-payment-pill admin-payment-pill--${(order.paymentStatus || 'pending').toLowerCase().replace(/\s+/g, '-')}`}>
+                          {order.paymentStatus === 'Paid' ? '✓ Paid' : (order.paymentStatus || 'Pending')}
+                        </span>
+                        {order.deliverySlot && (
+                          <span style={{ fontSize: '11px', background: '#FAF9F5', border: '1px solid #E1E6DC', padding: '2px 7px', borderRadius: '4px', color: '#4B5563' }}>
+                            🕒 {order.deliverySlot}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          className="admin__ghost"
+                          style={{ height: '32px', fontSize: '11.5px', padding: '0 10px', borderRadius: '6px' }}
+                          onClick={() => {
+                            setSelectedOrderModal(order);
+                            setOrderNotesText(order.orderNotes || '');
+                            setRefundForm({ amount: '', reason: 'Customer return / out of stock' });
+                          }}
+                        >
+                          <FiEye size={12} /> View Details
+                        </button>
+                        <button
+                          className="admin__ghost"
+                          style={{ height: '32px', fontSize: '11.5px', padding: '0 10px', borderRadius: '6px' }}
+                          title="Print Tax Invoice"
+                          onClick={() => setInvoiceModalOrder(order)}
+                        >
+                          <FiPrinter size={12} /> Invoice
+                        </button>
+                        <button
+                          className="admin__ghost"
+                          style={{ height: '32px', fontSize: '11.5px', padding: '0 10px', borderRadius: '6px' }}
+                          title="Print Packing Slip"
+                          onClick={() => setPackingSlipModalOrder(order)}
+                        >
+                          <FiFileText size={12} /> Slip
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="admin-order-body-grid">
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Customer</span>
+                        <strong style={{ display: 'block', fontSize: '13px', color: '#111827', marginTop: '2px' }}>
+                          {order.customerName || 'Customer'}
+                        </strong>
+                        {order.customerPhone && <span style={{ fontSize: '11.5px', color: '#4B5563', display: 'block' }}>📞 {order.customerPhone}</span>}
+                        {order.customerEmail && <span style={{ fontSize: '11.5px', color: '#4B5563', display: 'block' }}>✉️ {order.customerEmail}</span>}
+                      </div>
+
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Items ({order.items?.length || 0})</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '3px' }}>
+                          {(order.items || []).slice(0, 3).map((item, idx) => (
+                            <span key={idx} style={{ fontSize: '11.5px', color: '#374151' }}>
+                              • {item.name} {item.weight ? `(${item.weight}${item.unit})` : ''} <strong>x{item.quantity || 1}</strong>
+                            </span>
+                          ))}
+                          {(order.items || []).length > 3 && (
+                            <span style={{ fontSize: '11px', color: '#687466' }}>+{(order.items || []).length - 3} more item(s)...</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Delivery Details</span>
+                        <span style={{ display: 'block', fontSize: '11.5px', color: '#374151', marginTop: '2px', lineHeight: '1.3' }}>
+                          {order.deliveryAddress || 'Store Pickup'}
+                        </span>
+                        {order.trackingNumber && (
+                          <span style={{ fontSize: '10.5px', color: '#687466', display: 'block', marginTop: '2px' }}>
+                            Tracking: <strong>{order.trackingNumber}</strong>
+                          </span>
+                        )}
+                      </div>
+
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Payment & Txn</span>
+                        <strong style={{ display: 'block', fontSize: '12.5px', color: '#111827', marginTop: '2px' }}>
+                          {order.paymentGateway || order.paymentMethod || 'COD'}
+                        </strong>
+                        <span style={{ fontSize: '11px', color: '#687466', fontFamily: 'monospace', display: 'block' }}>
+                          {order.paymentTxnId || `TXN-SIRI-${order.id}`}
+                        </span>
+                        {order.refundAmount > 0 && (
+                          <span style={{ fontSize: '11px', color: '#7E22CE', fontWeight: 'bold', display: 'block' }}>
+                            Refunded: {formatPrice(order.refundAmount)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Grand Total</span>
+                        <strong style={{ display: 'block', fontSize: '16px', color: '#111827', marginTop: '2px' }}>
+                          {formatPrice(order.total)}
+                        </strong>
+                        <select
+                          value={order.status}
+                          className="admin-status-select"
+                          style={{ marginTop: '6px', height: '32px', fontSize: '11.5px' }}
+                          onChange={(e) => handleUpdateOrder(order.id, { status: e.target.value })}
+                        >
+                          {['Pending', 'Preparing', 'In Transit', 'Delivered', 'Paid', 'Cancelled'].map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* MODAL: DETAILED ORDER DRILLDOWN & PAYMENT ACTIONS */}
+              {selectedOrderModal && (
+                <div className="inventory-modal-backdrop" onClick={() => setSelectedOrderModal(null)}>
+                  <div className="inventory-modal" style={{ maxWidth: '780px' }} onClick={e => e.stopPropagation()}>
+                    <div className="inventory-modal__header">
+                      <div>
+                        <h2>Order #{selectedOrderModal.id} — BILL-{selectedOrderModal.id + 7820}</h2>
+                        <span style={{ fontSize: '11.5px', color: '#687466' }}>
+                          Placed on: {selectedOrderModal.createdAt ? new Date(selectedOrderModal.createdAt).toLocaleString('en-IN') : '—'}
+                        </span>
+                      </div>
+                      <button className="inventory-modal__close" onClick={() => setSelectedOrderModal(null)}>✕</button>
+                    </div>
+
+                    <div className="inventory-modal__body" style={{ gap: '16px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', background: '#FAF9F5', padding: '14px', borderRadius: '10px' }}>
+                        <div>
+                          <strong style={{ display: 'block', fontSize: '13px', color: '#1C4B12', marginBottom: '4px' }}>Customer Contact</strong>
+                          <div style={{ fontSize: '12px', lineHeight: '1.4' }}>
+                            <div>Name: <strong>{selectedOrderModal.customerName || 'Customer'}</strong></div>
+                            <div>Phone: <strong>{selectedOrderModal.customerPhone || 'Not provided'}</strong></div>
+                            <div>Email: <strong>{selectedOrderModal.customerEmail || 'Not provided'}</strong></div>
+                          </div>
+                        </div>
+                        <div>
+                          <strong style={{ display: 'block', fontSize: '13px', color: '#1C4B12', marginBottom: '4px' }}>Delivery Details</strong>
+                          <div style={{ fontSize: '12px', lineHeight: '1.4' }}>
+                            <div>Address: <strong>{selectedOrderModal.deliveryAddress || 'Store Pickup'}</strong></div>
+                            <div>Slot: <strong>{selectedOrderModal.deliverySlot || 'Standard Delivery'}</strong></div>
+                            <div>Tracking: <strong>{selectedOrderModal.trackingNumber || 'TRK-SIRI-DEFAULT'}</strong></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 style={{ fontSize: '12.5px', textTransform: 'uppercase', color: '#1C4B12', margin: '0 0 8px', fontWeight: 800 }}>
+                          Order Items ({(selectedOrderModal.items || []).length})
+                        </h3>
+                        <table className="admin-variant-table">
+                          <thead>
+                            <tr>
+                              <th>PRODUCT</th>
+                              <th>PACK SIZE</th>
+                              <th>PRICE (₹)</th>
+                              <th>QTY</th>
+                              <th style={{ textAlign: 'right' }}>TOTAL (₹)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(selectedOrderModal.items || []).map((it, i) => (
+                              <tr key={i}>
+                                <td><strong>{it.name}</strong></td>
+                                <td>{it.weight ? `${it.weight}${it.unit}` : 'Standard'}</td>
+                                <td>{formatPrice(it.price)}</td>
+                                <td>x{it.quantity || 1}</td>
+                                <td style={{ textAlign: 'right', fontWeight: 800 }}>{formatPrice(it.price * (it.quantity || 1))}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div style={{ background: '#FFFFFF', border: '1px solid #E1E6DC', borderRadius: '10px', padding: '14px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                          <strong style={{ fontSize: '13px', color: '#111827' }}>Payment & Transaction Record</strong>
+                          <span className={`admin-payment-pill admin-payment-pill--${(selectedOrderModal.paymentStatus || 'pending').toLowerCase().replace(/\s+/g, '-')}`}>
+                            {selectedOrderModal.paymentStatus || 'Pending'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', fontSize: '12px' }}>
+                          <div>Method: <strong>{selectedOrderModal.paymentGateway || selectedOrderModal.paymentMethod || 'COD'}</strong></div>
+                          <div>Txn Ref: <strong style={{ fontFamily: 'monospace' }}>{selectedOrderModal.paymentTxnId || `TXN-SIRI-${selectedOrderModal.id}`}</strong></div>
+                          <div>Total Billed: <strong>{formatPrice(selectedOrderModal.total)}</strong></div>
+                          <div>Refunded: <strong style={{ color: '#7E22CE' }}>{formatPrice(selectedOrderModal.refundAmount || 0)}</strong></div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '12px', alignItems: 'center' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#687466' }}>Update Payment Status:</span>
+                          <button
+                            type="button"
+                            className="admin__ghost"
+                            style={{ height: '28px', fontSize: '11px', padding: '0 8px' }}
+                            onClick={() => handleUpdateOrder(selectedOrderModal.id, { paymentStatus: 'Paid' }, 'Marked payment as Paid')}
+                          >
+                            Mark Paid
+                          </button>
+                          <button
+                            type="button"
+                            className="admin__ghost"
+                            style={{ height: '28px', fontSize: '11px', padding: '0 8px' }}
+                            onClick={() => handleUpdateOrder(selectedOrderModal.id, { paymentStatus: 'Pending' }, 'Marked payment as Pending')}
+                          >
+                            Mark Pending
+                          </button>
+                        </div>
+                      </div>
+
+                      <div style={{ background: '#FAF5FF', border: '1px solid #E9D5FF', borderRadius: '10px', padding: '14px' }}>
+                        <strong style={{ display: 'block', fontSize: '12.5px', color: '#6B21A8', marginBottom: '8px' }}>
+                          💸 Issue Refund / Partial Refund
+                        </strong>
+                        <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr auto', gap: '8px' }}>
+                          <input
+                            type="number"
+                            className="admin-input-box"
+                            placeholder="Amount (₹)"
+                            value={refundForm.amount}
+                            onChange={(e) => setRefundForm(p => ({ ...p, amount: e.target.value }))}
+                          />
+                          <input
+                            type="text"
+                            className="admin-input-box"
+                            placeholder="Reason for refund (e.g. Item out of stock)"
+                            value={refundForm.reason}
+                            onChange={(e) => setRefundForm(p => ({ ...p, reason: e.target.value }))}
+                          />
+                          <button
+                            type="button"
+                            className="admin__primary"
+                            style={{ height: '38px', background: '#7E22CE', padding: '0 14px', fontSize: '12px' }}
+                            disabled={!refundForm.amount || Number(refundForm.amount) <= 0 || orderActionLoading}
+                            onClick={() => {
+                              handleUpdateOrder(
+                                selectedOrderModal.id,
+                                { refundAmount: Number(refundForm.amount), refundReason: refundForm.reason },
+                                `Issued refund of ₹${refundForm.amount}`
+                              );
+                              setRefundForm({ amount: '', reason: 'Customer return / out of stock' });
+                            }}
+                          >
+                            Process Refund
+                          </button>
+                        </div>
+                      </div>
+
+                      {selectedOrderModal.status !== 'Cancelled' && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', padding: '12px 14px' }}>
+                          <div>
+                            <strong style={{ display: 'block', fontSize: '12.5px', color: '#991B1B' }}>Cancel Order & Restock</strong>
+                            <span style={{ fontSize: '11px', color: '#7F1D1D' }}>Cancel order and automatically restore stock in inventory database.</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="admin-danger"
+                            style={{ height: '32px', padding: '0 12px', fontSize: '11.5px', borderRadius: '6px' }}
+                            onClick={() => {
+                              if (window.confirm('Cancel order and restock items back into inventory?')) {
+                                handleUpdateOrder(
+                                  selectedOrderModal.id,
+                                  { status: 'Cancelled', cancellationReason: 'Admin / Customer cancellation', restockOnCancel: true },
+                                  `Order #${selectedOrderModal.id} cancelled and inventory restocked`
+                                );
+                              }
+                            }}
+                          >
+                            Cancel & Restock
+                          </button>
+                        </div>
+                      )}
+
+                      <div>
+                        <strong style={{ display: 'block', fontSize: '12px', color: '#111827', marginBottom: '4px' }}>Internal Order Notes & Instructions</strong>
+                        <textarea
+                          rows={2}
+                          className="admin-input-box"
+                          placeholder="Add driver delivery instructions, customer phone verification notes..."
+                          value={orderNotesText}
+                          onChange={(e) => setOrderNotesText(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="admin__ghost"
+                          style={{ marginTop: '6px', height: '30px', fontSize: '11.5px' }}
+                          onClick={() => handleUpdateOrder(selectedOrderModal.id, { orderNotes: orderNotesText }, 'Order notes saved')}
+                        >
+                          Save Notes
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="inventory-modal__footer">
+                      <button className="admin__ghost" onClick={() => setSelectedOrderModal(null)}>Close</button>
+                      <button className="admin__primary" onClick={() => { setInvoiceModalOrder(selectedOrderModal); setSelectedOrderModal(null); }}>
+                        <FiPrinter /> Print Tax Invoice
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* MODAL: TAX INVOICE GENERATOR & PRINT VIEW */}
+              {invoiceModalOrder && (
+                <div className="inventory-modal-backdrop" onClick={() => setInvoiceModalOrder(null)}>
+                  <div className="admin-invoice-modal" onClick={e => e.stopPropagation()}>
+                    <div className="admin-invoice-paper">
+                      <div className="admin-invoice-header">
+                        <div>
+                          <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 900, color: '#1C4B12', letterSpacing: '0.5px' }}>
+                            SIRI TRADERS
+                          </h1>
+                          <p style={{ margin: '3px 0 0', fontSize: '11.5px', color: '#4B5563' }}>
+                            Premium Grocery & Wholesale Merchant<br />
+                            Hyderabad, Telangana — 500072<br />
+                            <strong>GSTIN: 36AAACS7820Q1Z5</strong> | Phone: +91 98490 12345
+                          </p>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <h2 style={{ margin: 0, fontSize: '16px', color: '#2D5016', fontWeight: 800 }}>TAX INVOICE</h2>
+                          <div style={{ fontSize: '12px', marginTop: '4px' }}>
+                            <div>Invoice No: <strong>BILL-{invoiceModalOrder.id + 7820}</strong></div>
+                            <div>Order Ref: <strong>#{invoiceModalOrder.id}</strong></div>
+                            <div>Date: <strong>{new Date(invoiceModalOrder.createdAt || Date.now()).toLocaleDateString('en-IN')}</strong></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', paddingBottom: '14px', borderBottom: '1px solid #E2E8F0', fontSize: '12px' }}>
+                        <div>
+                          <strong style={{ color: '#2D5016', display: 'block', marginBottom: '2px' }}>Billed / Delivered To:</strong>
+                          <div style={{ fontWeight: 800 }}>{invoiceModalOrder.customerName || 'Customer'}</div>
+                          <div>{invoiceModalOrder.deliveryAddress || 'Store Pickup'}</div>
+                          {invoiceModalOrder.customerPhone && <div>Phone: {invoiceModalOrder.customerPhone}</div>}
+                          {invoiceModalOrder.customerEmail && <div>Email: {invoiceModalOrder.customerEmail}</div>}
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <strong style={{ color: '#2D5016', display: 'block', marginBottom: '2px' }}>Payment & Delivery Details:</strong>
+                          <div>Payment Mode: <strong>{invoiceModalOrder.paymentGateway || invoiceModalOrder.paymentMethod || 'COD'}</strong></div>
+                          <div>Payment Status: <strong>{invoiceModalOrder.paymentStatus || 'Pending'}</strong></div>
+                          <div>Txn Ref: <strong>{invoiceModalOrder.paymentTxnId || `TXN-SIRI-${invoiceModalOrder.id}`}</strong></div>
+                          <div>Delivery Slot: <strong>{invoiceModalOrder.deliverySlot || 'Standard Delivery'}</strong></div>
+                        </div>
+                      </div>
+
+                      <table className="admin-invoice-table">
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>ITEM DESCRIPTION</th>
+                            <th>PACK SIZE</th>
+                            <th>RATE (₹)</th>
+                            <th>QTY</th>
+                            <th style={{ textAlign: 'right' }}>AMOUNT (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(invoiceModalOrder.items || []).map((it, idx) => (
+                            <tr key={idx}>
+                              <td>{idx + 1}</td>
+                              <td><strong>{it.name}</strong></td>
+                              <td>{it.weight ? `${it.weight}${it.unit}` : 'Standard'}</td>
+                              <td>{formatPrice(it.price)}</td>
+                              <td>{it.quantity || 1}</td>
+                              <td style={{ textAlign: 'right', fontWeight: 800 }}>{formatPrice(it.price * (it.quantity || 1))}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                        <div style={{ width: '260px', fontSize: '12.5px', lineHeight: '1.6' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Subtotal:</span>
+                            <span>{formatPrice((invoiceModalOrder.items || []).reduce((s, i) => s + i.price * (i.quantity || 1), 0) || invoiceModalOrder.total)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>GST / Taxes:</span>
+                            <span>Included</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Delivery Fee:</span>
+                            <span>₹0</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1.5px solid #2D5016', paddingTop: '4px', marginTop: '4px', fontWeight: 900, fontSize: '15px', color: '#1C4B12' }}>
+                            <span>Grand Total:</span>
+                            <span>{formatPrice(invoiceModalOrder.total)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '36px', paddingTop: '20px', borderTop: '1px solid #E2E8F0', fontSize: '11px', color: '#687466' }}>
+                        <div>
+                          Thank you for choosing Siri Traders!<br />
+                          For queries, contact support@siritrader.com
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ width: '140px', borderBottom: '1px solid #374151', marginBottom: '4px' }}></div>
+                          <strong>Authorized Signatory</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="inventory-modal__footer admin-invoice-actions">
+                      <button className="admin__ghost" onClick={() => setInvoiceModalOrder(null)}>Close</button>
+                      <button className="admin__primary" onClick={() => window.print()}>
+                        <FiPrinter /> Print Invoice
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* MODAL: PACKING SLIP VIEW */}
+              {packingSlipModalOrder && (
+                <div className="inventory-modal-backdrop" onClick={() => setPackingSlipModalOrder(null)}>
+                  <div className="admin-invoice-modal" onClick={e => e.stopPropagation()}>
+                    <div className="admin-invoice-paper">
+                      <div className="admin-invoice-header">
+                        <div>
+                          <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 900, color: '#1C4B12' }}>SIRI TRADERS FULFILLMENT</h1>
+                          <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#4B5563' }}>Warehouse & Order Picking Slip</p>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <strong style={{ fontSize: '14px', color: '#2D5016' }}>PACKING SLIP #{packingSlipModalOrder.id}</strong>
+                          <div style={{ fontSize: '11.5px' }}>Slot: <strong>{packingSlipModalOrder.deliverySlot || 'Morning'}</strong></div>
+                        </div>
+                      </div>
+
+                      <div style={{ background: '#FAF9F5', padding: '10px 14px', borderRadius: '8px', fontSize: '12px', marginBottom: '16px' }}>
+                        <div>Deliver To: <strong>{packingSlipModalOrder.customerName || 'Customer'}</strong> — {packingSlipModalOrder.deliveryAddress}</div>
+                        <div>Phone: <strong>{packingSlipModalOrder.customerPhone || '—'}</strong> | Tracking: <strong>{packingSlipModalOrder.trackingNumber || `TRK-SIRI-${packingSlipModalOrder.id}`}</strong></div>
+                      </div>
+
+                      <table className="admin-invoice-table">
+                        <thead>
+                          <tr>
+                            <th style={{ width: '40px' }}>CHECK</th>
+                            <th>ITEM DESCRIPTION</th>
+                            <th>PACK SIZE</th>
+                            <th>QUANTITY</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(packingSlipModalOrder.items || []).map((it, idx) => (
+                            <tr key={idx}>
+                              <td><input type="checkbox" style={{ width: '16px', height: '16px' }} /></td>
+                              <td><strong>{it.name}</strong></td>
+                              <td>{it.weight ? `${it.weight}${it.unit}` : 'Standard'}</td>
+                              <td><strong style={{ fontSize: '14px' }}>x{it.quantity || 1}</strong></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '30px', fontSize: '11px', color: '#687466' }}>
+                        <div>Packed by (Staff Name): ___________________</div>
+                        <div>Dispatched on: {new Date().toLocaleTimeString('en-IN')}</div>
+                      </div>
+                    </div>
+
+                    <div className="inventory-modal__footer admin-invoice-actions">
+                      <button className="admin__ghost" onClick={() => setPackingSlipModalOrder(null)}>Close</button>
+                      <button className="admin__primary" onClick={() => window.print()}>
+                        <FiPrinter /> Print Slip
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* CUSTOMER HUB */}
+          {activeTab === 'customers' && (
+            <div className="admin-customers-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="admin-card admin-card--wide" style={{ padding: '16px 20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div className="inventory-filters-tabs">
+                    <button
+                      className={`inventory-filter-btn ${customerSegmentFilter === 'all' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setCustomerSegmentFilter('all')}
+                    >
+                      All Customers <span className="inventory-badge-count">{liveCustomers?.length || 0}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${customerSegmentFilter === 'VIP' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setCustomerSegmentFilter('VIP')}
+                    >
+                      🌟 VIP / High-Value <span className="inventory-badge-count">{liveCustomers?.filter(c => c.segment === 'VIP').length || 0}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${customerSegmentFilter === 'Returning' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setCustomerSegmentFilter('Returning')}
+                    >
+                      🔁 Returning <span className="inventory-badge-count">{liveCustomers?.filter(c => c.segment === 'Returning').length || 0}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${customerSegmentFilter === 'New' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setCustomerSegmentFilter('New')}
+                    >
+                      🌱 New <span className="inventory-badge-count">{liveCustomers?.filter(c => c.segment === 'New').length || 0}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${customerSegmentFilter === 'Inactive' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setCustomerSegmentFilter('Inactive')}
+                    >
+                      💤 Inactive (30d+) <span className="inventory-badge-count">{liveCustomers?.filter(c => c.segment === 'Inactive').length || 0}</span>
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                    <div className="admin-search-label" style={{ flex: 1, minWidth: '280px', maxWidth: '500px' }}>
+                      <FiSearch />
                       <input
-                        value={`${product.weight || ''} ${product.unit || ''}`.trim()}
-                        onChange={(e) => {
-                          const parts = e.target.value.trim().split(' ');
-                          const unit = parts.length > 1 ? parts[parts.length - 1] : '';
-                          const weight = parts.slice(0, parts.length - 1).join(' ') || parts[0];
-                          updateProductField(product.id, 'weight', weight, isWS);
-                          if (unit) updateProductField(product.id, 'unit', unit, isWS);
-                        }}
-                        placeholder="e.g. 500 g"
+                        placeholder="Search by customer name, email or phone..."
+                        value={customerSearchQuery}
+                        onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                        style={{ width: '100%' }}
                       />
-                      {isWS && <input value={product.wholesalePrice || ''} onChange={(e) => updateProductField(product.id, 'wholesalePrice', e.target.value, true)} type="number" placeholder="WS price" />}
-                      <input value={product.description || ''} onChange={(e) => updateProductField(product.id, 'description', e.target.value, isWS)} placeholder="Description" />
+                    </div>
+                    <button className="admin__ghost" onClick={loadCustomers}>
+                      <FiRefreshCw size={13} /> Refresh Customers
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="admin-customer-grid">
+                {filteredCustomers.length === 0 ? (
+                  <div className="admin-card admin-card--wide" style={{ textAlign: 'center', padding: '36px', color: '#687466', gridColumn: '1 / -1' }}>
+                    No customer accounts found matching your filter.
+                  </div>
+                ) : filteredCustomers.map(customer => {
+                  const initial = (customer.name || customer.email || 'C')[0].toUpperCase();
+
+                  return (
+                    <div key={customer.id} className="admin-customer-card">
+                      <div className="admin-customer-card__header">
+                        <div className="admin-customer-avatar">{initial}</div>
+                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            <strong style={{ fontSize: '13.5px', color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {customer.name || 'Customer'}
+                            </strong>
+                            <span className={`admin-segment-pill admin-segment-pill--${(customer.segment || 'new').toLowerCase()}`}>
+                              {customer.segment === 'VIP' ? '🌟 VIP' : (customer.segment || 'New')}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: '11.5px', color: '#687466', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {customer.email}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="admin-customer-stats-row">
+                        <div>
+                          <span>Total Spent</span>
+                          <strong>{formatPrice(customer.totalSpent || 0)}</strong>
+                        </div>
+                        <div>
+                          <span>Orders</span>
+                          <strong>{customer.ordersCount || 0}</strong>
+                        </div>
+                        <div>
+                          <span>Avg Order</span>
+                          <strong>{formatPrice(customer.averageOrderValue || 0)}</strong>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: '#687466' }}>
+                        <span>Phone: {customer.phone || '—'}</span>
+                        <span>Joined: {new Date(customer.createdAt).toLocaleDateString('en-IN')}</span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+                        <button
+                          type="button"
+                          className="admin__ghost"
+                          style={{ flex: 1, height: '32px', fontSize: '11.5px' }}
+                          onClick={() => setSelectedCustomerModal(customer)}
+                        >
+                          <FiEye size={12} /> View Profile & History
+                        </button>
+                        <button
+                          type="button"
+                          className="admin__primary"
+                          style={{ height: '32px', padding: '0 12px', fontSize: '11.5px' }}
+                          onClick={() => {
+                            setActiveTab('broadcast');
+                            setBroadcastSubject(`Special Offer for ${customer.name || 'Valued Customer'}`);
+                            setSelectedBroadcastEmails([customer.email]);
+                          }}
+                        >
+                          <FiMail size={12} /> Message
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
               </div>
+
+              {selectedCustomerModal && (
+                <div className="inventory-modal-backdrop" onClick={() => setSelectedCustomerModal(null)}>
+                  <div className="inventory-modal" style={{ maxWidth: '780px' }} onClick={e => e.stopPropagation()}>
+                    <div className="inventory-modal__header">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div className="admin-customer-avatar">
+                          {(selectedCustomerModal.name || selectedCustomerModal.email || 'C')[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <h2 style={{ margin: 0 }}>{selectedCustomerModal.name || 'Customer Profile'}</h2>
+                          <span style={{ fontSize: '11.5px', color: '#687466' }}>{selectedCustomerModal.email} · Phone: {selectedCustomerModal.phone || 'Not provided'}</span>
+                        </div>
+                      </div>
+                      <button className="inventory-modal__close" onClick={() => setSelectedCustomerModal(null)}>✕</button>
+                    </div>
+
+                    <div className="inventory-modal__body" style={{ gap: '14px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', background: '#FAF9F5', padding: '12px', borderRadius: '10px' }}>
+                        <div>
+                          <span style={{ fontSize: '10.5px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Total Spent</span>
+                          <strong style={{ display: 'block', fontSize: '15px', color: '#1C4B12' }}>{formatPrice(selectedCustomerModal.totalSpent || 0)}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '10.5px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Total Orders</span>
+                          <strong style={{ display: 'block', fontSize: '15px' }}>{selectedCustomerModal.ordersCount || 0}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '10.5px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Average Order</span>
+                          <strong style={{ display: 'block', fontSize: '15px' }}>{formatPrice(selectedCustomerModal.averageOrderValue || 0)}</strong>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '10.5px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Segment</span>
+                          <div style={{ marginTop: '2px' }}>
+                            <span className={`admin-segment-pill admin-segment-pill--${(selectedCustomerModal.segment || 'new').toLowerCase()}`}>
+                              {selectedCustomerModal.segment || 'New'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 style={{ fontSize: '13px', color: '#1C4B12', margin: '0 0 8px', fontWeight: 800 }}>
+                          Order History ({selectedCustomerModal.orderHistory?.length || 0})
+                        </h3>
+                        {(!selectedCustomerModal.orderHistory || selectedCustomerModal.orderHistory.length === 0) ? (
+                          <p style={{ color: '#687466', fontSize: '12px', padding: '12px 0' }}>No past orders found for this customer.</p>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
+                            {selectedCustomerModal.orderHistory.map(order => (
+                              <div key={order.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: '#FFFFFF', border: '1px solid #E1E6DC', borderRadius: '8px', fontSize: '12px' }}>
+                                <div>
+                                  <strong>Order #{order.id}</strong> <span style={{ color: '#2D5016', fontWeight: 700 }}>BILL-{order.id + 7820}</span>
+                                  <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>
+                                    {new Date(order.createdAt).toLocaleString('en-IN')} · {order.items?.length || 0} items
+                                  </span>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                  <strong style={{ fontSize: '13px', display: 'block' }}>{formatPrice(order.total)}</strong>
+                                  <span className={`admin-order-status-pill admin-order-status-pill--${order.status.toLowerCase().replace(/\s+/g, '-')}`} style={{ fontSize: '10px', padding: '1px 6px' }}>
+                                    {order.status}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="inventory-modal__footer">
+                      <button className="admin__primary" onClick={() => setSelectedCustomerModal(null)}>Close</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* GROCERY DELIVERY & SLOTS */}
+          {activeTab === 'delivery-zones' && (
+            <div className="admin-delivery-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="admin-card admin-card--wide">
+                <div className="admin-card__toolbar">
+                  <div>
+                    <h2 style={{ margin: 0 }}>Grocery Delivery Slots Configuration</h2>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
+                      Configure standard grocery delivery windows for customer checkout.
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '12px' }}>
+                  {deliverySlotPresets.map((slot, idx) => (
+                    <div key={slot} className="admin-slot-pill">
+                      <span>🕒 {slot}</span>
+                      <button
+                        type="button"
+                        style={{ background: 'transparent', border: 'none', color: '#DC2626', cursor: 'pointer', padding: 0, fontSize: '12px' }}
+                        onClick={() => setDeliverySlotPresets(prev => prev.filter((_, i) => i !== idx))}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', marginTop: '14px', maxWidth: '420px' }}>
+                  <input
+                    id="new-slot-input"
+                    className="admin-input-box"
+                    placeholder="e.g. Night Express (9:00 PM - 11:00 PM)"
+                  />
+                  <button
+                    type="button"
+                    className="admin__primary"
+                    style={{ whiteSpace: 'nowrap' }}
+                    onClick={() => {
+                      const input = document.getElementById('new-slot-input');
+                      if (input && input.value.trim()) {
+                        setDeliverySlotPresets(prev => [...prev, input.value.trim()]);
+                        input.value = '';
+                      }
+                    }}
+                  >
+                    <FiPlus /> Add Slot
+                  </button>
+                </div>
+              </div>
+
+              <div className="admin-card admin-card--wide">
+                <h2 style={{ margin: '0 0 12px' }}>{editingZoneModal ? 'Edit Delivery Area & Pincode' : 'Add New Delivery Zone & Pincode'}</h2>
+                <div className="admin-form__grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Area / Locality Name *</label>
+                    <input
+                      className="admin-input-box"
+                      placeholder="e.g. Kukatpally, Madhapur"
+                      value={editingZoneModal ? editingZoneModal.area : newZone.area}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (editingZoneModal) setEditingZoneModal(p => ({ ...p, area: val }));
+                        else setNewZone(p => ({ ...p, area: val }));
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Pincode *</label>
+                    <input
+                      className="admin-input-box"
+                      placeholder="e.g. 500072"
+                      value={editingZoneModal ? editingZoneModal.pincode : newZone.pincode}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (editingZoneModal) setEditingZoneModal(p => ({ ...p, pincode: val }));
+                        else setNewZone(p => ({ ...p, pincode: val }));
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Delivery Time Estimate</label>
+                    <select
+                      className="admin-input-box"
+                      value={editingZoneModal ? editingZoneModal.time : newZone.time}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (editingZoneModal) setEditingZoneModal(p => ({ ...p, time: val }));
+                        else setNewZone(p => ({ ...p, time: val }));
+                      }}
+                    >
+                      {['10 mins','15 mins','20 mins','30 mins','45 mins','60 mins','Same day'].map(t => <option key={t}>{t}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Min Order Value (₹)</label>
+                    <input
+                      className="admin-input-box"
+                      type="number"
+                      placeholder="e.g. 199"
+                      value={editingZoneModal ? editingZoneModal.minOrderValue : newZone.minOrderValue}
+                      onChange={e => {
+                        const val = Number(e.target.value) || 0;
+                        if (editingZoneModal) setEditingZoneModal(p => ({ ...p, minOrderValue: val }));
+                        else setNewZone(p => ({ ...p, minOrderValue: val }));
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Free Delivery Threshold (₹)</label>
+                    <input
+                      className="admin-input-box"
+                      type="number"
+                      placeholder="e.g. 500"
+                      value={editingZoneModal ? editingZoneModal.freeDeliveryThreshold : newZone.freeDeliveryThreshold}
+                      onChange={e => {
+                        const val = Number(e.target.value) || 0;
+                        if (editingZoneModal) setEditingZoneModal(p => ({ ...p, freeDeliveryThreshold: val }));
+                        else setNewZone(p => ({ ...p, freeDeliveryThreshold: val }));
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Delivery Fee (₹)</label>
+                    <input
+                      className="admin-input-box"
+                      type="number"
+                      placeholder="e.g. 25"
+                      value={editingZoneModal ? editingZoneModal.deliveryFee : newZone.deliveryFee}
+                      onChange={e => {
+                        const val = Number(e.target.value) || 0;
+                        if (editingZoneModal) setEditingZoneModal(p => ({ ...p, deliveryFee: val }));
+                        else setNewZone(p => ({ ...p, deliveryFee: val }));
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Assigned Driver / Partner</label>
+                    <input
+                      className="admin-input-box"
+                      placeholder="e.g. Ramesh Kumar"
+                      value={editingZoneModal ? (editingZoneModal.driverAssigned || '') : newZone.driverAssigned}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (editingZoneModal) setEditingZoneModal(p => ({ ...p, driverAssigned: val }));
+                        else setNewZone(p => ({ ...p, driverAssigned: val }));
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                  {editingZoneModal ? (
+                    <>
+                      <button
+                        type="button"
+                        className="admin__primary"
+                        onClick={async () => {
+                          try {
+                            const updated = await adminApi.updateDeliveryZone(editingZoneModal.id, editingZoneModal);
+                            setDeliveryZones(prev => prev.map(z => z.id === updated.id ? updated : z));
+                            setEditingZoneModal(null);
+                            setSaveToast({ type: 'success', msg: `Zone ${updated.area} updated successfully` });
+                            setTimeout(() => setSaveToast(null), 3000);
+                          } catch (err) { alert(err.message); }
+                        }}
+                      >
+                        <FiSave /> Save Changes
+                      </button>
+                      <button type="button" className="admin__ghost" onClick={() => setEditingZoneModal(null)}>Cancel</button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="admin__primary"
+                      onClick={async () => {
+                        if (!newZone.area.trim() || !newZone.pincode.trim()) return;
+                        try {
+                          const saved = await adminApi.saveDeliveryZone({
+                            ...newZone,
+                            area: newZone.area.trim(),
+                            pincode: newZone.pincode.trim()
+                          });
+                          setDeliveryZones(prev => [...prev, saved]);
+                          setNewZone({
+                            area: '',
+                            pincode: '',
+                            time: '30 mins',
+                            distance: '',
+                            deliveryFee: 0,
+                            freeDeliveryThreshold: 500,
+                            handlingCharge: 5,
+                            minOrderValue: 199,
+                            driverAssigned: ''
+                          });
+                          setSaveToast({ type: 'success', msg: `Zone ${saved.area} created` });
+                          setTimeout(() => setSaveToast(null), 3000);
+                        } catch (err) { alert(err.message); }
+                      }}
+                    >
+                      <FiPlus /> Add Delivery Zone
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="admin-card admin-card--wide">
+                <div className="admin-card__toolbar">
+                  <h2>Serviceable Pincodes & Coverage ({deliveryZones.length})</h2>
+                  <div className="admin-search-label" style={{ width: '260px' }}>
+                    <FiSearch />
+                    <input
+                      placeholder="Search area or pincode..."
+                      value={deliveryZoneSearch}
+                      onChange={(e) => setDeliveryZoneSearch(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="inventory-table">
+                    <thead>
+                      <tr>
+                        <th>AREA / LOCALITY</th>
+                        <th>PINCODE</th>
+                        <th>DELIVERY TIME</th>
+                        <th>MIN ORDER (₹)</th>
+                        <th>FREE DELIVERY (₹)</th>
+                        <th>FEE (₹)</th>
+                        <th>DRIVER ASSIGNED</th>
+                        <th>STATUS</th>
+                        <th style={{ textAlign: 'center' }}>ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {deliveryZones
+                        .filter(z => (z.area || '').toLowerCase().includes(deliveryZoneSearch.toLowerCase()) || (z.pincode || '').includes(deliveryZoneSearch))
+                        .map(zone => (
+                          <tr key={zone.id}>
+                            <td><strong>{zone.area}</strong></td>
+                            <td><span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{zone.pincode}</span></td>
+                            <td>{zone.time}</td>
+                            <td>₹{zone.minOrderValue || 0}</td>
+                            <td>₹{zone.freeDeliveryThreshold || 0}</td>
+                            <td>₹{zone.deliveryFee}</td>
+                            <td>{zone.driverAssigned || <span style={{ color: '#9CA3AF' }}>Unassigned</span>}</td>
+                            <td>
+                              <button
+                                type="button"
+                                style={{
+                                  background: zone.active !== false ? '#DCFCE7' : '#F3F4F6',
+                                  color: zone.active !== false ? '#166534' : '#6B7280',
+                                  border: 'none',
+                                  padding: '2px 8px',
+                                  borderRadius: '10px',
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  cursor: 'pointer'
+                                }}
+                                onClick={async () => {
+                                  const nextActive = zone.active === false ? true : false;
+                                  try {
+                                    const updated = await adminApi.updateDeliveryZone(zone.id, { active: nextActive });
+                                    setDeliveryZones(prev => prev.map(z => z.id === updated.id ? updated : z));
+                                  } catch (err) { alert(err.message); }
+                                }}
+                              >
+                                {zone.active !== false ? '🟢 Active' : '⚪ Inactive'}
+                              </button>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                                <button
+                                  className="admin__ghost"
+                                  style={{ width: '30px', height: '30px', padding: 0, borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                  onClick={() => setEditingZoneModal(zone)}
+                                >
+                                  <FiEdit2 size={12} />
+                                </button>
+                                <button
+                                  className="admin-danger"
+                                  style={{ width: '30px', height: '30px', padding: 0, borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                  onClick={async () => {
+                                    if (window.confirm(`Delete ${zone.area} pincode zone?`)) {
+                                      try {
+                                        await adminApi.deleteDeliveryZone(zone.id);
+                                        setDeliveryZones(prev => prev.filter(z => z.id !== zone.id));
+                                      } catch (err) { alert(err.message); }
+                                    }
+                                  }}
+                                >
+                                  <FiTrash2 size={12} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* GROCERY INVENTORY HUB */}
+          {activeTab === 'inventory' && (
+            <div className="admin-inventory-page">
+              <div className="inventory-alerts-container">
+                {invSummary.outOfStockCount > 0 && (
+                  <div className="inventory-alert-banner inventory-alert-banner--danger">
+                    <div className="inventory-alert-banner__content">
+                      <FiAlertCircle size={20} />
+                      <span><strong>Out of Stock Alert:</strong> {invSummary.outOfStockCount} grocery product(s) have 0 available units.</span>
+                    </div>
+                    <button className="inventory-alert-banner__btn" onClick={() => setInventoryFilter('out-of-stock')}>View Out of Stock</button>
+                  </div>
+                )}
+                {invSummary.lowStockCount > 0 && (
+                  <div className="inventory-alert-banner inventory-alert-banner--warning">
+                    <div className="inventory-alert-banner__content">
+                      <FiAlertTriangle size={20} />
+                      <span><strong>Low Stock Alert:</strong> {invSummary.lowStockCount} product(s) are at or below reorder threshold.</span>
+                    </div>
+                    <button className="inventory-alert-banner__btn" onClick={() => setInventoryFilter('low-stock')}>View Low Stock</button>
+                  </div>
+                )}
+              </div>
+
+              <section className="inventory-kpi-grid">
+                <div className="inventory-kpi-card">
+                  <div className="inventory-kpi-card__header">
+                    <span className="inventory-kpi-card__label">Total Inventory Valuation</span>
+                    <FiDollarSign className="inventory-kpi-card__icon" />
+                  </div>
+                  <strong>{formatPrice(invSummary.totalValuation)}</strong>
+                  <small>Retail Value: {formatPrice(invSummary.totalRetailValuation)}</small>
+                </div>
+
+                <div className="inventory-kpi-card">
+                  <div className="inventory-kpi-card__header">
+                    <span className="inventory-kpi-card__label">Total Stock Units</span>
+                    <FiPackage className="inventory-kpi-card__icon" />
+                  </div>
+                  <strong>{invSummary.totalAvailableUnits.toLocaleString('en-IN')}</strong>
+                  <small>{invSummary.totalReservedUnits} units currently reserved in orders</small>
+                </div>
+
+                <div className={`inventory-kpi-card ${invSummary.lowStockCount > 0 ? 'inventory-kpi-card--warning' : ''}`}>
+                  <div className="inventory-kpi-card__header">
+                    <span className="inventory-kpi-card__label">Low Stock Alerts</span>
+                    <FiAlertTriangle className="inventory-kpi-card__icon" style={{ color: invSummary.lowStockCount > 0 ? '#F59E0B' : undefined }} />
+                  </div>
+                  <strong style={{ color: invSummary.lowStockCount > 0 ? '#B45309' : undefined }}>{invSummary.lowStockCount}</strong>
+                  <small>Below configured reorder level</small>
+                </div>
+
+                <div className={`inventory-kpi-card ${invSummary.outOfStockCount > 0 ? 'inventory-kpi-card--danger' : ''}`}>
+                  <div className="inventory-kpi-card__header">
+                    <span className="inventory-kpi-card__label">Out of Stock</span>
+                    <FiAlertCircle className="inventory-kpi-card__icon" style={{ color: invSummary.outOfStockCount > 0 ? '#EF4444' : undefined }} />
+                  </div>
+                  <strong style={{ color: invSummary.outOfStockCount > 0 ? '#B91C1C' : undefined }}>{invSummary.outOfStockCount}</strong>
+                  <small>0 available units</small>
+                </div>
+              </section>
+
+              <div className="admin-card admin-card--wide" style={{ padding: '16px 20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div className="inventory-filters-tabs">
+                    <button
+                      className={`inventory-filter-btn ${inventoryFilter === 'all' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setInventoryFilter('all')}
+                    >
+                      All Items <span className="inventory-badge-count">{inventoryData?.items?.length || 0}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${inventoryFilter === 'low-stock' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setInventoryFilter('low-stock')}
+                    >
+                      ⚠️ Low Stock <span className="inventory-badge-count">{invSummary.lowStockCount}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${inventoryFilter === 'out-of-stock' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setInventoryFilter('out-of-stock')}
+                    >
+                      ❌ Out of Stock <span className="inventory-badge-count">{invSummary.outOfStockCount}</span>
+                    </button>
+                    <button
+                      className={`inventory-filter-btn ${inventoryFilter === 'logs' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setInventoryFilter('logs')}
+                    >
+                      📋 Movement & Adjustments Log
+                    </button>
+                  </div>
+
+                  {inventoryFilter !== 'logs' && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: '10px', flex: 1, minWidth: '280px', maxWidth: '600px' }}>
+                        <div className="admin-search-label" style={{ flex: 1 }}>
+                          <FiSearch />
+                          <input
+                            placeholder="Search item name, brand, SKU or batch..."
+                            value={inventorySearch}
+                            onChange={(e) => setInventorySearch(e.target.value)}
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                        <select
+                          className="admin-input-box"
+                          style={{ width: '160px', height: '38px', borderRadius: '10px' }}
+                          value={inventoryCategory}
+                          onChange={(e) => setInventoryCategory(e.target.value)}
+                        >
+                          <option value="all">All Categories</option>
+                          {(dbCategories.length ? dbCategories : categories).map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button className="admin__ghost" onClick={loadInventory} style={{ height: '38px', padding: '0 12px', fontSize: '12px' }}>
+                          <FiRefreshCw size={13} /> Refresh
+                        </button>
+                        <button className="admin__primary" onClick={exportInventoryCsv} style={{ height: '38px', padding: '0 14px', fontSize: '12px' }}>
+                          📥 Export CSV
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {inventoryFilter !== 'logs' ? (
+                <div className="inventory-table-wrap">
+                  <table className="inventory-table">
+                    <thead>
+                      <tr>
+                        <th>ITEM / BATCH DETAILS</th>
+                        <th>CATEGORY</th>
+                        <th>AVAILABLE</th>
+                        <th>RESERVED</th>
+                        <th>DAMAGED / RETURNED</th>
+                        <th>INCOMING</th>
+                        <th>UNIT COST / VALUE</th>
+                        <th>REORDER LEVEL</th>
+                        <th style={{ textAlign: 'center' }}>ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {inventoryLoading ? (
+                        <tr>
+                          <td colSpan="9" style={{ textAlign: 'center', padding: '36px', color: '#687466' }}>
+                            Loading live inventory tracking...
+                          </td>
+                        </tr>
+                      ) : filteredInventoryItems.length === 0 ? (
+                        <tr>
+                          <td colSpan="9" style={{ textAlign: 'center', padding: '36px', color: '#687466' }}>
+                            No inventory items matching your filter/search.
+                          </td>
+                        </tr>
+                      ) : filteredInventoryItems.map(item => (
+                        <tr key={item.productId}>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <img src={toWebpImage(item.image)} alt={item.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', background: '#F7F4EE' }} />
+                              <div>
+                                <strong style={{ fontSize: '13px', color: '#111827' }}>{item.name}</strong>
+                                <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>
+                                  {item.brand ? `${item.brand} · ` : ''}{item.weight}{item.unit} · SKU #{item.productId}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td>
+                            <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'capitalize', color: '#2D5016' }}>
+                              {item.category}
+                            </span>
+                          </td>
+
+                          <td>
+                            <span className={`inventory-pill ${item.isOutOfStock ? 'inventory-pill--out' : (item.isLowStock ? 'inventory-pill--low' : 'inventory-pill--available')}`}>
+                              {item.availableStock} units
+                            </span>
+                          </td>
+
+                          <td>{item.reservedStock > 0 ? `${item.reservedStock} units` : 0}</td>
+
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px' }}>
+                              {item.damagedStock > 0 && <span style={{ color: '#9D174D' }}>Damaged: {item.damagedStock}</span>}
+                              {item.returnedStock > 0 && <span style={{ color: '#6B21A8' }}>Returned: {item.returnedStock}</span>}
+                              {item.damagedStock === 0 && item.returnedStock === 0 && <span style={{ color: '#9CA3AF' }}>0</span>}
+                            </div>
+                          </td>
+
+                          <td>{item.incomingStock > 0 ? `+${item.incomingStock}` : 0}</td>
+
+                          <td>
+                            <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>Cost: {formatPrice(item.costPrice)}</span>
+                            <span style={{ fontSize: '11px', color: '#2D5016', display: 'block' }}>Sell: {formatPrice(item.price)}</span>
+                          </td>
+
+                          <td>{item.reorderLevel} units</td>
+
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                              <button
+                                className="admin__primary"
+                                style={{ height: '32px', padding: '0 10px', fontSize: '11px', borderRadius: '6px' }}
+                                onClick={() => {
+                                  setAdjustModalItem(item);
+                                  setAdjustForm({
+                                    changeType: 'ADD',
+                                    quantity: '',
+                                    targetField: 'availableStock',
+                                    reason: 'Purchase / New Stock Received',
+                                    notes: ''
+                                  });
+                                }}
+                              >
+                                Adjust
+                              </button>
+                              <button
+                                className="admin__ghost"
+                                style={{ height: '32px', padding: '0 8px', fontSize: '11px', borderRadius: '6px' }}
+                                onClick={() => openProductHistory(item)}
+                              >
+                                <FiActivity size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="admin-card admin-card--wide">
+                  <div className="admin-card__toolbar">
+                    <h2>Stock Movement & Adjustment History</h2>
+                    <button className="admin__ghost" onClick={loadInventoryLogs}>
+                      <FiRefreshCw size={13} /> Refresh Logs
+                    </button>
+                  </div>
+
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="inventory-table">
+                      <thead>
+                        <tr>
+                          <th>DATE & TIME</th>
+                          <th>PRODUCT</th>
+                          <th>ACTION</th>
+                          <th>QTY</th>
+                          <th>BEFORE ➔ AFTER</th>
+                          <th>REASON</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {inventoryLogs.map(log => (
+                          <tr key={log.id}>
+                            <td style={{ fontSize: '11.5px', color: '#687466' }}>{new Date(log.createdAt).toLocaleString('en-IN')}</td>
+                            <td><strong>{log.productName}</strong></td>
+                            <td>{log.changeType}</td>
+                            <td><strong>{log.quantity > 0 ? `+${log.quantity}` : log.quantity}</strong></td>
+                            <td>{log.stockBefore} ➔ {log.stockAfter}</td>
+                            <td>{log.reason}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* MODALS FOR INVENTORY */}
+              {adjustModalItem && (
+                <div className="inventory-modal-backdrop" onClick={() => setAdjustModalItem(null)}>
+                  <div className="inventory-modal" onClick={e => e.stopPropagation()}>
+                    <div className="inventory-modal__header">
+                      <h2>Adjust Stock — {adjustModalItem.name}</h2>
+                      <button className="inventory-modal__close" onClick={() => setAdjustModalItem(null)}>✕</button>
+                    </div>
+
+                    <form onSubmit={handleStockAdjustment}>
+                      <div className="inventory-modal__body">
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '4px' }}>Type</label>
+                            <select
+                              className="admin-input-box"
+                              value={adjustForm.changeType}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setAdjustForm(prev => ({
+                                  ...prev,
+                                  changeType: val,
+                                  targetField: val === 'DAMAGE' ? 'damagedStock' : (val === 'EXPIRED' ? 'expiredStock' : 'availableStock'),
+                                  reason: val === 'ADD' ? 'Purchase / New Stock Received' : (val === 'DAMAGE' ? 'Damaged in transit' : 'Audit Correction')
+                                }));
+                              }}
+                            >
+                              <option value="ADD">➕ Add Stock</option>
+                              <option value="SET">📝 Set Exact Count</option>
+                              <option value="DAMAGE">⚠️ Record Damaged Goods</option>
+                              <option value="EXPIRED">⛔ Record Expired Goods</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '4px' }}>Quantity</label>
+                            <input
+                              type="number"
+                              className="admin-input-box"
+                              value={adjustForm.quantity}
+                              onChange={(e) => setAdjustForm(prev => ({ ...prev, quantity: e.target.value }))}
+                              required
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '4px' }}>Reason</label>
+                          <input
+                            type="text"
+                            className="admin-input-box"
+                            value={adjustForm.reason}
+                            onChange={(e) => setAdjustForm(prev => ({ ...prev, reason: e.target.value }))}
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="inventory-modal__footer">
+                        <button type="button" className="admin__ghost" onClick={() => setAdjustModalItem(null)}>Cancel</button>
+                        <button type="submit" className="admin__primary" disabled={adjustLoading}>Confirm</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {historyModalItem && (
+                <div className="inventory-modal-backdrop" onClick={() => setHistoryModalItem(null)}>
+                  <div className="inventory-modal" onClick={e => e.stopPropagation()}>
+                    <div className="inventory-modal__header">
+                      <h2>Movement History — {historyModalItem.name}</h2>
+                      <button className="inventory-modal__close" onClick={() => setHistoryModalItem(null)}>✕</button>
+                    </div>
+                    <div className="inventory-modal__body">
+                      {historyLogs.map(log => (
+                        <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #eee', fontSize: '12px' }}>
+                          <div>
+                            <strong>{log.reason} ({log.changeType})</strong>
+                            <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>{new Date(log.createdAt).toLocaleString('en-IN')}</span>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <strong>{log.quantity > 0 ? `+${log.quantity}` : log.quantity}</strong>
+                            <span style={{ fontSize: '11px', color: '#2D5016', display: 'block' }}>{log.stockBefore} ➔ {log.stockAfter}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="inventory-modal__footer">
+                      <button className="admin__primary" onClick={() => setHistoryModalItem(null)}>Close</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* GROCERY PRODUCTS (RETAIL / WHOLESALE) */}
+          {(activeTab === 'retail-products' || activeTab === 'wholesale-products') && (
+            <section className="admin-workspace">
+              <form className="admin-form" onSubmit={saveProduct}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h2>{productDraft.id ? 'Edit Grocery Item' : `Add New ${activeTab === 'wholesale-products' ? 'Wholesale' : 'Retail'} Item`}</h2>
+                  {productDraft.id && (
+                    <span style={{ fontSize: '11px', background: '#F3F4F6', padding: '2px 8px', borderRadius: '6px', fontWeight: 'bold' }}>
+                      Editing ID #{productDraft.id}
+                    </span>
+                  )}
+                </div>
+
+                <div className="admin-form-section">
+                  <h3 className="admin-form-section__title"><FiPackage /> 1. General Product Information</h3>
+                  <div className="admin-form__grid">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Product Name *</label>
+                      <input value={productDraft.name} onChange={(e) => setProductDraft(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g. Dawat Lovely Gold Biryani Rice" required />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Category *</label>
+                      <select value={productDraft.category} onChange={(e) => setProductDraft(prev => ({ ...prev, category: e.target.value }))}>
+                        {(dbCategories.length ? dbCategories : categories).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Brand</label>
+                      <input value={productDraft.brand || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, brand: e.target.value }))} placeholder="e.g. Daawat, Fortune, Siri Select" required />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Pack Size / Weight</label>
+                      <input value={productDraft.weight || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, weight: e.target.value }))} placeholder="e.g. 500, 1, 5" />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Unit</label>
+                      <select value={productDraft.unit || 'g'} onChange={(e) => setProductDraft(prev => ({ ...prev, unit: e.target.value }))}>
+                        <option value="g">Grams (g)</option>
+                        <option value="kg">Kilograms (kg)</option>
+                        <option value="ml">Millilitres (ml)</option>
+                        <option value="L">Litres (L)</option>
+                        <option value="pcs">Pieces (pcs)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>SKU Code</label>
+                      <input value={productDraft.sku || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, sku: e.target.value }))} placeholder="e.g. SIRI-RIC-0021" />
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '8px' }}>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Product Image URL</label>
+                    <input value={productDraft.image || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, image: e.target.value }))} placeholder="https://images.unsplash.com/..." />
+                    <label className="admin-file-input" style={{ marginTop: '6px' }}>
+                      <span>Or choose image from device</span>
+                      <input type="file" accept="image/*" onChange={handleImageUpload} />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="admin-form-section">
+                  <h3 className="admin-form-section__title"><FiDollarSign /> 2. Pricing & Cost</h3>
+                  <div className="admin-form__grid">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Selling Price (₹) *</label>
+                      <input value={productDraft.price} onChange={(e) => setProductDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="420" type="number" required />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>MRP (₹)</label>
+                      <input value={productDraft.mrp} onChange={(e) => setProductDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="490" type="number" />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Cost Price (₹)</label>
+                      <input value={productDraft.costPrice} onChange={(e) => setProductDraft(prev => ({ ...prev, costPrice: e.target.value }))} placeholder="330" type="number" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="admin-form__actions" style={{ alignItems: 'center', marginTop: '10px' }}>
+                  <button type="submit" className="admin__primary" disabled={apiLoading}>
+                    {apiLoading ? 'Saving...' : <><FiSave /> Save item</>}
+                  </button>
+                  {productDraft.id && (
+                    <button
+                      type="button"
+                      className="admin__ghost"
+                      onClick={() => {
+                        setProductDraft(activeTab === 'wholesale-products' ? blankWholesaleProduct : blankProduct);
+                        setDetailedVariants([]);
+                      }}
+                    >
+                      <FiX /> Clear
+                    </button>
+                  )}
+                </div>
+              </form>
+
+              {/* Listing */}
+              <div className="admin-card admin-card--wide">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {filteredProducts.map(product => (
+                    <div key={product.id} className="admin-product-card-enhanced">
+                      <div className="admin-product-top-row">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />
+                          <div>
+                            <strong>{product.name}</strong>
+                            <span style={{ fontSize: '12px', color: '#687466', display: 'block' }}>{product.brand} · {product.category} · {product.weight}{product.unit}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <strong style={{ fontSize: '15px' }}>{formatPrice(product.price)}</strong>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button className="admin__ghost" style={{ padding: '6px 10px', fontSize: '11.5px' }} onClick={() => editProduct(product)}>
+                            <FiEdit2 size={12} /> Edit
+                          </button>
+                          <button className="admin-danger" style={{ padding: '6px 10px', fontSize: '11.5px' }} onClick={() => removeProduct(product.id)}>
+                            <FiTrash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </section>
           )}
 
-          {/* ADMINS */}
+          {/* BESTSELLERS */}
+          {activeTab === 'bestsellers' && (
+            <section className="admin-card admin-card--wide">
+              <div className="admin-card__toolbar">
+                <h2>Bestsellers ({allProducts.filter(p => p.isBestseller).length})</h2>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {allProducts.map(product => (
+                  <div key={product.id} className="admin-row admin-row--plain" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
+                    <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />
+                    <div style={{ flex: 1 }}>
+                      <strong>{product.name}</strong>
+                      <span style={{ fontSize: 12, color: '#687466' }}>{product.brand} / {product.weight}{product.unit} / {formatPrice(product.price)}</span>
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: product.isBestseller ? '#2D5016' : '#687466', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(product.isBestseller)}
+                        onChange={() => toggleProductFlag(product.id, 'isBestseller', product.isBestseller, Boolean(product.wholesalePrice))}
+                      />
+                      {product.isBestseller ? 'Bestseller' : 'Add'}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* TODAY'S DEALS */}
+          {activeTab === 'todays-deals' && (
+            <section className="admin-card admin-card--wide">
+              <div className="admin-card__toolbar">
+                <h2>Today's Deals ({allProducts.filter(p => p.isTodaysDeal).length})</h2>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {allProducts.map(product => (
+                  <div key={product.id} className="admin-row admin-row--plain" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
+                    <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />
+                    <div style={{ flex: 1 }}>
+                      <strong>{product.name}</strong>
+                      <span style={{ fontSize: 12, color: '#687466' }}>{product.brand} / {product.weight}{product.unit} / {formatPrice(product.price)}</span>
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: product.isTodaysDeal ? '#2D5016' : '#687466', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(product.isTodaysDeal)}
+                        onChange={() => toggleProductFlag(product.id, 'isTodaysDeal', product.isTodaysDeal, Boolean(product.wholesalePrice))}
+                      />
+                      {product.isTodaysDeal ? "Today's Deal" : 'Add'}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* BROADCAST */}
+          {activeTab === 'broadcast' && (
+            <section className="admin-card admin-card--wide" style={{ maxWidth: '800px', margin: '0 auto' }}>
+              <div className="admin-card__toolbar" style={{ borderBottom: '1px solid #E1E6DC', paddingBottom: '12px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <FiMail size={24} style={{ color: '#2D5016' }} />
+                  <div>
+                    <h2 style={{ margin: 0 }}>Mail Broadcast Campaign</h2>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
+                      Send promotions, festive offers, or announcements to registered customers.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {broadcastStatus && (
+                <div style={{
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  marginBottom: '20px',
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  background: broadcastStatus.type === 'success' ? '#ECFDF5' : '#FEF2F2',
+                  color: broadcastStatus.type === 'success' ? '#065F46' : '#991B1B'
+                }}>
+                  {broadcastStatus.msg}
+                </div>
+              )}
+
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                if (!broadcastSubject.trim() || !broadcastMessage.trim()) return;
+                setBroadcastSending(true);
+                setBroadcastStatus(null);
+                try {
+                  const res = await adminApi.sendBroadcast({
+                    subject: broadcastSubject,
+                    messageText: broadcastMessage,
+                    recipients: selectedBroadcastEmails
+                  });
+                  setBroadcastStatus({ type: 'success', msg: `Campaign sent successfully to ${res.count} customers.` });
+                  setBroadcastSubject('');
+                  setBroadcastMessage('');
+                } catch (err) {
+                  setBroadcastStatus({ type: 'error', msg: err.message || 'Failed to send mail broadcast.' });
+                } finally {
+                  setBroadcastSending(false);
+                }
+              }}>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '6px' }}>Email Subject</label>
+                  <input
+                    type="text"
+                    required
+                    className="admin-input-box"
+                    placeholder="e.g. Special Offer: 10% Off on All Grocery Items!"
+                    value={broadcastSubject}
+                    onChange={(e) => setBroadcastSubject(e.target.value)}
+                  />
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '6px' }}>Message Body</label>
+                  <textarea
+                    required
+                    rows={6}
+                    className="admin-input-box"
+                    style={{ height: 'auto', padding: '10px 12px' }}
+                    value={broadcastMessage}
+                    onChange={(e) => setBroadcastMessage(e.target.value)}
+                  />
+                </div>
+                <button type="submit" disabled={broadcastSending} className="admin__primary" style={{ width: '100%' }}>
+                  {broadcastSending ? 'Sending Campaign...' : '🚀 Send Broadcast Email'}
+                </button>
+              </form>
+            </section>
+          )}
+
+          {/* ADMIN ACCOUNTS */}
           {activeTab === 'admins' && (
             <section className="admin-grid">
               <form className="admin-form" onSubmit={saveAdmin}>
