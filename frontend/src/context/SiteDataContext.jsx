@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { categories as staticCategories } from '../data/categories';
 import { fallbackDailyOffers, fallbackFestivalOffers } from '../data/offers';
 import { retailCoupons as fallbackRetailCoupons, wholesaleCoupons as fallbackWholesaleCoupons } from '../data/coupons';
+import { subscribeSync, SYNC_EVENTS } from '../utils/syncChannel';
 
 const SiteDataContext = createContext();
 
@@ -49,32 +50,66 @@ export const SiteDataProvider = ({ children }) => {
   const [deliverySettings, setDeliverySettings] = useState({ deliveryFee: 25, freeDeliveryThreshold: 500, handlingCharge: 5 });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/categories').then(r => (r.ok ? r.json() : Promise.reject(new Error('categories fetch failed')))),
-      fetch('/api/offers').then(r => (r.ok ? r.json() : Promise.reject(new Error('offers fetch failed')))),
-      fetch('/api/coupons').then(r => (r.ok ? r.json() : Promise.reject(new Error('coupons fetch failed')))),
-      fetch('/api/delivery_zones').then(r => (r.ok ? r.json() : Promise.reject(new Error('delivery zones fetch failed')))),
-      fetch('/api/settings').then(r => (r.ok ? r.json() : Promise.reject(new Error('settings fetch failed')))),
-    ])
-      .then(([catRows, offerRows, couponRows, zoneRows, settingsRow]) => {
-        if (catRows?.length) setCategories(catRows);
-        if (offerRows?.length) setOffers(offerRows.map(normalizeOffer));
-        if (couponRows?.length) setCoupons(couponRows.map(normalizeCoupon));
-        setDeliveryZones(zoneRows || []);
-        if (settingsRow) {
-          setDeliverySettings({
-            deliveryFee: settingsRow.deliveryFee,
-            freeDeliveryThreshold: settingsRow.freeDeliveryThreshold,
-            handlingCharge: settingsRow.handlingCharge,
-          });
-        }
-      })
-      .catch(err => {
-        console.warn('Could not load live site data from database. Falling back to static defaults.', err);
-      })
-      .finally(() => setLoading(false));
+  const fetchSiteData = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
+    try {
+      const [catRows, offerRows, couponRows, zoneRows, settingsRow] = await Promise.all([
+        fetch('/api/categories').then(r => (r.ok ? r.json() : [])).catch(() => []),
+        fetch('/api/offers').then(r => (r.ok ? r.json() : [])).catch(() => []),
+        fetch('/api/coupons').then(r => (r.ok ? r.json() : [])).catch(() => []),
+        fetch('/api/delivery_zones').then(r => (r.ok ? r.json() : [])).catch(() => []),
+        fetch('/api/settings').then(r => (r.ok ? r.json() : null)).catch(() => null),
+      ]);
+
+      if (catRows && catRows.length > 0) setCategories(catRows);
+      if (offerRows && offerRows.length > 0) setOffers(offerRows.map(normalizeOffer));
+      if (couponRows && couponRows.length > 0) setCoupons(couponRows.map(normalizeCoupon));
+      if (zoneRows && zoneRows.length > 0) setDeliveryZones(zoneRows);
+      if (settingsRow) {
+        setDeliverySettings({
+          deliveryFee: settingsRow.deliveryFee ?? 25,
+          freeDeliveryThreshold: settingsRow.freeDeliveryThreshold ?? 500,
+          handlingCharge: settingsRow.handlingCharge ?? 5,
+        });
+      }
+    } catch (err) {
+      console.warn('Could not load live site data from database. Falling back to static defaults.', err);
+    } finally {
+      if (showLoading) setLoading(false);
+    }
   }, []);
+
+  // Initial load
+  useEffect(() => {
+    fetchSiteData(true);
+  }, [fetchSiteData]);
+
+  // Real-time synchronization: listen for admin changes across all tabs
+  useEffect(() => {
+    const unsubscribe = subscribeSync(
+      [SYNC_EVENTS.SITE_DATA_CHANGED, SYNC_EVENTS.REFRESH_ALL],
+      () => {
+        fetchSiteData(false);
+      }
+    );
+
+    // Auto-refresh when tab regains focus
+    const onFocus = () => {
+      fetchSiteData(false);
+    };
+    window.addEventListener('focus', onFocus);
+
+    // Periodic sync in background (every 25s)
+    const interval = setInterval(() => {
+      fetchSiteData(false);
+    }, 25000);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('focus', onFocus);
+      clearInterval(interval);
+    };
+  }, [fetchSiteData]);
 
   const dailyOffers = offers.filter(o => o.active !== false && o.group === 'daily');
   const festivalOffers = offers.filter(o => o.active !== false && o.group === 'festival');
@@ -90,6 +125,7 @@ export const SiteDataProvider = ({ children }) => {
     deliveryZones,
     deliverySettings,
     loading,
+    refreshSiteData: () => fetchSiteData(false),
   };
 
   return <SiteDataContext.Provider value={value}>{children}</SiteDataContext.Provider>;

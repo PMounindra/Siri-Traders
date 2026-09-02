@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { baseProducts, toWholesaleProduct } from '../data/products';
 import { useAuth } from './AuthContext';
+import { subscribeSync, SYNC_EVENTS } from '../utils/syncChannel';
 
 const ProductContext = createContext();
 
@@ -17,8 +18,8 @@ export const ProductProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const { getToken } = useAuth();
 
-  const fetchProducts = async () => {
-    setLoading(true);
+  const fetchProducts = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
       const res = await fetch('/api/products?limit=500');
       if (!res.ok) throw new Error('Failed to fetch');
@@ -32,15 +33,43 @@ export const ProductProvider = ({ children }) => {
       console.warn("Could not fetch products from database. Falling back to local static catalog.", err);
       setProducts(baseProducts);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchProducts();
   }, []);
 
-  // Returns the live API products (no localStorage merge — admin saves go to DB, not localStorage)
+  // Initial load
+  useEffect(() => {
+    fetchProducts(true);
+  }, [fetchProducts]);
+
+  // Real-time synchronization: listen for admin changes across all tabs
+  useEffect(() => {
+    const unsubscribe = subscribeSync(
+      [SYNC_EVENTS.PRODUCTS_CHANGED, SYNC_EVENTS.REFRESH_ALL],
+      () => {
+        fetchProducts(false);
+      }
+    );
+
+    // Auto-refresh when tab regains focus
+    const onFocus = () => {
+      fetchProducts(false);
+    };
+    window.addEventListener('focus', onFocus);
+
+    // Periodic sync in background (every 25s)
+    const interval = setInterval(() => {
+      fetchProducts(false);
+    }, 25000);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('focus', onFocus);
+      clearInterval(interval);
+    };
+  }, [fetchProducts]);
+
+  // Returns the live API products
   const getProductsForType = (customerType = 'retail') => {
     if (customerType === 'wholesale') {
       return products.map(toWholesaleProduct);
@@ -63,7 +92,7 @@ export const ProductProvider = ({ children }) => {
         body: JSON.stringify(productData)
       });
       if (res.ok) {
-        await fetchProducts(); // Refresh list from DB
+        await fetchProducts(false); // Refresh list from DB
         return true;
       }
     } catch (err) {
@@ -73,7 +102,7 @@ export const ProductProvider = ({ children }) => {
   };
 
   return (
-    <ProductContext.Provider value={{ products, loading, refreshProducts: fetchProducts, addProduct, getProductsForType }}>
+    <ProductContext.Provider value={{ products, loading, refreshProducts: () => fetchProducts(false), addProduct, getProductsForType }}>
       {children}
     </ProductContext.Provider>
   );
