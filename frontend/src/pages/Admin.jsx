@@ -226,12 +226,12 @@ const downloadCsv = (filename, rows) => {
 };
 
 const ADMIN_ROLE_PERMISSIONS = {
-  Owner: ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','retail-products','wholesale-products','offers','bestsellers','todays-deals','retail-content','wholesale-content','delivery-zones','broadcast','admins'],
-  'Super Admin': ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','retail-products','wholesale-products','offers','bestsellers','todays-deals','retail-content','wholesale-content','delivery-zones','broadcast'],
-  'Product Manager': ['dashboard','inventory','retail-products','wholesale-products','reviews','bestsellers','todays-deals'],
+  Owner: ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','retail-products','wholesale-products','offers','bestsellers','delivery-zones','broadcast','admins'],
+  'Super Admin': ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','retail-products','wholesale-products','offers','bestsellers','delivery-zones','broadcast'],
+  'Product Manager': ['dashboard','inventory','retail-products','wholesale-products','reviews','bestsellers'],
   'Order Manager': ['dashboard','inventory','orders','customers','delivery-zones'],
-  'Marketing Manager': ['dashboard','offers','cms','bestsellers','todays-deals','broadcast','reviews'],
-  'Content Manager': ['dashboard','cms','retail-content','wholesale-content','reviews'],
+  'Marketing Manager': ['dashboard','offers','cms','bestsellers','broadcast','reviews'],
+  'Content Manager': ['dashboard','cms','reviews'],
   'Customer Support': ['dashboard','inventory','customers','orders','reviews','delivery-zones'],
   Viewer: ['dashboard','inventory','sales-stats']
 };
@@ -272,10 +272,7 @@ const ADMIN_NAV_SECTIONS = [
     items: [
       ['retail-products', 'Retail Items', FiPackage],
       ['wholesale-products', 'Wholesale Items', FiPackage],
-      ['bestsellers', 'Bestsellers', FiStar],
-      ['todays-deals', "Today's Deals", FiTag],
-      ['retail-content', 'Retail Content', FiEdit2],
-      ['wholesale-content', 'Wholesale Content', FiEdit2]
+      ['bestsellers', 'Bestsellers & Deals', FiStar]
     ]
   },
   {
@@ -425,9 +422,7 @@ const Admin = () => {
   const [adminAccounts, setAdminAccounts] = useState([]);
   const [adminDraft, setAdminDraft] = useState(blankAdmin);
   const [adminError, setAdminError] = useState('');
-  const [contentSearch, setContentSearch] = useState('');
-  const [bestsellerSearch, setBestsellerSearch] = useState('');
-  const [dealSearch, setDealSearch] = useState('');
+  const [promoTagSearch, setPromoTagSearch] = useState('');
   const [dbCategories, setDbCategories] = useState([]);
   const [newCat, setNewCat] = useState({ name: '', image: '', color: '#F7F4EE' });
 
@@ -1457,11 +1452,6 @@ const Admin = () => {
       persistRetailProducts(retailProducts.map(updater));
     }
   };
-
-  const filteredContentProducts = (activeTab === 'wholesale-content' ? wholesaleProducts : retailProducts).filter(product =>
-    product.name.toLowerCase().includes(contentSearch.toLowerCase()) ||
-    (product.brand || '').toLowerCase().includes(contentSearch.toLowerCase())
-  );
 
   if (!sessionChecked) {
     return <div className="admin-auth-required" />;
@@ -4402,58 +4392,52 @@ const Admin = () => {
             </div>
           )}
 
-          {/* BESTSELLERS */}
+          {/* BESTSELLERS & TODAY'S DEALS */}
           {activeTab === 'bestsellers' && (
             <section className="admin-card admin-card--wide">
               <div className="admin-card__toolbar">
-                <h2>Bestsellers ({allProducts.filter(p => p.isBestseller).length})</h2>
+                <h2>Bestsellers & Today's Deals</h2>
+                <div className="admin-search-label" style={{ width: '260px' }}>
+                  <FiSearch />
+                  <input
+                    placeholder="Search products..."
+                    value={promoTagSearch}
+                    onChange={(e) => setPromoTagSearch(e.target.value)}
+                  />
+                </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {allProducts.map(product => (
-                  <div key={product.id} className="admin-row admin-row--plain" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
-                    <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />
-                    <div style={{ flex: 1 }}>
-                      <strong>{product.name}</strong>
-                      <span style={{ fontSize: 12, color: '#687466' }}>{product.brand} / {product.weight}{product.unit} / {formatPrice(product.price)}</span>
+                {allProducts
+                  .filter(product => {
+                    const q = promoTagSearch.trim().toLowerCase();
+                    if (!q) return true;
+                    return product.name.toLowerCase().includes(q) || (product.brand || '').toLowerCase().includes(q);
+                  })
+                  .map(product => (
+                    <div key={product.id} className="admin-row admin-row--plain" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
+                      <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />
+                      <div style={{ flex: 1 }}>
+                        <strong>{product.name}</strong>
+                        <span style={{ fontSize: 12, color: '#687466' }}>{product.brand} / {product.weight}{product.unit} / {formatPrice(product.price)}</span>
+                      </div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: product.isBestseller ? '#2D5016' : '#687466', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(product.isBestseller)}
+                          onChange={() => toggleProductFlag(product.id, 'isBestseller', product.isBestseller, Boolean(product.wholesalePrice))}
+                        />
+                        Bestseller
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: product.isTodaysDeal ? '#2D5016' : '#687466', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(product.isTodaysDeal)}
+                          onChange={() => toggleProductFlag(product.id, 'isTodaysDeal', product.isTodaysDeal, Boolean(product.wholesalePrice))}
+                        />
+                        Today's Deal
+                      </label>
                     </div>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: product.isBestseller ? '#2D5016' : '#687466', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(product.isBestseller)}
-                        onChange={() => toggleProductFlag(product.id, 'isBestseller', product.isBestseller, Boolean(product.wholesalePrice))}
-                      />
-                      {product.isBestseller ? 'Bestseller' : 'Add'}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* TODAY'S DEALS */}
-          {activeTab === 'todays-deals' && (
-            <section className="admin-card admin-card--wide">
-              <div className="admin-card__toolbar">
-                <h2>Today's Deals ({allProducts.filter(p => p.isTodaysDeal).length})</h2>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {allProducts.map(product => (
-                  <div key={product.id} className="admin-row admin-row--plain" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
-                    <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />
-                    <div style={{ flex: 1 }}>
-                      <strong>{product.name}</strong>
-                      <span style={{ fontSize: 12, color: '#687466' }}>{product.brand} / {product.weight}{product.unit} / {formatPrice(product.price)}</span>
-                    </div>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: product.isTodaysDeal ? '#2D5016' : '#687466', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(product.isTodaysDeal)}
-                        onChange={() => toggleProductFlag(product.id, 'isTodaysDeal', product.isTodaysDeal, Boolean(product.wholesalePrice))}
-                      />
-                      {product.isTodaysDeal ? "Today's Deal" : 'Add'}
-                    </label>
-                  </div>
-                ))}
+                  ))}
               </div>
             </section>
           )}
