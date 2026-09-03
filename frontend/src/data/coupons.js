@@ -3,7 +3,6 @@
 
 export const retailCoupons = [
   { iconKey: 'percent', title: 'FLAT ₹50 OFF', description: 'On your first order above ₹399', code: 'WELCOME50', type: 'flat', value: 50, minOrder: 399 },
-  { iconKey: 'truck', title: 'FREE Delivery', description: 'On all your orders above ₹199', code: 'FREEDEL', type: 'freeDelivery', value: 0, minOrder: 199 },
   { iconKey: 'tag', title: 'Extra 10% OFF', description: 'On orders above ₹999', code: 'SIRI10', type: 'percent', value: 10, minOrder: 999, maxDiscount: 150 },
 ];
 
