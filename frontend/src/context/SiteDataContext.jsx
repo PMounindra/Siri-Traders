@@ -99,10 +99,13 @@ export const SiteDataProvider = ({ children }) => {
     };
     window.addEventListener('focus', onFocus);
 
-    // Periodic sync in background (every 25s)
+    // Periodic sync in background — long interval on purpose: categories and
+    // offers carry base64-encoded images too, and refetching them every 25s
+    // per open tab is what blew through the Neon data-transfer quota. Focus
+    // refetch + cross-tab sync above cover real updates; this is a safety net.
     const interval = setInterval(() => {
       fetchSiteData(false);
-    }, 25000);
+    }, 5 * 60 * 1000);
 
     return () => {
       unsubscribe();

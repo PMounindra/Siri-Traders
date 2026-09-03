@@ -57,10 +57,14 @@ export const ProductProvider = ({ children }) => {
     };
     window.addEventListener('focus', onFocus);
 
-    // Periodic sync in background (every 25s)
+    // Periodic sync in background — long interval on purpose: this pulls every
+    // column (including base64-encoded product images) for up to 500 rows, and
+    // was previously firing every 25s per open tab, which is what blew through
+    // the Neon data-transfer quota. Focus-refetch + cross-tab sync above cover
+    // the common "someone just changed something" case; this is just a safety net.
     const interval = setInterval(() => {
       fetchProducts(false);
-    }, 25000);
+    }, 5 * 60 * 1000);
 
     return () => {
       unsubscribe();
