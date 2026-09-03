@@ -449,16 +449,6 @@
   display: flex; justify-content: space-between; font-size: 16px; font-weight: 800;
   padding-top: var(--space-xs); margin-top: var(--space-xs); border-top: 1px solid var(--color-border);
 }
-.checkout__saved {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #2D5016;
-}
-
 /* Why shop */
 .checkout__why-shop {
   background: var(--color-bg-alt);
@@ -514,19 +504,6 @@
   color: var(--color-text-secondary);
 }
 .checkout__secure-footer span { display: flex; align-items: center; gap: 4px; }
-.checkout__delivery-footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-top: var(--space-sm);
-  padding: 8px;
-  border-radius: var(--radius-sm);
-  background: #F1F8E9;
-  color: #2D5016;
-  font-size: 12px;
-  font-weight: 700;
-}
 
 /* Success */
 .checkout-success {

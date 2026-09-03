@@ -66,7 +66,7 @@ const addressLine2 = (address) => {
 };
 
 const Checkout = () => {
-  const { cartItems, cartTotal, cartCount, cartSavings, clearCart, requireAuth } = useCart();
+  const { cartItems, cartTotal, cartCount, clearCart, requireAuth } = useCart();
   const { user, isAuthenticated, getToken, customerType } = useAuth();
   const { deliveryZones, retailCoupons, wholesaleCoupons, deliverySettings } = useSiteData();
   const coupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
@@ -107,7 +107,6 @@ const Checkout = () => {
   const deliveryFee = appliedCoupon?.freeDelivery ? 0 : baseDeliveryFee;
   const handlingCharge = activeHandlingChargeVal;
   const grandTotal = Math.max(0, cartTotal + deliveryFee + handlingCharge - couponDiscount);
-  const totalSaved = cartSavings + couponDiscount + (appliedCoupon?.freeDelivery ? baseDeliveryFee : 0);
 
   useEffect(() => {
     if (addressStorageKey) {
@@ -630,9 +629,6 @@ const Checkout = () => {
                     </div>
                   )}
                   <div className="checkout__bill-total"><span>Total</span><span>{formatPrice(grandTotal)}</span></div>
-                  {totalSaved > 0 && (
-                    <p className="checkout__saved"><FiCheckCircle /> You saved {formatPrice(totalSaved)} on this order</p>
-                  )}
                 </div>
 
                 <div className="checkout__payment-info-box" style={{
@@ -699,9 +695,6 @@ const Checkout = () => {
                   <span><FiShield /> Secure Payments</span>
                   <span><FiCheckCircle /> 100% Secure</span>
                 </div>
-                <p className="checkout__delivery-footer">
-                  <FiTruck /> Delivering to you in {getDeliveryTimeForAddress(selectedAddress || addressForm, deliveryZones)}
-                </p>
               </div>
             </aside>
           </div>
