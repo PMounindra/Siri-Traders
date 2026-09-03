@@ -54,6 +54,19 @@ export async function apiCreateAdminUser(data) {
   return asJson(res, 'Failed to create admin');
 }
 
+// ── Image uploads (Vercel Blob) ─────────────────────────────────────────
+
+export async function apiUploadImage(file) {
+  const res = await fetch(`/api/upload?filename=${encodeURIComponent(file.name)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+    ...withCreds,
+    body: file,
+  });
+  const json = await asJson(res, 'Failed to upload image');
+  return json.url;
+}
+
 // ── Products ─────────────────────────────────────────────────────────────
 
 export async function apiFetchProducts(includeArchived = true) {
@@ -473,6 +486,8 @@ export function useAdminApi() {
     logout: apiAdminLogout,
     fetchAdminUsers: apiFetchAdminUsers,
     createAdminUser: apiCreateAdminUser,
+
+    uploadImage: apiUploadImage,
 
     fetchProducts: apiFetchProducts,
     createProduct: apiCreateProduct,

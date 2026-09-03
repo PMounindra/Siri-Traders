@@ -11,13 +11,15 @@
   "scripts": {
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:seed": "node db/seed.js"
+    "db:seed": "node db/seed.js",
+    "db:migrate-images": "node db/migrate_images_to_blob.mjs"
   },
   "dependencies": {
     "@clerk/backend": "^3.5.0",
     "@neondatabase/serverless": "^0.9.3",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
+    "@vercel/blob": "^2.8.0",
     "bcryptjs": "^2.4.3",
     "cookie": "^0.6.0",
     "dotenv": "^16.4.5",

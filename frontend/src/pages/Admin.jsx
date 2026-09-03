@@ -320,6 +320,7 @@ const Admin = () => {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categoryDraft, setCategoryDraft] = useState({ name: '', image: '', color: '#F1F8E9' });
   const [categoryLoading, setCategoryLoading] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
 
   const [offers, setOffers] = useState([]);
   const [coupons, setCoupons] = useState([]);
@@ -1055,14 +1056,30 @@ const Admin = () => {
   };
   const removeVariantRow = (idx) => setDetailedVariants(prev => prev.filter((_, i) => i !== idx));
 
+  // Uploads the picked file to Vercel Blob storage and stores the returned
+  // URL on the draft — images used to be embedded as base64 text directly in
+  // the DB row, which is what blew through the Neon data-transfer quota.
+  const uploadDraftImage = async (file, setDraft) => {
+    if (!file) return;
+    const previewUrl = URL.createObjectURL(file);
+    setDraft(prev => ({ ...prev, image: previewUrl }));
+    setImageUploading(true);
+    try {
+      const url = await adminApi.uploadImage(file);
+      setDraft(prev => ({ ...prev, image: url }));
+      URL.revokeObjectURL(previewUrl);
+    } catch (err) {
+      alert(err.message || 'Failed to upload image');
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
   // ── Category management ──
   const handleCategoryImageUpload = (event) => {
     const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setCategoryDraft(prev => ({ ...prev, image: reader.result }));
-    reader.readAsDataURL(file);
     event.target.value = '';
+    uploadDraftImage(file, setCategoryDraft);
   };
 
   const saveCategory = async () => {
@@ -1095,20 +1112,14 @@ const Admin = () => {
 
   const handleImageUpload = (event) => {
     const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setProductDraft(prev => ({ ...prev, image: reader.result }));
-    reader.readAsDataURL(file);
     event.target.value = '';
+    uploadDraftImage(file, setProductDraft);
   };
-  
+
   const handleOfferImageUpload = (event) => {
     const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setOfferDraft(prev => ({ ...prev, image: reader.result }));
-    reader.readAsDataURL(file);
     event.target.value = '';
+    uploadDraftImage(file, setOfferDraft);
   };
 
   // ── Save Product ──
@@ -2310,7 +2321,7 @@ const Admin = () => {
                     </div>
                   </div>
 
-                  <button className="admin__primary"><FiPlus /> Publish Promotion Deal</button>
+                  <button className="admin__primary" disabled={imageUploading}>{imageUploading ? 'Uploading image...' : <><FiPlus /> Publish Promotion Deal</>}</button>
                 </form>
               </div>
 
@@ -4321,8 +4332,8 @@ const Admin = () => {
 
                       <div className="inventory-modal__footer">
                         <button type="button" className="admin__ghost" onClick={() => setShowProductModal(false)}>Cancel</button>
-                        <button type="submit" className="admin__primary" disabled={apiLoading}>
-                          {apiLoading ? 'Saving...' : <><FiSave /> Save Item</>}
+                        <button type="submit" className="admin__primary" disabled={apiLoading || imageUploading}>
+                          {imageUploading ? 'Uploading image...' : apiLoading ? 'Saving...' : <><FiSave /> Save Item</>}
                         </button>
                       </div>
                     </form>
@@ -4388,7 +4399,7 @@ const Admin = () => {
 
                     <div className="inventory-modal__footer">
                       <button type="button" className="admin__ghost" onClick={() => setShowCategoryModal(false)}>Close</button>
-                      <button type="button" className="admin__primary" disabled={categoryLoading} onClick={saveCategory}>
+                      <button type="button" className="admin__primary" disabled={categoryLoading || imageUploading} onClick={saveCategory}>
                         {categoryLoading ? 'Saving...' : <><FiPlus /> Add Category</>}
                       </button>
                     </div>
