@@ -21,7 +21,10 @@ const FestiveOffers = () => {
     const price = offer.price || 0;
     addToCart({
       id: getCartId(offer),
-      productId: getCartId(offer),
+      // Only a real product id (when the offer targets one) belongs here —
+      // the cart-only id above isn't a product and breaks order placement
+      // if sent to the backend as productId.
+      productId: offer.targetProductId || null,
       name: offer.title,
       brand: offer.badge || 'Siri Traders Offer',
       price,

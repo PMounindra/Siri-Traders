@@ -144,55 +144,55 @@ export default async function handler(req, res) {
       const txnId = isCod ? `COD-SIRI-${Math.floor(100000 + Math.random() * 900000)}` : `TXN-SIRI-${Math.floor(200000 + Math.random() * 900000)}`;
       const trackingNumber = `TRK-SIRI-${Math.floor(500000 + Math.random() * 900000)}`;
 
-      // Create order & order items
-      const orderResult = await db.insert(orders).values({
-        userId,
-        total,
-        deliveryAddress: deliveryAddress || '',
-        paymentMethod: paymentMethod || 'COD',
-        status: isCod ? 'Preparing' : 'Paid',
-        customerName: customerName || body.customerName || 'Customer',
-        customerPhone: body.customerPhone || '',
-        customerEmail: customerEmail || body.customerEmail || '',
-        paymentStatus: isCod ? 'Pending' : 'Paid',
-        paymentGateway: isCod ? 'Cash on Delivery' : (body.paymentGateway || 'UPI / Online'),
-        paymentTxnId: txnId,
-        trackingNumber: trackingNumber,
-        deliverySlot: body.deliverySlot || 'Morning (7:00 AM - 10:00 AM)',
-        deliveryDate: body.deliveryDate || new Date().toLocaleDateString('en-IN')
-      }).returning();
+      // Create order & its items in one transaction — if any item fails
+      // (e.g. an unresolvable product id), the whole order rolls back instead
+      // of leaving an orphaned order with no items sitting in the dashboard.
+      const insertedOrder = await db.transaction(async (tx) => {
+        const orderResult = await tx.insert(orders).values({
+          userId,
+          total,
+          deliveryAddress: deliveryAddress || '',
+          paymentMethod: paymentMethod || 'COD',
+          status: isCod ? 'Preparing' : 'Paid',
+          customerName: customerName || body.customerName || 'Customer',
+          customerPhone: body.customerPhone || '',
+          customerEmail: customerEmail || body.customerEmail || '',
+          paymentStatus: isCod ? 'Pending' : 'Paid',
+          paymentGateway: isCod ? 'Cash on Delivery' : (body.paymentGateway || 'UPI / Online'),
+          paymentTxnId: txnId,
+          trackingNumber: trackingNumber,
+          deliverySlot: body.deliverySlot || 'Morning (7:00 AM - 10:00 AM)',
+          deliveryDate: body.deliveryDate || new Date().toLocaleDateString('en-IN')
+        }).returning();
 
-      const insertedOrder = orderResult[0];
+        const order = orderResult[0];
 
-      // Insert all items sequentially
-      for (const item of items) {
-        let cleanProductId = parseInt(item.productId, 10);
-        if (isNaN(cleanProductId) && typeof item.productId === 'string' && item.productId.includes('-')) {
-          const parts = item.productId.split('-');
-          if (parts.length >= 2) {
-            cleanProductId = parseInt(parts[1], 10);
+        for (const item of items) {
+          // Promotional/combo offer items (added from Today's Deals / Festive
+          // Offers) have no backing product row — their id looks like
+          // "offer-<id>" rather than a real numeric product id. Store null
+          // for those instead of forcing a bogus number through.
+          let cleanProductId = parseInt(item.productId, 10);
+          if (isNaN(cleanProductId)) {
+            cleanProductId = parseInt(item.id, 10);
           }
-        }
-        if (isNaN(cleanProductId)) {
-          cleanProductId = parseInt(item.id, 10);
-        }
-        if (isNaN(cleanProductId) && typeof item.id === 'string' && item.id.includes('-')) {
-          const parts = item.id.split('-');
-          if (parts.length >= 2) {
-            cleanProductId = parseInt(parts[1], 10);
+          if (isNaN(cleanProductId)) {
+            cleanProductId = null;
           }
+
+          await tx.insert(orderItems).values({
+            orderId: order.id,
+            productId: cleanProductId,
+            name: item.name,
+            quantity: item.qty || item.quantity || 1,
+            price: item.price,
+            weight: item.weight || '',
+            unit: item.unit || ''
+          });
         }
 
-        await db.insert(orderItems).values({
-          orderId: insertedOrder.id,
-          productId: cleanProductId,
-          name: item.name,
-          quantity: item.qty || item.quantity || 1,
-          price: item.price,
-          weight: item.weight || '',
-          unit: item.unit || ''
-        });
-      }
+        return order;
+      });
 
       // Fire email notification asynchronously (don't block HTTP response)
       sendOrderNotificationEmail(insertedOrder, items).catch(err => {

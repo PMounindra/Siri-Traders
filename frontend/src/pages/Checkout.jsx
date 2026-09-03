@@ -235,16 +235,11 @@ const Checkout = () => {
     }
 
     const orderItemsList = cartItems.map(item => {
+      // Promotional/combo offer items have no backing product row — their id
+      // looks like "offer-<id>", not a real numeric product id. Send null
+      // for those rather than forcing a bogus number through.
       let cleanProductId = parseInt(item.productId, 10);
-      if (isNaN(cleanProductId) && typeof item.id === 'string' && item.id.includes('-')) {
-        const parts = item.id.split('-');
-        if (parts.length >= 2) {
-          cleanProductId = parseInt(parts[1], 10);
-        }
-      }
-      if (isNaN(cleanProductId)) {
-        cleanProductId = parseInt(item.id, 10);
-      }
+      if (isNaN(cleanProductId)) cleanProductId = null;
 
       return {
         productId: cleanProductId,

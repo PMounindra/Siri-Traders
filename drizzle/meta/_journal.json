@@ -8,6 +8,13 @@
       "when": 1788429849617,
       "tag": "0000_calm_callisto",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788433526362,
+      "tag": "0001_sticky_morg",
+      "breakpoints": true
     }
   ]
 }
