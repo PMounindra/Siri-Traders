@@ -3859,7 +3859,6 @@ const Admin = () => {
                           className="admin__primary"
                           style={{ height: '38px', padding: '0 14px', fontSize: '12px' }}
                           onClick={() => {
-                            setActiveTab('retail-products');
                             setProductDraft(blankProduct);
                             setDetailedVariants([]);
                             setShowProductModal(true);
@@ -4227,145 +4226,6 @@ const Admin = () => {
                 </div>
               </div>
 
-              {showProductModal && (
-                <div className="inventory-modal-backdrop" onClick={() => setShowProductModal(false)}>
-                  <div className="inventory-modal" style={{ maxWidth: '860px' }} onClick={e => e.stopPropagation()}>
-                    <div className="inventory-modal__header">
-                      <div>
-                        <h2 style={{ margin: 0 }}>{productDraft.id ? 'Edit Grocery Item' : `Add New ${activeTab === 'wholesale-products' ? 'Wholesale' : 'Retail'} Item`}</h2>
-                        {productDraft.id && (
-                          <span style={{ fontSize: '11px', color: '#687466' }}>Editing ID #{productDraft.id}</span>
-                        )}
-                      </div>
-                      <button className="inventory-modal__close" onClick={() => setShowProductModal(false)}>✕</button>
-                    </div>
-
-                    <form onSubmit={saveProduct}>
-                      <div className="inventory-modal__body">
-                        <div className="admin-form-section">
-                          <h3 className="admin-form-section__title"><FiPackage /> 1. General Product Information</h3>
-                          <div className="admin-form__grid">
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Product Name *</label>
-                              <input className="admin-input-box" value={productDraft.name} onChange={(e) => setProductDraft(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g. Dawat Lovely Gold Biryani Rice" required />
-                            </div>
-
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Category *</label>
-                              <select className="admin-input-box" value={productDraft.category} onChange={(e) => setProductDraft(prev => ({ ...prev, category: e.target.value }))}>
-                                {(dbCategories.length ? dbCategories : categories).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
-                              </select>
-                            </div>
-
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Brand</label>
-                              <input className="admin-input-box" value={productDraft.brand || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, brand: e.target.value }))} placeholder="e.g. Daawat, Fortune, Siri Select" required />
-                            </div>
-
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Pack Size / Weight</label>
-                              <input className="admin-input-box" value={productDraft.weight || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, weight: e.target.value }))} placeholder="e.g. 500, 1, 5" />
-                            </div>
-
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Unit</label>
-                              <select className="admin-input-box" value={productDraft.unit || 'g'} onChange={(e) => setProductDraft(prev => ({ ...prev, unit: e.target.value }))}>
-                                <option value="g">Grams (g)</option>
-                                <option value="kg">Kilograms (kg)</option>
-                                <option value="ml">Millilitres (ml)</option>
-                                <option value="L">Litres (L)</option>
-                                <option value="pcs">Pieces (pcs)</option>
-                              </select>
-                            </div>
-                          </div>
-
-                          <div style={{ marginTop: '8px' }}>
-                            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Product Image URL</label>
-                            <input className="admin-input-box" value={productDraft.image || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, image: e.target.value }))} placeholder="https://images.unsplash.com/..." />
-                            <label className="admin-file-input" style={{ marginTop: '6px' }}>
-                              <span>Or choose image from device</span>
-                              <input type="file" accept="image/*" onChange={handleImageUpload} />
-                            </label>
-                          </div>
-                        </div>
-
-                        <div className="admin-form-section">
-                          <h3 className="admin-form-section__title"><FiDollarSign /> 2. Pricing & Cost</h3>
-                          <div className="admin-form__grid">
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Selling Price (₹) *</label>
-                              <input className="admin-input-box" value={productDraft.price} onChange={(e) => setProductDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="420" type="number" required />
-                            </div>
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>MRP (₹)</label>
-                              <input className="admin-input-box" value={productDraft.mrp} onChange={(e) => setProductDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="490" type="number" />
-                            </div>
-                            <div>
-                              <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Cost Price (₹)</label>
-                              <input className="admin-input-box" value={productDraft.costPrice} onChange={(e) => setProductDraft(prev => ({ ...prev, costPrice: e.target.value }))} placeholder="330" type="number" />
-                            </div>
-                          </div>
-                        </div>
-
-                        {activeTab === 'wholesale-products' && (
-                          <div className="admin-form-section">
-                            <h3 className="admin-form-section__title"><FiLayers /> 3. Wholesale Price Ranges</h3>
-                            <p style={{ fontSize: '11.5px', color: '#687466', margin: '0 0 10px' }}>
-                              Define the bulk price tiers shown to wholesale customers (e.g. 1 kg, 5 kg bulk, 10 kg bulk). Leave empty to auto-calculate from the selling price above.
-                            </p>
-
-                            {detailedVariants.map((v, idx) => (
-                              <div key={v.id || idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
-                                <input
-                                  className="admin-input-box"
-                                  style={{ flex: 2 }}
-                                  placeholder="e.g. 5 kg bulk"
-                                  value={v.label}
-                                  onChange={(e) => updateVariantRow(idx, 'label', e.target.value)}
-                                />
-                                <input
-                                  className="admin-input-box"
-                                  style={{ flex: 1 }}
-                                  type="number"
-                                  placeholder="Price ₹"
-                                  value={v.price}
-                                  onChange={(e) => updateVariantRow(idx, 'price', e.target.value)}
-                                />
-                                <button type="button" className="admin-danger" style={{ padding: '8px', flexShrink: 0 }} onClick={() => removeVariantRow(idx)}>
-                                  <FiTrash2 size={12} />
-                                </button>
-                              </div>
-                            ))}
-
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
-                              <button type="button" className="admin__ghost" onClick={() => addVariantRow(`${productDraft.weight || '1'} ${productDraft.unit || 'kg'}`, productDraft.price)}>
-                                <FiPlus /> Base ({productDraft.weight || '1'}{productDraft.unit || 'kg'})
-                              </button>
-                              <button type="button" className="admin__ghost" onClick={() => addVariantRow(`5 ${productDraft.unit || 'kg'} bulk`, '')}>
-                                <FiPlus /> 5{productDraft.unit || 'kg'} Bulk
-                              </button>
-                              <button type="button" className="admin__ghost" onClick={() => addVariantRow(`10 ${productDraft.unit || 'kg'} bulk`, '')}>
-                                <FiPlus /> 10{productDraft.unit || 'kg'} Bulk
-                              </button>
-                              <button type="button" className="admin__primary" onClick={() => addVariantRow('', '')}>
-                                <FiPlus /> Custom Price Range
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="inventory-modal__footer">
-                        <button type="button" className="admin__ghost" onClick={() => setShowProductModal(false)}>Cancel</button>
-                        <button type="submit" className="admin__primary" disabled={apiLoading || imageUploading}>
-                          {imageUploading ? 'Uploading image...' : apiLoading ? 'Saving...' : <><FiSave /> Save Item</>}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
-
               {showCategoryModal && (
                 <div className="inventory-modal-backdrop" onClick={() => setShowCategoryModal(false)}>
                   <div className="inventory-modal" style={{ maxWidth: '620px' }} onClick={e => e.stopPropagation()}>
@@ -4431,6 +4291,148 @@ const Admin = () => {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Add/Edit product modal — lives outside the tab check above so it can
+              also be opened from the Inventory Hub's "Add New Item" button
+              without switching tabs. */}
+          {showProductModal && (
+            <div className="inventory-modal-backdrop" onClick={() => setShowProductModal(false)}>
+              <div className="inventory-modal" style={{ maxWidth: '860px' }} onClick={e => e.stopPropagation()}>
+                <div className="inventory-modal__header">
+                  <div>
+                    <h2 style={{ margin: 0 }}>{productDraft.id ? 'Edit Grocery Item' : `Add New ${activeTab === 'wholesale-products' ? 'Wholesale' : 'Retail'} Item`}</h2>
+                    {productDraft.id && (
+                      <span style={{ fontSize: '11px', color: '#687466' }}>Editing ID #{productDraft.id}</span>
+                    )}
+                  </div>
+                  <button className="inventory-modal__close" onClick={() => setShowProductModal(false)}>✕</button>
+                </div>
+
+                <form onSubmit={saveProduct}>
+                  <div className="inventory-modal__body">
+                    <div className="admin-form-section">
+                      <h3 className="admin-form-section__title"><FiPackage /> 1. General Product Information</h3>
+                      <div className="admin-form__grid">
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Product Name *</label>
+                          <input className="admin-input-box" value={productDraft.name} onChange={(e) => setProductDraft(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g. Dawat Lovely Gold Biryani Rice" required />
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Category *</label>
+                          <select className="admin-input-box" value={productDraft.category} onChange={(e) => setProductDraft(prev => ({ ...prev, category: e.target.value }))}>
+                            {(dbCategories.length ? dbCategories : categories).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Brand</label>
+                          <input className="admin-input-box" value={productDraft.brand || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, brand: e.target.value }))} placeholder="e.g. Daawat, Fortune, Siri Select" required />
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Pack Size / Weight</label>
+                          <input className="admin-input-box" value={productDraft.weight || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, weight: e.target.value }))} placeholder="e.g. 500, 1, 5" />
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Unit</label>
+                          <select className="admin-input-box" value={productDraft.unit || 'g'} onChange={(e) => setProductDraft(prev => ({ ...prev, unit: e.target.value }))}>
+                            <option value="g">Grams (g)</option>
+                            <option value="kg">Kilograms (kg)</option>
+                            <option value="ml">Millilitres (ml)</option>
+                            <option value="L">Litres (L)</option>
+                            <option value="pcs">Pieces (pcs)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: '8px' }}>
+                        <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Product Image URL</label>
+                        <input className="admin-input-box" value={productDraft.image || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, image: e.target.value }))} placeholder="https://images.unsplash.com/..." />
+                        <label className="admin-file-input" style={{ marginTop: '6px' }}>
+                          <span>Or choose image from device</span>
+                          <input type="file" accept="image/*" onChange={handleImageUpload} />
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="admin-form-section">
+                      <h3 className="admin-form-section__title"><FiDollarSign /> 2. Pricing & Cost</h3>
+                      <div className="admin-form__grid">
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Selling Price (₹) *</label>
+                          <input className="admin-input-box" value={productDraft.price} onChange={(e) => setProductDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="420" type="number" required />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>MRP (₹)</label>
+                          <input className="admin-input-box" value={productDraft.mrp} onChange={(e) => setProductDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="490" type="number" />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Cost Price (₹)</label>
+                          <input className="admin-input-box" value={productDraft.costPrice} onChange={(e) => setProductDraft(prev => ({ ...prev, costPrice: e.target.value }))} placeholder="330" type="number" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {activeTab === 'wholesale-products' && (
+                      <div className="admin-form-section">
+                        <h3 className="admin-form-section__title"><FiLayers /> 3. Wholesale Price Ranges</h3>
+                        <p style={{ fontSize: '11.5px', color: '#687466', margin: '0 0 10px' }}>
+                          Define the bulk price tiers shown to wholesale customers (e.g. 1 kg, 5 kg bulk, 10 kg bulk). Leave empty to auto-calculate from the selling price above.
+                        </p>
+
+                        {detailedVariants.map((v, idx) => (
+                          <div key={v.id || idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                            <input
+                              className="admin-input-box"
+                              style={{ flex: 2 }}
+                              placeholder="e.g. 5 kg bulk"
+                              value={v.label}
+                              onChange={(e) => updateVariantRow(idx, 'label', e.target.value)}
+                            />
+                            <input
+                              className="admin-input-box"
+                              style={{ flex: 1 }}
+                              type="number"
+                              placeholder="Price ₹"
+                              value={v.price}
+                              onChange={(e) => updateVariantRow(idx, 'price', e.target.value)}
+                            />
+                            <button type="button" className="admin-danger" style={{ padding: '8px', flexShrink: 0 }} onClick={() => removeVariantRow(idx)}>
+                              <FiTrash2 size={12} />
+                            </button>
+                          </div>
+                        ))}
+
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                          <button type="button" className="admin__ghost" onClick={() => addVariantRow(`${productDraft.weight || '1'} ${productDraft.unit || 'kg'}`, productDraft.price)}>
+                            <FiPlus /> Base ({productDraft.weight || '1'}{productDraft.unit || 'kg'})
+                          </button>
+                          <button type="button" className="admin__ghost" onClick={() => addVariantRow(`5 ${productDraft.unit || 'kg'} bulk`, '')}>
+                            <FiPlus /> 5{productDraft.unit || 'kg'} Bulk
+                          </button>
+                          <button type="button" className="admin__ghost" onClick={() => addVariantRow(`10 ${productDraft.unit || 'kg'} bulk`, '')}>
+                            <FiPlus /> 10{productDraft.unit || 'kg'} Bulk
+                          </button>
+                          <button type="button" className="admin__primary" onClick={() => addVariantRow('', '')}>
+                            <FiPlus /> Custom Price Range
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="inventory-modal__footer">
+                    <button type="button" className="admin__ghost" onClick={() => setShowProductModal(false)}>Cancel</button>
+                    <button type="submit" className="admin__primary" disabled={apiLoading || imageUploading}>
+                      {imageUploading ? 'Uploading image...' : apiLoading ? 'Saving...' : <><FiSave /> Save Item</>}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           )}
 
