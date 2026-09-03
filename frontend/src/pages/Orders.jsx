@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiPackage, FiChevronDown, FiChevronUp, FiRefreshCw, FiShoppingBag, FiNavigation } from 'react-icons/fi';
+import { FiPackage, FiChevronDown, FiChevronUp, FiRefreshCw, FiShoppingBag, FiNavigation, FiStar, FiCheckCircle, FiX } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { getUserStorageKey } from '../utils/userStorage';
@@ -16,6 +16,61 @@ const Orders = () => {
   const [dbOrders, setDbOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [reviewedProductIds, setReviewedProductIds] = useState(new Set());
+  const [reviewModal, setReviewModal] = useState(null); // { productId, productName }
+  const [reviewForm, setReviewForm] = useState({ rating: 5, title: '', comment: '' });
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    let active = true;
+    fetch('/api/admin/auth?action=reviews')
+      .then(r => (r.ok ? r.json() : []))
+      .then(allReviews => {
+        if (!active) return;
+        const mine = allReviews.filter(r => r.userId === user.id).map(r => r.productId);
+        setReviewedProductIds(new Set(mine));
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [isAuthenticated, user]);
+
+  const openReviewModal = (item) => {
+    setReviewForm({ rating: 5, title: '', comment: '' });
+    setReviewError('');
+    setReviewModal({ productId: item.productId, productName: item.name });
+  };
+
+  const submitReview = async () => {
+    if (!reviewModal || typeof getToken !== 'function') return;
+    setReviewSubmitting(true);
+    setReviewError('');
+    try {
+      const token = await getToken();
+      const res = await fetch('/api/admin/auth?action=reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          productId: reviewModal.productId,
+          rating: reviewForm.rating,
+          title: reviewForm.title,
+          comment: reviewForm.comment,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setReviewError(data.error || 'Failed to submit review.');
+        return;
+      }
+      setReviewedProductIds(prev => new Set(prev).add(reviewModal.productId));
+      setReviewModal(null);
+    } catch {
+      setReviewError('Network error. Please try again.');
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -187,7 +242,22 @@ const Orders = () => {
                         {order.items.map((item, i) => (
                           <div key={i} className="orders__detail-item">
                             <span>{item.name} x {item.qty || item.quantity}</span>
-                            <span>{formatPrice(item.price * (item.qty || item.quantity || 1))}</span>
+                            <span className="orders__detail-item-right">
+                              {formatPrice(item.price * (item.qty || item.quantity || 1))}
+                              {order.status === 'delivered' && item.productId && (
+                                reviewedProductIds.has(item.productId) ? (
+                                  <span className="orders__reviewed-badge"><FiCheckCircle size={12} /> Reviewed</span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="orders__review-btn"
+                                    onClick={(e) => { e.stopPropagation(); openReviewModal(item); }}
+                                  >
+                                    <FiStar size={12} /> Rate & Review
+                                  </button>
+                                )
+                              )}
+                            </span>
                           </div>
                         ))}
                         <div className="orders__detail-total">
@@ -216,6 +286,61 @@ const Orders = () => {
           )}
         </div>
       </div>
+
+      {reviewModal && (
+        <div className="orders__review-backdrop" onClick={() => setReviewModal(null)}>
+          <div className="orders__review-modal" onClick={e => e.stopPropagation()}>
+            <div className="orders__review-modal-header">
+              <h3>Rate &amp; Review</h3>
+              <button className="orders__review-close" onClick={() => setReviewModal(null)} aria-label="Close">
+                <FiX />
+              </button>
+            </div>
+            <p className="orders__review-product">{reviewModal.productName}</p>
+
+            <div className="orders__review-stars">
+              {[1, 2, 3, 4, 5].map(n => (
+                <button
+                  key={n}
+                  type="button"
+                  className="orders__review-star"
+                  onClick={() => setReviewForm(f => ({ ...f, rating: n }))}
+                  aria-label={`${n} star`}
+                >
+                  <FiStar size={26} fill={n <= reviewForm.rating ? '#F5A623' : 'none'} color={n <= reviewForm.rating ? '#F5A623' : '#C4C4C4'} />
+                </button>
+              ))}
+            </div>
+
+            <input
+              className="orders__review-input"
+              placeholder="Title (optional)"
+              value={reviewForm.title}
+              onChange={e => setReviewForm(f => ({ ...f, title: e.target.value }))}
+              maxLength={80}
+            />
+            <textarea
+              className="orders__review-textarea"
+              placeholder="Share your experience with this product (optional)"
+              rows={4}
+              value={reviewForm.comment}
+              onChange={e => setReviewForm(f => ({ ...f, comment: e.target.value }))}
+              maxLength={500}
+            />
+
+            {reviewError && <p className="orders__review-error">{reviewError}</p>}
+
+            <button
+              type="button"
+              className="orders__review-submit"
+              disabled={reviewSubmitting}
+              onClick={submitReview}
+            >
+              {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

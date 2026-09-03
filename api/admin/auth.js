@@ -1,9 +1,10 @@
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { eq, desc } from 'drizzle-orm';
-import { db, adminUsers, reviews } from '../../db/index.js';
+import { eq, desc, and, inArray } from 'drizzle-orm';
+import { db, adminUsers, reviews, orders, orderItems } from '../../db/index.js';
 import { setCorsHeaders } from '../_cors.js';
 import { isAdminRequest } from '../_adminAuth.js';
+import { getAuthenticatedUserId, clerk } from '../_clerkAuth.js';
 import { signAdminSession, setSessionCookie, clearSessionCookie, getSessionFromRequest } from '../_adminSession.js';
 
 const createAdminSchema = z.object({
@@ -98,18 +99,52 @@ async function handleReviews(req, res) {
   }
 
   if (req.method === 'POST') {
+    // Reviews are customer-submitted, so this needs a real signed-in user —
+    // not an admin session. userId/userName come from the verified Clerk
+    // token, never trusted from the request body.
+    const userId = await getAuthenticatedUserId(req);
+    if (!userId) return res.status(401).json({ error: 'Please sign in to leave a review.' });
+
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    const { productId, productName, userId, userName, rating, title, comment } = body;
-    if (!productId || !rating) return res.status(400).json({ error: 'productId and rating are required' });
+    const productId = Number(body?.productId);
+    const rating = Number(body?.rating);
+    if (!productId || !rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'productId and a rating between 1 and 5 are required' });
+    }
+
+    // Only reviewable if this user actually has a delivered order containing this product.
+    const deliveredOrders = await db.select().from(orders)
+      .where(and(eq(orders.userId, userId), eq(orders.status, 'Delivered')));
+    const purchasedItem = deliveredOrders.length
+      ? (await db.select().from(orderItems)
+          .where(and(inArray(orderItems.orderId, deliveredOrders.map(o => o.id)), eq(orderItems.productId, productId))))[0]
+      : null;
+    if (!purchasedItem) {
+      return res.status(403).json({ error: 'You can only review products from your delivered orders.' });
+    }
+
+    const alreadyReviewed = await db.select().from(reviews)
+      .where(and(eq(reviews.userId, userId), eq(reviews.productId, productId)));
+    if (alreadyReviewed.length) {
+      return res.status(409).json({ error: 'You have already reviewed this product.' });
+    }
+
+    let userName = 'Customer';
+    try {
+      const clerkUser = await clerk.users.getUser(userId);
+      userName = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim()
+        || clerkUser.emailAddresses[0]?.emailAddress
+        || 'Customer';
+    } catch { /* keep default name */ }
 
     const inserted = await db.insert(reviews).values({
-      productId: Number(productId),
-      productName: productName || `Product #${productId}`,
-      userId: userId || 'anonymous',
-      userName: userName || 'Customer',
-      rating: Number(rating),
-      title: title || '',
-      comment: comment || '',
+      productId,
+      productName: purchasedItem.name || `Product #${productId}`,
+      userId,
+      userName,
+      rating,
+      title: body?.title || '',
+      comment: body?.comment || '',
       status: 'Approved'
     }).returning();
 
