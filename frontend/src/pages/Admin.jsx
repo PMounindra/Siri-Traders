@@ -2868,7 +2868,20 @@ const Admin = () => {
                           value={order.status}
                           className="admin-status-select"
                           style={{ marginTop: '6px', height: '32px', fontSize: '11.5px' }}
-                          onChange={(e) => handleUpdateOrder(order.id, { status: e.target.value })}
+                          onChange={(e) => {
+                            const newStatus = e.target.value;
+                            const payload = { status: newStatus };
+                            // "Paid" as a status is payment-complete by definition, and COD
+                            // payment is only actually collected on delivery — flip paymentStatus
+                            // to Paid in both cases so the payment pill/filter stay truthful
+                            // instead of sitting on "Pending" forever after the fact.
+                            const isCod = (order.paymentMethod || '').toLowerCase().includes('cod');
+                            const impliesPaid = newStatus === 'Paid' || (newStatus === 'Delivered' && isCod);
+                            if (impliesPaid && order.paymentStatus !== 'Paid') {
+                              payload.paymentStatus = 'Paid';
+                            }
+                            handleUpdateOrder(order.id, payload);
+                          }}
                         >
                           {['Pending', 'Preparing', 'In Transit', 'Delivered', 'Paid', 'Cancelled'].map(s => (
                             <option key={s} value={s}>{s}</option>
