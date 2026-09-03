@@ -3852,8 +3852,20 @@ const Admin = () => {
                         <button className="admin__ghost" onClick={loadInventory} style={{ height: '38px', padding: '0 12px', fontSize: '12px' }}>
                           <FiRefreshCw size={13} /> Refresh
                         </button>
-                        <button className="admin__primary" onClick={exportInventoryCsv} style={{ height: '38px', padding: '0 14px', fontSize: '12px' }}>
+                        <button className="admin__ghost" onClick={exportInventoryCsv} style={{ height: '38px', padding: '0 14px', fontSize: '12px' }}>
                           📥 Export CSV
+                        </button>
+                        <button
+                          className="admin__primary"
+                          style={{ height: '38px', padding: '0 14px', fontSize: '12px' }}
+                          onClick={() => {
+                            setActiveTab('retail-products');
+                            setProductDraft(blankProduct);
+                            setDetailedVariants([]);
+                            setShowProductModal(true);
+                          }}
+                        >
+                          <FiPlus size={13} /> Add New Item
                         </button>
                       </div>
                     </div>
