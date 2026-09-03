@@ -43,10 +43,10 @@ const AdminLogin = () => {
         <form className="admin-login__form" onSubmit={handleSubmit}>
           {error && <p className="admin-login__error">{error}</p>}
           <label>
-            <span>Email</span>
+            <span>Username</span>
             <div>
               <FiMail />
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="Enter admin email" autoComplete="username" required />
+              <input value={email} onChange={(e) => setEmail(e.target.value)} type="text" placeholder="Enter admin username" autoComplete="username" required />
             </div>
           </label>
           <label>
