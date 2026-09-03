@@ -501,6 +501,7 @@
   padding: 10px;
 }
 .checkout__place-btn:hover { background: #F0B400; transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.checkout__place-btn:disabled { opacity: 0.65; cursor: not-allowed; transform: none; box-shadow: none; }
 .checkout__place-btn-sub { font-size: 11.5px; font-weight: 600; opacity: 0.75; }
 
 .checkout__secure-footer {

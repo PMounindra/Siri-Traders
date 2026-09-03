@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   FiBarChart2,
@@ -3059,7 +3060,7 @@ const Admin = () => {
               )}
 
               {/* MODAL: TAX INVOICE GENERATOR & PRINT VIEW */}
-              {invoiceModalOrder && (
+              {invoiceModalOrder && createPortal(
                 <div className="inventory-modal-backdrop" onClick={() => setInvoiceModalOrder(null)}>
                   <div className="admin-invoice-modal" onClick={e => e.stopPropagation()}>
                     <div className="admin-invoice-paper">
@@ -3166,7 +3167,8 @@ const Admin = () => {
                       </button>
                     </div>
                   </div>
-                </div>
+                </div>,
+                document.getElementById('print-root')
               )}
             </div>
           )}

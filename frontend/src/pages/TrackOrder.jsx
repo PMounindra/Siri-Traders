@@ -43,12 +43,23 @@ const TrackOrder = () => {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, isAuthenticated, getToken } = useAuth();
   const [order, setOrder] = useState(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [eta, setEta] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
-  const refreshOrder = useCallback(() => {
+  const applyOrder = useCallback((found) => {
+    setOrder(found);
+    setCurrentStep(STATUS_TO_STEP[found.status?.toLowerCase()] ?? 0);
+    if (found.deliveryTime) setEta(computeEta(found.deliveryTime));
+  }, []);
+
+  const refreshOrder = useCallback(async () => {
+    setLoading(true);
+    setNotFound(false);
+
     // First priority: route state from Checkout (justPlaced=true)
     const state = location.state;
     if (state?.justPlaced) {
@@ -62,26 +73,65 @@ const TrackOrder = () => {
       });
       setCurrentStep(0);
       if (state.deliveryTime) setEta(computeEta(state.deliveryTime));
+      setLoading(false);
       return;
     }
 
-    // Fallback: localStorage
+    // Next: localStorage (orders placed while offline / on this device)
     try {
       const key = getUserStorageKey(user, 'orders');
       const saved = key ? localStorage.getItem(key) : null;
       const orders = saved ? JSON.parse(saved) : [];
       const found = orders.find(o => String(o.id) === String(orderId));
       if (found) {
-        setOrder(found);
-        setCurrentStep(STATUS_TO_STEP[found.status?.toLowerCase()] ?? 0);
-        if (found.deliveryTime) setEta(computeEta(found.deliveryTime));
+        applyOrder(found);
+        setLoading(false);
+        return;
       }
     } catch { /* ignore */ }
-  }, [orderId, user, location.state]);
+
+    // Fallback: fetch the order from the server — covers orders placed on
+    // another device/session where this browser's localStorage has nothing.
+    if (isAuthenticated && typeof getToken === 'function') {
+      try {
+        const token = await getToken();
+        const res = await fetch(`/api/orders?id=${encodeURIComponent(orderId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          applyOrder({
+            id: data.id,
+            status: data.status,
+            deliveryTime: data.deliverySlot || 'Same day',
+            address: { name: data.customerName, address: data.deliveryAddress, phone: data.customerPhone },
+            total: data.total,
+            items: data.items || [],
+          });
+          setLoading(false);
+          return;
+        }
+      } catch { /* network error — fall through to not-found */ }
+    }
+
+    setNotFound(true);
+    setLoading(false);
+  }, [orderId, user, location.state, isAuthenticated, getToken, applyOrder]);
 
   useEffect(() => { refreshOrder(); }, [refreshOrder]);
 
-  if (!order) {
+  if (loading) {
+    return (
+      <div className="page-wrapper">
+        <div className="track__not-found">
+          <FiPackage size={48} />
+          <h2>Loading order…</h2>
+        </div>
+      </div>
+    );
+  }
+
+  if (!order || notFound) {
     return (
       <div className="page-wrapper">
         <div className="track__not-found">

@@ -2082,22 +2082,32 @@
   border-bottom: 1px solid #E2E8F0;
 }
 
-/* Print Only Styles */
+/* Print Only Styles
+   The invoice modal is rendered via a React portal into #print-root
+   (a sibling of #root in index.html) specifically so that printing it
+   doesn't also paginate the rest of the (hidden but still laid-out)
+   admin dashboard behind it — that mismatch used to produce a dozen-plus
+   blank/duplicate pages. Here we simply remove #root from the print
+   flow entirely and print only the portal's content. */
 @media print {
-  body * {
-    visibility: hidden;
+  #root {
+    display: none !important;
   }
-  .admin-invoice-paper, .admin-invoice-paper * {
-    visibility: visible;
+  #print-root .inventory-modal-backdrop {
+    position: static !important;
+    background: none !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    display: block !important;
   }
-  .admin-invoice-paper {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    padding: 20px;
+  #print-root .admin-invoice-modal {
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    max-width: 100% !important;
   }
-  .admin-invoice-actions, .admin-modal-backdrop {
+  .admin-invoice-actions {
     display: none !important;
   }
 }

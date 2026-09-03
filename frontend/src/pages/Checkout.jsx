@@ -89,6 +89,8 @@ const Checkout = () => {
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
+  const [placingOrder, setPlacingOrder] = useState(false);
+  const [orderError, setOrderError] = useState('');
 
   const selectedAddress = addresses.find(address => address.id === selectedAddressId);
   const addressReady = !!selectedAddress && !showAddressForm;
@@ -171,6 +173,16 @@ const Checkout = () => {
       return null;
     }
 
+    if (!/^[6-9]\d{9}$/.test(trimmed.phone)) {
+      setAddressError('Please enter a valid 10 digit mobile number.');
+      return null;
+    }
+
+    if (trimmed.alternatePhone && !/^[6-9]\d{9}$/.test(trimmed.alternatePhone)) {
+      setAddressError('Please enter a valid 10 digit alternate mobile number.');
+      return null;
+    }
+
     if (!/^\d{6}$/.test(trimmed.pincode)) {
       setAddressError('Please enter a valid 6 digit pincode.');
       return null;
@@ -207,6 +219,9 @@ const Checkout = () => {
   };
 
   const finalizeOrder = async (addressForOrder) => {
+    setOrderError('');
+    setPlacingOrder(true);
+    try {
     const deliveryTime = getDeliveryTimeForAddress(addressForOrder, deliveryZones);
 
     // Require Clerk authentication for real order placement
@@ -216,7 +231,7 @@ const Checkout = () => {
     }
 
     if (!clerkToken) {
-      alert('Please sign in to place an order.');
+      setOrderError('Please sign in to place an order.');
       return;
     }
 
@@ -263,14 +278,14 @@ const Checkout = () => {
 
       if (!orderRes.ok) {
         const err = await orderRes.json().catch(() => ({}));
-        alert(err.error || 'Failed to place order. Please try again.');
+        setOrderError(err.error || 'Failed to place order. Please try again.');
         return;
       }
 
       const created = await orderRes.json();
       if (created?.id) finalOrderId = created.id;
     } catch {
-      alert('Network error. Please check your connection and try again.');
+      setOrderError('Network error. Please check your connection and try again.');
       return;
     }
 
@@ -315,9 +330,14 @@ const Checkout = () => {
         justPlaced: true,
       }
     });
+    } finally {
+      setPlacingOrder(false);
+    }
   };
 
   const handlePlaceOrder = () => {
+    if (placingOrder) return;
+
     let addressForOrder = selectedAddress;
 
     if (showAddressForm || !addressForOrder) {
@@ -661,10 +681,17 @@ const Checkout = () => {
                   </div>
                 </div>
 
-                <button className="checkout__place-btn" onClick={handlePlaceOrder} id="place-order-btn">
-                  <span>Place Order (COD) →</span>
+                {orderError && <p className="checkout__address-error">{orderError}</p>}
+                <button
+                  className="checkout__place-btn"
+                  onClick={handlePlaceOrder}
+                  id="place-order-btn"
+                  disabled={placingOrder}
+                  aria-busy={placingOrder}
+                >
+                  <span>{placingOrder ? 'Placing Order…' : 'Place Order (COD) →'}</span>
                   <span className="checkout__place-btn-sub">
-                    Pay {formatPrice(grandTotal)} on delivery
+                    {placingOrder ? 'Please wait, do not close this page' : `Pay ${formatPrice(grandTotal)} on delivery`}
                   </span>
                 </button>
 
