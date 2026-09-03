@@ -1,5 +1,5 @@
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
+import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/postgres-js';
 import dotenv from 'dotenv';
 
 import { products } from './schema/products.js';
@@ -50,8 +50,10 @@ const schema = {
   seoRedirects
 };
 
-const sql = neon(process.env.DATABASE_URL);
-export const db = drizzle(sql, { schema });
+// prepare: false — required for Supabase's transaction pooler (pgbouncer),
+// which doesn't support prepared statements.
+const client = postgres(process.env.DATABASE_URL, { prepare: false });
+export const db = drizzle(client, { schema });
 
 // Export everything from schemas for clean single-entry imports
 export { products } from './schema/products.js';

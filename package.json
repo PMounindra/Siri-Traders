@@ -26,6 +26,7 @@
     "drizzle-orm": "^0.30.10",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^9.0.5",
+    "postgres": "^3.4.9",
     "zod": "^4.4.3"
   },
   "devDependencies": {

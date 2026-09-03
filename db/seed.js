@@ -1,7 +1,6 @@
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
 import * as dotenv from 'dotenv';
-import { categories, products, offers, coupons, deliveryZones } from './index.js';
+import { pathToFileURL } from 'url';
+import { db, categories, products, offers, coupons, deliveryZones } from './index.js';
 
 // Load Dummy Data
 import { categories as dummyCategories } from '../frontend/src/data/categories.js';
@@ -28,10 +27,7 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is missing");
 }
 
-const sql = neon(process.env.DATABASE_URL);
-const db = drizzle(sql);
-
-async function seed() {
+export async function seedDatabase() {
   console.log('Seeding Categories...');
   for (const cat of dummyCategories) {
     await db.insert(categories).values({
@@ -102,7 +98,10 @@ async function seed() {
   console.log('Seed completed successfully!');
 }
 
-seed().catch(err => {
-  console.error('Seeding failed:', err);
-  process.exit(1);
-});
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) {
+  seedDatabase().then(() => process.exit(0)).catch(err => {
+    console.error('Seeding failed:', err);
+    process.exit(1);
+  });
+}
