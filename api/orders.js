@@ -1,4 +1,4 @@
-import { db, orders, orderItems, users } from '../db/index.js';
+import { db, orders, orderItems, users, inventory, inventoryLogs, products } from '../db/index.js';
 import { eq, inArray } from 'drizzle-orm';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
@@ -180,15 +180,44 @@ export default async function handler(req, res) {
             cleanProductId = null;
           }
 
+          const quantity = item.qty || item.quantity || 1;
+
           await tx.insert(orderItems).values({
             orderId: order.id,
             productId: cleanProductId,
             name: item.name,
-            quantity: item.qty || item.quantity || 1,
+            quantity,
             price: item.price,
             weight: item.weight || '',
             unit: item.unit || ''
           });
+
+          // Deduct from tracked inventory (skip untracked/promotional items —
+          // no productId, or no inventory row exists for it yet).
+          if (cleanProductId != null) {
+            const invRows = await tx.select().from(inventory).where(eq(inventory.productId, cleanProductId));
+            if (invRows.length) {
+              const inv = invRows[0];
+              const stockBefore = inv.availableStock;
+              const stockAfter = Math.max(0, stockBefore - quantity);
+              await tx.update(inventory)
+                .set({ availableStock: stockAfter, updatedAt: new Date() })
+                .where(eq(inventory.productId, cleanProductId));
+              await tx.insert(inventoryLogs).values({
+                productId: cleanProductId,
+                productName: item.name,
+                changeType: 'SUBTRACT',
+                quantity,
+                stockBefore,
+                stockAfter,
+                reason: `Customer order #${order.id}`,
+                adminName: 'Customer Order'
+              });
+              if (stockAfter === 0) {
+                await tx.update(products).set({ inStock: false }).where(eq(products.id, cleanProductId));
+              }
+            }
+          }
         }
 
         return order;

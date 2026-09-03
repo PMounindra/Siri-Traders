@@ -48,23 +48,26 @@ export const SiteDataProvider = ({ children }) => {
   ]);
   const [deliveryZones, setDeliveryZones] = useState([]);
   const [deliverySettings, setDeliverySettings] = useState({ deliveryFee: 25, freeDeliveryThreshold: 500, handlingCharge: 5 });
+  const [cmsPages, setCmsPages] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchSiteData = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
-      const [catRows, offerRows, couponRows, zoneRows, settingsRow] = await Promise.all([
+      const [catRows, offerRows, couponRows, zoneRows, settingsRow, pageRows] = await Promise.all([
         fetch('/api/categories').then(r => (r.ok ? r.json() : [])).catch(() => []),
         fetch('/api/offers').then(r => (r.ok ? r.json() : [])).catch(() => []),
         fetch('/api/coupons').then(r => (r.ok ? r.json() : [])).catch(() => []),
         fetch('/api/delivery_zones').then(r => (r.ok ? r.json() : [])).catch(() => []),
         fetch('/api/settings').then(r => (r.ok ? r.json() : null)).catch(() => null),
+        fetch('/api/settings?action=page').then(r => (r.ok ? r.json() : [])).catch(() => []),
       ]);
 
       if (catRows && catRows.length > 0) setCategories(catRows);
       if (offerRows && offerRows.length > 0) setOffers(offerRows.map(normalizeOffer));
       if (couponRows && couponRows.length > 0) setCoupons(couponRows.map(normalizeCoupon));
       if (zoneRows && zoneRows.length > 0) setDeliveryZones(zoneRows);
+      if (Array.isArray(pageRows)) setCmsPages(pageRows);
       if (settingsRow) {
         setDeliverySettings({
           deliveryFee: settingsRow.deliveryFee ?? 25,
@@ -119,6 +122,8 @@ export const SiteDataProvider = ({ children }) => {
   const retailCoupons = coupons.filter(c => c.active !== false && (c.customerType || 'retail') === 'retail');
   const wholesaleCoupons = coupons.filter(c => c.active !== false && c.customerType === 'wholesale');
 
+  const getCmsPage = (slug) => cmsPages.find(p => p.slug === slug && p.isPublished !== false) || null;
+
   const value = {
     categories,
     dailyOffers,
@@ -127,6 +132,8 @@ export const SiteDataProvider = ({ children }) => {
     wholesaleCoupons,
     deliveryZones,
     deliverySettings,
+    cmsPages,
+    getCmsPage,
     loading,
     refreshSiteData: () => fetchSiteData(false),
   };

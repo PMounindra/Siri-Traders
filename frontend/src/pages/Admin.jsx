@@ -317,6 +317,10 @@ const Admin = () => {
   const [expandedVariantId, setExpandedVariantId] = useState(null);
   const [detailedVariants, setDetailedVariants] = useState([]);
   const [showProductModal, setShowProductModal] = useState(false);
+  // Decoupled from activeTab so the modal can be opened from Inventory Hub
+  // (which stays on its own tab) and still know whether to save/show as
+  // retail or wholesale.
+  const [productModalMode, setProductModalMode] = useState('retail');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categoryDraft, setCategoryDraft] = useState({ name: '', image: '', color: '#F1F8E9' });
   const [categoryLoading, setCategoryLoading] = useState(false);
@@ -345,6 +349,7 @@ const Admin = () => {
     settings: {}
   });
   const [editingPage, setEditingPage] = useState(null);
+  const [newPageDraft, setNewPageDraft] = useState(null);
 
   const loadCmsData = async () => {
     try {
@@ -1125,8 +1130,8 @@ const Admin = () => {
   // ── Save Product ──
   const saveProduct = async (event) => {
     event.preventDefault();
-    const isWholesale = activeTab === 'wholesale-products';
-    
+    const isWholesale = productModalMode === 'wholesale';
+
     const validVariants = detailedVariants.filter(v => v.label && (v.price || v.price === 0)).map(v => ({
       id: v.id || `var-${Date.now()}-${Math.random()}`,
       label: v.label,
@@ -1253,6 +1258,7 @@ const Admin = () => {
     }
 
     setActiveTab(targetTab);
+    setProductModalMode(isWholesale ? 'wholesale' : 'retail');
     setShowProductModal(true);
   };
 
@@ -1290,6 +1296,7 @@ const Admin = () => {
 
     setDetailedVariants(clonedVariants);
     setActiveTab(targetTab);
+    setProductModalMode(isWholesale ? 'wholesale' : 'retail');
     setSaveToast({ type: 'success', msg: `📋 Cloned "${product.name}" into editor draft.` });
     setShowProductModal(true);
   };
@@ -1871,10 +1878,21 @@ const Admin = () => {
           {activeTab === 'cms' && (
             <div className="admin-cms-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="admin-card admin-card--wide">
-                <h2 style={{ margin: '0 0 4px' }}>Terms & Policy Pages ({cmsData.pages.length})</h2>
-                <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#687466' }}>
-                  Edit the content shown on each legal, general and policy page of the website.
-                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                  <div>
+                    <h2 style={{ margin: '0 0 4px' }}>Terms & Policy Pages ({cmsData.pages.length})</h2>
+                    <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#687466' }}>
+                      Edit the content shown on each legal, general and policy page of the website.
+                    </p>
+                  </div>
+                  <button
+                    className="admin__primary"
+                    style={{ flexShrink: 0 }}
+                    onClick={() => setNewPageDraft({ title: '', slug: '', category: 'general', content: '' })}
+                  >
+                    <FiPlus /> New Page
+                  </button>
+                </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {cmsData.pages.map(page => (
                     <div key={page.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: '#FFFFFF', border: '1px solid #E1E6DC', borderRadius: '8px' }}>
@@ -1939,6 +1957,82 @@ const Admin = () => {
                         }}
                       >
                         <FiSave /> Save Changes
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {newPageDraft && (
+                <div className="inventory-modal-backdrop" onClick={() => setNewPageDraft(null)}>
+                  <div className="inventory-modal" style={{ maxWidth: '720px' }} onClick={e => e.stopPropagation()}>
+                    <div className="inventory-modal__header">
+                      <h2 style={{ margin: 0 }}>New Page</h2>
+                      <button className="inventory-modal__close" onClick={() => setNewPageDraft(null)}>✕</button>
+                    </div>
+
+                    <div className="inventory-modal__body">
+                      <div className="admin-form__grid admin-form__grid--two">
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Title *</label>
+                          <input
+                            className="admin-input-box"
+                            placeholder="e.g. Shipping Policy"
+                            value={newPageDraft.title}
+                            onChange={e => setNewPageDraft(p => ({ ...p, title: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Slug (URL: /info?tab=...)</label>
+                          <input
+                            className="admin-input-box"
+                            placeholder="auto-generated from title if left blank"
+                            value={newPageDraft.slug}
+                            onChange={e => setNewPageDraft(p => ({ ...p, slug: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                      <div style={{ marginTop: '10px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Category</label>
+                        <select
+                          className="admin-input-box"
+                          value={newPageDraft.category}
+                          onChange={e => setNewPageDraft(p => ({ ...p, category: e.target.value }))}
+                        >
+                          <option value="general">General</option>
+                          <option value="legal">Legal</option>
+                          <option value="policy">Policy</option>
+                        </select>
+                      </div>
+                      <div style={{ marginTop: '10px' }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, marginBottom: '3px' }}>Page Body Content</label>
+                        <textarea
+                          rows={16}
+                          className="admin-input-box"
+                          style={{ height: 'auto' }}
+                          value={newPageDraft.content}
+                          onChange={e => setNewPageDraft(p => ({ ...p, content: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="inventory-modal__footer">
+                      <button type="button" className="admin__ghost" onClick={() => setNewPageDraft(null)}>Cancel</button>
+                      <button
+                        type="button"
+                        className="admin__primary"
+                        disabled={!newPageDraft.title.trim()}
+                        onClick={async () => {
+                          try {
+                            const saved = await adminApi.savePage({ ...newPageDraft, isPublished: true });
+                            setCmsData(prev => ({ ...prev, pages: [...prev.pages, saved] }));
+                            setNewPageDraft(null);
+                            setSaveToast({ type: 'success', msg: `Page "${saved.title}" created` });
+                            setTimeout(() => setSaveToast(null), 3000);
+                          } catch (err) { alert(err.message); }
+                        }}
+                      >
+                        <FiSave /> Create Page
                       </button>
                     </div>
                   </div>
@@ -3856,15 +3950,28 @@ const Admin = () => {
                           📥 Export CSV
                         </button>
                         <button
-                          className="admin__primary"
+                          className="admin__ghost"
                           style={{ height: '38px', padding: '0 14px', fontSize: '12px' }}
                           onClick={() => {
                             setProductDraft(blankProduct);
+                            setProductModalMode('retail');
                             setDetailedVariants([]);
                             setShowProductModal(true);
                           }}
                         >
-                          <FiPlus size={13} /> Add New Item
+                          <FiPlus size={13} /> Add Retail Item
+                        </button>
+                        <button
+                          className="admin__primary"
+                          style={{ height: '38px', padding: '0 14px', fontSize: '12px' }}
+                          onClick={() => {
+                            setProductDraft(blankWholesaleProduct);
+                            setProductModalMode('wholesale');
+                            setDetailedVariants([]);
+                            setShowProductModal(true);
+                          }}
+                        >
+                          <FiPlus size={13} /> Add Wholesale Item
                         </button>
                       </div>
                     </div>
@@ -4185,7 +4292,9 @@ const Admin = () => {
                       type="button"
                       className="admin__primary"
                       onClick={() => {
-                        setProductDraft(activeTab === 'wholesale-products' ? blankWholesaleProduct : blankProduct);
+                        const wholesale = activeTab === 'wholesale-products';
+                        setProductDraft(wholesale ? blankWholesaleProduct : blankProduct);
+                        setProductModalMode(wholesale ? 'wholesale' : 'retail');
                         setDetailedVariants([]);
                         setShowProductModal(true);
                       }}
@@ -4302,7 +4411,7 @@ const Admin = () => {
               <div className="inventory-modal" style={{ maxWidth: '860px' }} onClick={e => e.stopPropagation()}>
                 <div className="inventory-modal__header">
                   <div>
-                    <h2 style={{ margin: 0 }}>{productDraft.id ? 'Edit Grocery Item' : `Add New ${activeTab === 'wholesale-products' ? 'Wholesale' : 'Retail'} Item`}</h2>
+                    <h2 style={{ margin: 0 }}>{productDraft.id ? 'Edit Grocery Item' : `Add New ${productModalMode === 'wholesale' ? 'Wholesale' : 'Retail'} Item`}</h2>
                     {productDraft.id && (
                       <span style={{ fontSize: '11px', color: '#687466' }}>Editing ID #{productDraft.id}</span>
                     )}
@@ -4377,7 +4486,7 @@ const Admin = () => {
                       </div>
                     </div>
 
-                    {activeTab === 'wholesale-products' && (
+                    {productModalMode === 'wholesale' && (
                       <div className="admin-form-section">
                         <h3 className="admin-form-section__title"><FiLayers /> 3. Wholesale Price Ranges</h3>
                         <p style={{ fontSize: '11.5px', color: '#687466', margin: '0 0 10px' }}>

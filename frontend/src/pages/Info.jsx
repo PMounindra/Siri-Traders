@@ -1,11 +1,24 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiPhone, FiMail, FiMapPin } from 'react-icons/fi';
+import { useSiteData } from '../context/SiteDataContext';
 import './Info.css';
+
+// Renders admin-edited CMS content (plain text, blank-line-separated
+// paragraphs) if a page exists for the slug, otherwise falls back to the
+// hardcoded default so the section is never empty.
+const CmsBody = ({ page, fallback }) => {
+  if (!page?.content?.trim()) return fallback;
+  return page.content.split(/\n\s*\n/).map((para, i) => <p key={i}>{para.trim()}</p>);
+};
 
 const Info = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { getCmsPage } = useSiteData();
+  const aboutPage = getCmsPage('about');
+  const termsPage = getCmsPage('terms');
+  const privacyPage = getCmsPage('privacy-policy');
 
   useEffect(() => {
     const hash = location.hash.replace('#', '');
@@ -33,25 +46,27 @@ const Info = () => {
           <section id="about" className="info__section">
             <h2 className="info__section-title">About Us</h2>
             <div className="info__card">
-              <p>Welcome to <strong>Siri Traders</strong>.</p>
-              <p>
-                Established on 25 September 2025, Siri Traders is a dedicated e-commerce platform committed to providing high-quality grocery products to both retail and wholesale customers. Our objective is to simplify the grocery procurement process by offering a reliable, efficient, and customer-centric online shopping experience.
-              </p>
-              <p>
-                At Siri Traders, we understand the importance of quality, affordability, and timely access to essential products. We strive to bridge the gap between suppliers and consumers by creating a dependable marketplace that caters to households, businesses, retailers, restaurants, and institutional buyers.
-              </p>
-              <p>
-                Our extensive product portfolio includes a wide range of grocery essentials such as grains, pulses, spices, packaged foods, cooking ingredients, household necessities, and other daily-use products sourced from trusted suppliers.
-              </p>
-              <p>
-                Customer satisfaction remains the foundation of our operations. We are committed to maintaining transparency, consistency, and excellence in every aspect of our business.
-              </p>
-              <p>
-                Our mission is to make grocery shopping seamless, accessible, and dependable while fostering long-term relationships built on trust and integrity.
-              </p>
-              <p>
-                At Siri Traders, we continuously work towards becoming a preferred and trusted destination for quality grocery products by delivering value, convenience, and exceptional service.
-              </p>
+              <CmsBody page={aboutPage} fallback={<>
+                <p>Welcome to <strong>Siri Traders</strong>.</p>
+                <p>
+                  Established on 25 September 2025, Siri Traders is a dedicated e-commerce platform committed to providing high-quality grocery products to both retail and wholesale customers. Our objective is to simplify the grocery procurement process by offering a reliable, efficient, and customer-centric online shopping experience.
+                </p>
+                <p>
+                  At Siri Traders, we understand the importance of quality, affordability, and timely access to essential products. We strive to bridge the gap between suppliers and consumers by creating a dependable marketplace that caters to households, businesses, retailers, restaurants, and institutional buyers.
+                </p>
+                <p>
+                  Our extensive product portfolio includes a wide range of grocery essentials such as grains, pulses, spices, packaged foods, cooking ingredients, household necessities, and other daily-use products sourced from trusted suppliers.
+                </p>
+                <p>
+                  Customer satisfaction remains the foundation of our operations. We are committed to maintaining transparency, consistency, and excellence in every aspect of our business.
+                </p>
+                <p>
+                  Our mission is to make grocery shopping seamless, accessible, and dependable while fostering long-term relationships built on trust and integrity.
+                </p>
+                <p>
+                  At Siri Traders, we continuously work towards becoming a preferred and trusted destination for quality grocery products by delivering value, convenience, and exceptional service.
+                </p>
+              </>} />
             </div>
           </section>
 
@@ -91,15 +106,17 @@ const Info = () => {
             <h2 className="info__section-title">Terms &amp; Conditions</h2>
             <div className="info__card">
               <p className="info__updated">Last Updated: September 2025</p>
-              <p>
-                By accessing or using the Siri Traders website, users agree to comply with all applicable laws and these Terms &amp; Conditions.
-              </p>
-              <p>
-                Siri Traders reserves the right to modify product information, pricing, availability, and website content without prior notice. Orders are subject to acceptance, verification, and availability. Users must provide accurate information and refrain from unlawful activities.
-              </p>
-              <p>
-                All intellectual property on the website remains the property of Siri Traders. Any disputes shall be governed by the laws of India.
-              </p>
+              <CmsBody page={termsPage} fallback={<>
+                <p>
+                  By accessing or using the Siri Traders website, users agree to comply with all applicable laws and these Terms &amp; Conditions.
+                </p>
+                <p>
+                  Siri Traders reserves the right to modify product information, pricing, availability, and website content without prior notice. Orders are subject to acceptance, verification, and availability. Users must provide accurate information and refrain from unlawful activities.
+                </p>
+                <p>
+                  All intellectual property on the website remains the property of Siri Traders. Any disputes shall be governed by the laws of India.
+                </p>
+              </>} />
             </div>
           </section>
 
@@ -108,18 +125,20 @@ const Info = () => {
             <h2 className="info__section-title">Privacy Policy</h2>
             <div className="info__card">
               <p className="info__updated">Last Updated: September 2025</p>
-              <p>
-                Siri Traders respects your privacy and is committed to protecting personal information collected through the website.
-              </p>
-              <p>
-                Information collected may include customer details, contact information, billing and shipping addresses, and technical website usage information.
-              </p>
-              <p>
-                The information is used for order processing, customer support, website improvement, fraud prevention, and legal compliance. Siri Traders does not sell or rent customer data and only shares information with authorised service providers when necessary.
-              </p>
-              <p>
-                Appropriate security measures are implemented to protect customer information.
-              </p>
+              <CmsBody page={privacyPage} fallback={<>
+                <p>
+                  Siri Traders respects your privacy and is committed to protecting personal information collected through the website.
+                </p>
+                <p>
+                  Information collected may include customer details, contact information, billing and shipping addresses, and technical website usage information.
+                </p>
+                <p>
+                  The information is used for order processing, customer support, website improvement, fraud prevention, and legal compliance. Siri Traders does not sell or rent customer data and only shares information with authorised service providers when necessary.
+                </p>
+                <p>
+                  Appropriate security measures are implemented to protect customer information.
+                </p>
+              </>} />
             </div>
           </section>
 
