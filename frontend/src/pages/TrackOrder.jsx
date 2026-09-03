@@ -15,13 +15,15 @@ const STEPS = [
 ];
 
 const STATUS_TO_STEP = {
-  placed:    0,
-  confirmed: 1,
-  preparing: 1,
-  packed:    2,
-  paid:      1,
-  transit:   3,
-  delivered: 4,
+  pending:      0,
+  placed:       0,
+  confirmed:    1,
+  preparing:    1,
+  packed:       2,
+  paid:         1,
+  transit:      3,
+  'in transit': 3,
+  delivered:    4,
 };
 
 const computeEta = (deliveryTime) => {
@@ -57,43 +59,15 @@ const TrackOrder = () => {
     if (found.deliveryTime) setEta(computeEta(found.deliveryTime));
   }, []);
 
-  const refreshOrder = useCallback(async () => {
-    setLoading(true);
+  const refreshOrder = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     setNotFound(false);
     setLoadError(false);
 
-    // First priority: route state from Checkout (justPlaced=true)
-    const state = location.state;
-    if (state?.justPlaced) {
-      setOrder({
-        id: state.orderId,
-        status: 'placed',
-        deliveryTime: state.deliveryTime,
-        address: state.address,
-        total: state.total,
-        items: state.items,
-      });
-      setCurrentStep(0);
-      if (state.deliveryTime) setEta(computeEta(state.deliveryTime));
-      setLoading(false);
-      return;
-    }
-
-    // Next: localStorage (orders placed while offline / on this device)
-    try {
-      const key = getUserStorageKey(user, 'orders');
-      const saved = key ? localStorage.getItem(key) : null;
-      const orders = saved ? JSON.parse(saved) : [];
-      const found = orders.find(o => String(o.id) === String(orderId));
-      if (found) {
-        applyOrder(found);
-        setLoading(false);
-        return;
-      }
-    } catch { /* ignore */ }
-
-    // Fallback: fetch the order from the server — covers orders placed on
-    // another device/session where this browser's localStorage has nothing.
+    // The live server record is the source of truth — it's what reflects
+    // admin status changes (Preparing/In Transit/Delivered/Paid etc.), so it
+    // always wins over anything cached locally. Only fall back to route
+    // state / localStorage if we can't reach it.
     if (isAuthenticated && typeof getToken === 'function') {
       try {
         const token = await getToken();
@@ -114,24 +88,62 @@ const TrackOrder = () => {
           return;
         }
         // 404/403 mean the order genuinely isn't this user's; anything else
-        // (5xx, rate limit, etc.) is a temporary failure, not a bad order id.
+        // (5xx, rate limit, etc.) is a temporary failure — fall through to
+        // route state / localStorage rather than giving up immediately.
         if (res.status !== 404 && res.status !== 403) {
           setLoadError(true);
           setLoading(false);
           return;
         }
       } catch {
-        setLoadError(true);
+        // network error — fall through to route state / localStorage below
+      }
+    }
+
+    // Route state from Checkout (justPlaced=true) — covers the instant right
+    // after checkout if the fetch above hasn't resolved yet.
+    const state = location.state;
+    if (state?.justPlaced) {
+      setOrder({
+        id: state.orderId,
+        status: 'placed',
+        deliveryTime: state.deliveryTime,
+        address: state.address,
+        total: state.total,
+        items: state.items,
+      });
+      setCurrentStep(0);
+      if (state.deliveryTime) setEta(computeEta(state.deliveryTime));
+      setLoading(false);
+      return;
+    }
+
+    // Last resort: localStorage (orders placed while offline / on this device)
+    try {
+      const key = getUserStorageKey(user, 'orders');
+      const saved = key ? localStorage.getItem(key) : null;
+      const orders = saved ? JSON.parse(saved) : [];
+      const found = orders.find(o => String(o.id) === String(orderId));
+      if (found) {
+        applyOrder(found);
         setLoading(false);
         return;
       }
-    }
+    } catch { /* ignore */ }
 
     setNotFound(true);
     setLoading(false);
   }, [orderId, user, location.state, isAuthenticated, getToken, applyOrder]);
 
   useEffect(() => { refreshOrder(); }, [refreshOrder]);
+
+  // Poll for status updates while the order is still moving, so an admin
+  // marking it In Transit / Delivered / Paid shows up without a manual reload.
+  useEffect(() => {
+    if (!order || currentStep >= STEPS.length - 1) return;
+    const interval = setInterval(() => refreshOrder(false), 20000);
+    return () => clearInterval(interval);
+  }, [order, currentStep, refreshOrder]);
 
   if (loading) {
     return (
