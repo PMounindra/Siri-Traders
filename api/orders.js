@@ -63,7 +63,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ...order, items });
     } catch (error) {
       console.error("Error in /api/orders?id:", error);
-      return res.status(500).json({ error: 'Something went wrong' });
+      return res.status(500).json({ error: 'Something went wrong. Please try again shortly.' });
     }
   }
 
@@ -216,6 +216,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
     console.error("Error in /api/orders:", error?.message, error?.stack);
-    return res.status(500).json({ error: error?.message || 'Something went wrong' });
+    return res.status(500).json({ error: 'Something went wrong. Please try again shortly.' });
   }
 }

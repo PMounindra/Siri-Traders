@@ -257,6 +257,8 @@
   color: var(--color-danger);
   font-size: 12px;
   font-weight: 600;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 /* Payment */

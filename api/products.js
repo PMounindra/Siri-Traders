@@ -201,6 +201,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
     console.error('Database error in /api/products:', error);
-    return res.status(500).json({ error: error.message || 'Something went wrong' });
+    return res.status(500).json({ error: 'Something went wrong. Please try again shortly.' });
   }
 }

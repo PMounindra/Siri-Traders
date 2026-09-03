@@ -15,6 +15,7 @@ const Orders = () => {
   const [reordered, setReordered] = useState(null);
   const [dbOrders, setDbOrders] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -30,14 +31,17 @@ const Orders = () => {
             const data = await res.json();
             if (active) {
               setDbOrders(data);
+              setLoadFailed(false);
             }
           } else {
             if (active) {
               setDbOrders([]);
+              setLoadFailed(true);
             }
           }
         } catch (err) {
           console.error("Error fetching database orders:", err);
+          if (active) setLoadFailed(true);
         } finally {
           if (active) {
             setLoading(false);
@@ -128,7 +132,16 @@ const Orders = () => {
             <span className="orders__count">{orders.length} orders</span>
           </h1>
 
-          {orders.length === 0 ? (
+          {orders.length === 0 && loadFailed ? (
+            <div className="orders__empty">
+              <span className="orders__empty-icon">⚠️</span>
+              <h2>Couldn't load your orders</h2>
+              <p>We're having trouble reaching the server right now. Please try again shortly.</p>
+              <button className="orders__empty-btn" onClick={() => window.location.reload()}>
+                <FiRefreshCw /> Retry
+              </button>
+            </div>
+          ) : orders.length === 0 ? (
             <div className="orders__empty">
               <span className="orders__empty-icon">📋</span>
               <h2>No orders yet</h2>

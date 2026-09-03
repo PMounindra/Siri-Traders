@@ -49,6 +49,7 @@ const TrackOrder = () => {
   const [eta, setEta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const applyOrder = useCallback((found) => {
     setOrder(found);
@@ -59,6 +60,7 @@ const TrackOrder = () => {
   const refreshOrder = useCallback(async () => {
     setLoading(true);
     setNotFound(false);
+    setLoadError(false);
 
     // First priority: route state from Checkout (justPlaced=true)
     const state = location.state;
@@ -111,7 +113,18 @@ const TrackOrder = () => {
           setLoading(false);
           return;
         }
-      } catch { /* network error — fall through to not-found */ }
+        // 404/403 mean the order genuinely isn't this user's; anything else
+        // (5xx, rate limit, etc.) is a temporary failure, not a bad order id.
+        if (res.status !== 404 && res.status !== 403) {
+          setLoadError(true);
+          setLoading(false);
+          return;
+        }
+      } catch {
+        setLoadError(true);
+        setLoading(false);
+        return;
+      }
     }
 
     setNotFound(true);
@@ -126,6 +139,21 @@ const TrackOrder = () => {
         <div className="track__not-found">
           <FiPackage size={48} />
           <h2>Loading order…</h2>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError && !order) {
+    return (
+      <div className="page-wrapper">
+        <div className="track__not-found">
+          <FiPackage size={48} />
+          <h2>Couldn't load this order</h2>
+          <p>We're having trouble reaching the server right now. Please try again shortly.</p>
+          <button onClick={() => refreshOrder()} className="track__back-btn">
+            Retry
+          </button>
         </div>
       </div>
     );
