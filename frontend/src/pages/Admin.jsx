@@ -4994,7 +4994,7 @@ const Admin = () => {
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                         <button
                           type="button"
-                          className="admin__ghost"
+                          className="admin__ghost admin-row-action-btn"
                           style={{ padding: '6px 10px', fontSize: '11.5px' }}
                           onClick={() => resetAdminPassword(account)}
                         >
@@ -5005,7 +5005,7 @@ const Admin = () => {
                         ) : (
                           <button
                             type="button"
-                            className="admin-danger"
+                            className="admin-danger admin-row-action-btn"
                             style={{ padding: '6px 10px', fontSize: '11.5px' }}
                             onClick={async () => {
                               if (window.confirm(`Remove admin access for ${account.name} (${account.email})?`)) {

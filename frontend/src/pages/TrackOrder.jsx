@@ -45,7 +45,7 @@ const TrackOrder = () => {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isAuthenticated, getToken } = useAuth();
+  const { user, isAuthenticated, isLoaded, getToken } = useAuth();
   const [order, setOrder] = useState(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [eta, setEta] = useState(null);
@@ -137,7 +137,14 @@ const TrackOrder = () => {
     setLoading(false);
   }, [orderId, user, location.state, isAuthenticated, getToken, applyOrder]);
 
-  useEffect(() => { refreshOrder(); }, [refreshOrder]);
+  useEffect(() => {
+    // Wait for Clerk to finish restoring the session — otherwise a reload
+    // runs this while isAuthenticated is still momentarily false, skips the
+    // authenticated order lookup, and flashes "order not found" for an
+    // order that's actually there.
+    if (!isLoaded) return;
+    refreshOrder();
+  }, [isLoaded, refreshOrder]);
 
   // Poll for status updates while the order is still moving, so an admin
   // marking it In Transit / Delivered / Paid / Cancelled shows up without a

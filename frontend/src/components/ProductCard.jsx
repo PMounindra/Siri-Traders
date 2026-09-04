@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiClock, FiMinus, FiPlus } from 'react-icons/fi';
+import { FiMinus, FiPlus } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { formatPrice } from '../utils/format';
@@ -112,9 +112,6 @@ const ProductCard = ({ product, compact = false }) => {
       </div>
 
       <div className="product-card__info">
-        <span className="product-card__delivery-badge">
-          <FiClock /> {product.deliveryTime}
-        </span>
         <h3 className="product-card__name">{product.name}</h3>
         {isWholesale && product.wholesalePrice && (
           <span className="product-card__ws-price">WS Price: {formatPrice(product.wholesalePrice)}</span>

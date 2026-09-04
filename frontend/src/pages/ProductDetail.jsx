@@ -8,7 +8,6 @@ import {
   MinusIcon,
   PlusIcon,
   ShoppingCartIcon,
-  StarIcon,
 } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
@@ -17,7 +16,6 @@ import { formatPrice } from "../utils/format";
 import { toWebpImage } from "../utils/images";
 import ProductCard from "../components/ProductCard";
 import Loading from "../components/Loading";
-import DummyReviewsSection from "../assets/DummyReviewsSection";
 import "./ProductDetail.css";
 
 const ProductDetail = () => {
@@ -120,13 +118,6 @@ const ProductDetail = () => {
 
   const isOrganic =
     product.isOrganic ?? product.category === "fruits-vegetables";
-  const rating = product.rating ?? (product.discount >= 15 ? 4.7 : 4.5);
-  const reviewCount =
-    product.reviewCount ?? Math.max(18, product.discount * 6 + 12);
-  const stockLabel =
-    product.inStock === false
-      ? "Out of Stock"
-      : `In Stock (${product.stock ?? 12} available)`;
 
   const handleMinus = () => {
     if (inCart) {
@@ -232,28 +223,6 @@ const ProductDetail = () => {
               <span className="pd__category">{categoryLabel}</span>
               <h1 className="pd__name">{product.name}</h1>
 
-              <div className="pd__rating-row">
-                <div
-                  className="pd__stars"
-                  aria-label={`Rated ${rating} out of 5`}
-                >
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <StarIcon
-                      key={star}
-                      className={
-                        star <= Math.round(rating)
-                          ? "pd__star pd__star--active"
-                          : "pd__star"
-                      }
-                    />
-                  ))}
-                </div>
-                <span className="pd__rating-value">{rating.toFixed(1)}</span>
-                <span className="pd__rating-count">
-                  ({reviewCount} reviews)
-                </span>
-              </div>
-
               <div className="pd__price-row">
                 <span className="pd__price">{formatPrice(activeVariant?.price || product.price)}</span>
                 {(activeVariant?.mrp || product.mrp) > (activeVariant?.price || product.price) && (
@@ -283,20 +252,11 @@ const ProductDetail = () => {
                 </div>
               )}
 
-              <div className="pd__meta">
-                <span
-                  className={
-                    product.inStock === false
-                      ? "pd__stock pd__stock--out"
-                      : "pd__stock"
-                  }
-                >
-                  {stockLabel}
-                </span>
-                <span className="pd__delivery">
-                  Delivery in {product.deliveryTime}
-                </span>
-              </div>
+              {product.inStock === false && (
+                <div className="pd__meta">
+                  <span className="pd__stock pd__stock--out">Out of Stock</span>
+                </div>
+              )}
 
               <div className="pd__actions">
                 {inCart ? (
@@ -352,8 +312,6 @@ const ProductDetail = () => {
               </div>
             </div>
           </section>
-
-          <DummyReviewsSection product={product} />
 
           {relatedProducts.length > 0 && (
             <section className="pd-related">

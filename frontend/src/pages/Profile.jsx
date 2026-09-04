@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useSiteData } from '../context/SiteDataContext';
 import { getUserStorageKey } from '../utils/userStorage';
+import Loading from '../components/Loading';
 import './Profile.css';
 
 const getStoredList = (key, fallback = []) => {
@@ -39,7 +40,7 @@ const getStoredObject = (key, fallback) => {
 };
 
 const Profile = () => {
-  const { user, isAuthenticated, logout, location, setLocation } = useAuth();
+  const { user, isAuthenticated, isLoaded, logout, location, setLocation } = useAuth();
   const { deliveryZones } = useSiteData();
   const navigate = useNavigate();
   const [activePanel, setActivePanel] = useState(null);
@@ -141,6 +142,14 @@ const Profile = () => {
     terms: 'Terms & Conditions',
     privacypolicy: 'Privacy Policy'
   }[activePanel];
+
+  // Wait for Clerk to finish restoring the session before deciding the user
+  // is logged out — on a reload, isAuthenticated starts false for a moment
+  // even for an already-signed-in user, which flashed the "please login"
+  // screen for someone who was, in fact, signed in.
+  if (!isLoaded) {
+    return <Loading />;
+  }
 
   if (!isAuthenticated) {
     return (

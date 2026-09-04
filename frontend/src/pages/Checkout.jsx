@@ -14,6 +14,7 @@ import { getDeliveryTimeForAddress } from '../utils/deliveryZones';
 import { applyCoupon } from '../data/coupons';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
+import Loading from '../components/Loading';
 import './Checkout.css';
 
 const addressTypes = [
@@ -67,7 +68,7 @@ const addressLine2 = (address) => {
 
 const Checkout = () => {
   const { cartItems, cartTotal, cartCount, clearCart, requireAuth } = useCart();
-  const { user, isAuthenticated, getToken, customerType } = useAuth();
+  const { user, isAuthenticated, isLoaded, getToken, customerType } = useAuth();
   const { deliveryZones, retailCoupons, wholesaleCoupons, deliverySettings } = useSiteData();
   const coupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
   const navigate = useNavigate();
@@ -115,6 +116,12 @@ const Checkout = () => {
   }, [addresses, addressStorageKey]);
 
   useEffect(() => {
+    // Wait for Clerk to finish restoring the session before treating the
+    // user as logged out — on a reload, isAuthenticated starts false for a
+    // moment even for an already-signed-in user, and redirecting away here
+    // sent people back to /home mid-checkout even though they were signed in.
+    if (!isLoaded) return;
+
     if (!isAuthenticated) {
       requireAuth();
       navigate('/home');
@@ -125,7 +132,15 @@ const Checkout = () => {
     setAddresses(savedAddresses);
     setSelectedAddressId(savedAddresses[0]?.id || '');
     setShowAddressForm(savedAddresses.length === 0);
-  }, [isAuthenticated, navigate, requireAuth, user]);
+  }, [isLoaded, isAuthenticated, navigate, requireAuth, user]);
+
+  // Cart is keyed by the signed-in user's id, which is briefly null while
+  // Clerk restores the session on a page reload — cartItems reads as empty
+  // during that window even for a real, non-empty cart. Wait for isLoaded
+  // before treating an empty cart as genuinely empty.
+  if (!isLoaded) {
+    return <Loading />;
+  }
 
   if (cartItems.length === 0 && !orderPlaced) {
     navigate('/cart');

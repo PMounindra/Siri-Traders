@@ -446,6 +446,15 @@
   color: #FF6B35 !important;
 }
 
+/* .admin-row button forces a 36x36 icon-only square, which clips any button
+   that also carries a text label (e.g. "Reset Password") — this class opts
+   those buttons back out into their natural, content-sized width. */
+.admin-row-action-btn {
+  width: auto !important;
+  height: auto !important;
+  white-space: nowrap;
+}
+
 .admin-row {
   width: 100%;
   display: grid;
