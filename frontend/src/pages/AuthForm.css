@@ -3,6 +3,60 @@
    Used by Login.jsx and Signup.jsx for the custom phone/email + OTP flow.
    ============================ */
 
+.auth-oauth-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-oauth-btn {
+  width: 100%;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(45, 80, 22, 0.2);
+  background: #FFFFFF;
+  color: #1c1c1c;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.auth-oauth-btn:hover:not(:disabled) {
+  background: #F1F8E9;
+}
+
+.auth-oauth-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.auth-oauth-btn svg {
+  font-size: 18px;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0;
+  color: #687466;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(45, 80, 22, 0.15);
+}
+
 .auth-mode-tabs {
   display: flex;
   gap: 8px;

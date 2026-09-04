@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSignUp } from '@clerk/clerk-react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
+import { FcGoogle } from 'react-icons/fc';
+import { FaFacebook } from 'react-icons/fa';
 import './Signup.css';
 import './AuthForm.css';
 
@@ -21,6 +23,20 @@ const Signup = () => {
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const handleOAuthSignUp = async (strategy) => {
+    if (!isLoaded || submitting) return;
+    setError('');
+    try {
+      await signUp.authenticateWithRedirect({
+        strategy,
+        redirectUrl: '/sso-callback',
+        redirectUrlComplete: '/home',
+      });
+    } catch (err) {
+      setError(firstErrorMessage(err, 'Failed to start sign-up.'));
+    }
+  };
 
   // Walks whatever verification Clerk still needs after create()/each
   // attempt — handles either just phone, just email, or both, in whatever
@@ -144,6 +160,20 @@ const Signup = () => {
           <h2 className="signup-title">Create Account</h2>
           <p className="signup-subtitle">Join Siri Traders for quick grocery delivery</p>
         </div>
+
+        {step === 'details' && (
+          <>
+            <div className="auth-oauth-group">
+              <button type="button" className="auth-oauth-btn" onClick={() => handleOAuthSignUp('oauth_google')} disabled={submitting}>
+                <FcGoogle /> Continue with Google
+              </button>
+              <button type="button" className="auth-oauth-btn" onClick={() => handleOAuthSignUp('oauth_facebook')} disabled={submitting}>
+                <FaFacebook color="#1877F2" /> Continue with Facebook
+              </button>
+            </div>
+            <div className="auth-divider">or</div>
+          </>
+        )}
 
         {step === 'details' && (
           <form className="auth-form" onSubmit={handleDetailsSubmit}>

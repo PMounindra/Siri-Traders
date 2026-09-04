@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSignIn } from '@clerk/clerk-react';
 import { FiPhone, FiMail, FiEye, FiEyeOff } from 'react-icons/fi';
+import { FcGoogle } from 'react-icons/fc';
+import { FaFacebook } from 'react-icons/fa';
 import './Login.css';
 import './AuthForm.css';
 
@@ -34,6 +36,20 @@ const Login = () => {
     if (next === mode) return;
     setMode(next);
     resetToIdentify();
+  };
+
+  const handleOAuthSignIn = async (strategy) => {
+    if (!isLoaded || submitting) return;
+    setError('');
+    try {
+      await signIn.authenticateWithRedirect({
+        strategy,
+        redirectUrl: '/sso-callback',
+        redirectUrlComplete: '/home',
+      });
+    } catch (err) {
+      setError(firstErrorMessage(err, 'Failed to start sign-in.'));
+    }
   };
 
   const handlePhoneSubmit = async (event) => {
@@ -127,6 +143,17 @@ const Login = () => {
           <h2 className="login-title">Welcome Back</h2>
           <p className="login-subtitle">Sign in to your Siri Traders account</p>
         </div>
+
+        <div className="auth-oauth-group">
+          <button type="button" className="auth-oauth-btn" onClick={() => handleOAuthSignIn('oauth_google')} disabled={submitting}>
+            <FcGoogle /> Continue with Google
+          </button>
+          <button type="button" className="auth-oauth-btn" onClick={() => handleOAuthSignIn('oauth_facebook')} disabled={submitting}>
+            <FaFacebook color="#1877F2" /> Continue with Facebook
+          </button>
+        </div>
+
+        <div className="auth-divider">or</div>
 
         <div className="auth-mode-tabs">
           <button type="button" className={`auth-mode-tab ${mode === 'phone' ? 'auth-mode-tab--active' : ''}`} onClick={() => switchMode('phone')}>

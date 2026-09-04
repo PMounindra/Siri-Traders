@@ -18,6 +18,7 @@ import CartSummaryBar from "./components/CartSummaryBar";
 import Loading from "./components/Loading";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import SsoCallback from "./pages/SsoCallback";
 import Home from "./pages/Home/index.jsx";
 
 const AdminLogin = lazy(() => import("./pages/AdminLogin"));
@@ -43,7 +44,7 @@ if (!PUBLISHABLE_KEY) {
 
 const AppLayout = () => {
   const location = useLocation();
-  const isAuthPage = ["/login", "/signup", "/admin-login", "/admin"].includes(
+  const isAuthPage = ["/login", "/signup", "/admin-login", "/admin", "/sso-callback"].includes(
     location.pathname,
   );
 
@@ -61,6 +62,7 @@ const AppLayout = () => {
             <Route path="/" element={<Navigate to="/home" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/sso-callback" element={<SsoCallback />} />
             <Route path="/admin-login" element={<AdminLogin />} />
             <Route path="/home" element={<Home />} />
             <Route path="/categories" element={<Categories />} />
