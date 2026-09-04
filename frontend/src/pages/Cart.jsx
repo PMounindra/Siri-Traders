@@ -150,7 +150,7 @@ const Cart = () => {
                 className="cart__coupon-input"
                 id="cart-coupon-input"
               />
-              <button className="cart__coupon-btn" onClick={applyCoupon}>Apply</button>
+              <button className="cart__coupon-btn" onClick={() => applyCoupon()}>Apply</button>
             </div>
             {couponError && <span className="cart__coupon-error">{couponError}</span>}
             {appliedCoupon && (

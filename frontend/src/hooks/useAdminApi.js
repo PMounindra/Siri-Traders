@@ -54,6 +54,14 @@ export async function apiCreateAdminUser(data) {
   return asJson(res, 'Failed to create admin');
 }
 
+export async function apiDeleteAdminUser(id) {
+  const res = await fetch(`/api/admin/auth?action=admin-users&id=${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    ...withCreds,
+  });
+  return asJson(res, 'Failed to remove admin');
+}
+
 // ── Image uploads (Vercel Blob) ─────────────────────────────────────────
 
 export async function apiUploadImage(file) {
@@ -501,6 +509,7 @@ export function useAdminApi() {
     logout: apiAdminLogout,
     fetchAdminUsers: apiFetchAdminUsers,
     createAdminUser: apiCreateAdminUser,
+    deleteAdminUser: apiDeleteAdminUser,
 
     uploadImage: apiUploadImage,
 

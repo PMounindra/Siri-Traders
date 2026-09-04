@@ -65,6 +65,19 @@ async function handleAdminUsers(req, res) {
     return res.status(200).json(safe);
   }
 
+  if (req.method === 'DELETE') {
+    const { id } = req.query;
+    if (!id) return res.status(400).json({ error: 'Admin user id is required' });
+
+    const session = getSessionFromRequest(req);
+    if (session && session.sub === id) {
+      return res.status(400).json({ error: 'You cannot remove your own admin account' });
+    }
+
+    await db.delete(adminUsers).where(eq(adminUsers.id, id));
+    return res.status(200).json({ success: true, id });
+  }
+
   if (req.method === 'POST') {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const validation = createAdminSchema.safeParse(body);

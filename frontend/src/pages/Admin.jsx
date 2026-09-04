@@ -228,11 +228,11 @@ const downloadCsv = (filename, rows) => {
 };
 
 const ADMIN_ROLE_PERMISSIONS = {
-  Owner: ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','retail-products','wholesale-products','offers','bestsellers','delivery-zones','broadcast','admins'],
-  'Super Admin': ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','retail-products','wholesale-products','offers','bestsellers','delivery-zones','broadcast'],
-  'Product Manager': ['dashboard','inventory','retail-products','wholesale-products','reviews','bestsellers'],
+  Owner: ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','retail-products','wholesale-products','offers','festive-offers','bestsellers','delivery-zones','broadcast','admins'],
+  'Super Admin': ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','retail-products','wholesale-products','offers','festive-offers','bestsellers','delivery-zones','broadcast'],
+  'Product Manager': ['dashboard','inventory','retail-products','wholesale-products','festive-offers','reviews','bestsellers'],
   'Order Manager': ['dashboard','inventory','orders','customers','delivery-zones'],
-  'Marketing Manager': ['dashboard','offers','cms','bestsellers','broadcast','reviews'],
+  'Marketing Manager': ['dashboard','offers','festive-offers','cms','bestsellers','broadcast','reviews'],
   'Content Manager': ['dashboard','cms','reviews'],
   'Customer Support': ['dashboard','inventory','customers','orders','reviews','delivery-zones'],
   Viewer: ['dashboard','inventory','sales-stats']
@@ -274,6 +274,7 @@ const ADMIN_NAV_SECTIONS = [
     items: [
       ['retail-products', 'Retail Items', FiPackage],
       ['wholesale-products', 'Wholesale Items', FiPackage],
+      ['festive-offers', 'Festive Offers', FiGift],
       ['bestsellers', 'Bestsellers & Deals', FiStar]
     ]
   },
@@ -1381,10 +1382,10 @@ const Admin = () => {
     }
   };
 
-  const saveOffer = async (event) => {
+  const saveOffer = async (event, forceGroup) => {
     event.preventDefault();
     const festiveKeywords = /diwali|eid|holi|christmas|navratri|rakhi|onam|sankranti|ramzan|ugadi|ganesh|dussehra|festival|wedding|party/i;
-    const group = festiveKeywords.test(offerDraft.title + ' ' + offerDraft.badge) ? 'festival' : (offerDraft.group || 'daily');
+    const group = forceGroup || (festiveKeywords.test(offerDraft.title + ' ' + offerDraft.badge) ? 'festival' : (offerDraft.group || 'daily'));
     const payload = {
       ...offerDraft,
       group,
@@ -2016,6 +2017,7 @@ const Admin = () => {
                           rows={16}
                           className="admin-input-box"
                           style={{ height: 'auto' }}
+                          placeholder={newPageDraft.slug === 'contact' ? 'Phone: 812570286\nEmail: siritraders250925@gmail.com\nAddress: Your address here' : ''}
                           value={newPageDraft.content}
                           onChange={e => setNewPageDraft(p => ({ ...p, content: e.target.value }))}
                         />
@@ -2499,6 +2501,137 @@ const Admin = () => {
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* =========================================================================
+             MODULE 2B: FESTIVE OFFERS — dedicated view/manage page for the
+             storefront's /festive-offers deals (a subset of the "offers" table
+             filtered to group === 'festival'). Creating here always tags the
+             deal festival, unlike the generic Promos & Coupons form above
+             which only auto-detects it from festive keywords in the title.
+             ========================================================================= */}
+          {activeTab === 'festive-offers' && (
+            <div className="admin-promos-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="admin-grid" style={{ gridTemplateColumns: '1.2fr 1fr' }}>
+                <form className="admin-form" onSubmit={(e) => saveOffer(e, 'festival')}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FiGift size={18} style={{ color: '#2D5016' }} />
+                    <h2 style={{ margin: 0 }}>Add Festive Offer</h2>
+                  </div>
+
+                  <input value={offerDraft.title} onChange={(e) => setOfferDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Deal Title e.g. Diwali Mega Rice Fest" required />
+                  <input value={offerDraft.subtitle} onChange={(e) => setOfferDraft(prev => ({ ...prev, subtitle: e.target.value }))} placeholder="Subtitle e.g. Flat 20% off on all Basmati Rice" />
+                  <input value={offerDraft.badge} onChange={(e) => setOfferDraft(prev => ({ ...prev, badge: e.target.value }))} placeholder="Badge e.g. Save ₹80 / BOGO" />
+
+                  <div className="admin-form__grid admin-form__grid--two">
+                    <input value={offerDraft.price} onChange={(e) => setOfferDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="Deal Price (₹)" type="number" />
+                    <input value={offerDraft.mrp} onChange={(e) => setOfferDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="MRP (₹)" type="number" />
+                  </div>
+
+                  <div className="admin-offer-image">
+                    {offerDraft.image ? (
+                      <img src={toWebpImage(offerDraft.image)} alt="Offer preview" />
+                    ) : (
+                      <div className="admin-offer-image__empty"><FiGift /></div>
+                    )}
+                    <div>
+                      <input value={offerDraft.image} onChange={(e) => setOfferDraft(prev => ({ ...prev, image: e.target.value }))} placeholder="Add offer image URL" />
+                      <label className="admin-file-input admin-file-input--compact">
+                        <span>Or choose file from device</span>
+                        <input type="file" accept="image/*" onChange={handleOfferImageUpload} />
+                      </label>
+                    </div>
+                  </div>
+
+                  <button className="admin__primary" disabled={imageUploading}>{imageUploading ? 'Uploading image...' : <><FiPlus /> Publish Festive Offer</>}</button>
+                </form>
+
+                <div className="admin-card">
+                  <h2>About this page</h2>
+                  <p style={{ fontSize: '12.5px', color: '#687466', lineHeight: 1.6 }}>
+                    Deals published here appear on the storefront's <strong>Festive Offers</strong> page
+                    (linked from the home screen). Toggle a deal off or delete it any time — changes
+                    go live immediately.
+                  </p>
+                </div>
+              </div>
+
+              <div className="admin-card admin-card--wide">
+                <div className="admin-card__toolbar">
+                  <h2>Festive Offers ({offers.filter(o => o.group === 'festival').length})</h2>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
+                  {offers.filter(o => o.group === 'festival').map(offer => (
+                    <div key={offer.id} className="admin-promo-card">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <strong style={{ fontSize: '15px', color: '#1C4D12' }}>{offer.title}</strong>
+                        {offer.badge && (
+                          <span className="admin-promo-pill">{offer.badge}</span>
+                        )}
+                      </div>
+
+                      <p style={{ margin: 0, fontSize: '12px', color: '#4B5563' }}>
+                        {offer.subtitle || 'Festive promotion'}
+                      </p>
+
+                      {offer.price > 0 && (
+                        <div style={{ background: '#FAF9F5', padding: '8px 10px', borderRadius: '8px', fontSize: '11.5px' }}>
+                          <span>Price: <strong>{formatPrice(offer.price)}</strong>{offer.mrp > offer.price && <> (MRP {formatPrice(offer.mrp)})</>}</span>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                        <button
+                          type="button"
+                          style={{
+                            background: offer.active !== false ? '#DCFCE7' : '#F3F4F6',
+                            color: offer.active !== false ? '#166534' : '#6B7280',
+                            border: 'none',
+                            padding: '2px 8px',
+                            borderRadius: '10px',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            cursor: 'pointer'
+                          }}
+                          onClick={async () => {
+                            const nextActive = offer.active === false ? true : false;
+                            try {
+                              const updated = normalizeOffer(await adminApi.updateOffer(offer.id, { active: nextActive }));
+                              setOffers(prev => prev.map(o => o.id === updated.id ? updated : o));
+                              broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
+                            } catch (err) { alert(err.message); }
+                          }}
+                        >
+                          {offer.active !== false ? '🟢 Active' : '⚪ Inactive'}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="admin-danger"
+                          style={{ width: '28px', height: '28px', padding: 0, borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          onClick={async () => {
+                            if (window.confirm(`Delete festive offer "${offer.title}"?`)) {
+                              await adminApi.deleteOffer(offer.id);
+                              setOffers(prev => prev.filter(o => o.id !== offer.id));
+                              broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
+                            }
+                          }}
+                        >
+                          <FiTrash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {offers.filter(o => o.group === 'festival').length === 0 && (
+                  <p style={{ fontSize: '12.5px', color: '#687466', padding: '8px 4px' }}>
+                    No festive offers yet — add one using the form above.
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -4718,11 +4851,31 @@ const Admin = () => {
                 <button type="submit" className="admin__primary"><FiPlus /> Add admin</button>
               </form>
               <div className="admin-card">
-                <h2>Admin accounts</h2>
+                <h2>Admin accounts ({adminAccounts.length})</h2>
                 {adminAccounts.map(account => (
                   <div key={account.id} className="admin-row admin-row--plain">
                     <FiLock />
                     <span>{account.name}<small>{account.email} / {account.role}</small></span>
+                    <span />
+                    {account.email === adminSession?.email ? (
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#687466' }}>You</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="admin-danger"
+                        style={{ padding: '6px 10px', fontSize: '11.5px' }}
+                        onClick={async () => {
+                          if (window.confirm(`Remove admin access for ${account.name} (${account.email})?`)) {
+                            try {
+                              await adminApi.deleteAdminUser(account.id);
+                              setAdminAccounts(prev => prev.filter(a => a.id !== account.id));
+                            } catch (err) { alert(err.message); }
+                          }
+                        }}
+                      >
+                        <FiTrash2 size={12} /> Remove
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

@@ -12,13 +12,33 @@ const CmsBody = ({ page, fallback }) => {
   return page.content.split(/\n\s*\n/).map((para, i) => <p key={i}>{para.trim()}</p>);
 };
 
+// Contact details are edited as "Phone: ...", "Email: ...", "Address: ..."
+// lines (one per field) in the same admin page editor used for the other
+// info pages — any field left out of the CMS content keeps its default.
+const parseContactPage = (page) => {
+  const defaults = {
+    phone: '812570286',
+    email: 'siritraders250925@gmail.com',
+    address: 'H.no: 10-152, Nagarjuna Colony Road No 12, Chitkul, Isnapur Municipality, Pincode 502307',
+  };
+  if (!page?.content?.trim()) return defaults;
+  const fields = { ...defaults };
+  page.content.split('\n').forEach(line => {
+    const match = line.match(/^\s*(phone|email|address)\s*:\s*(.+)$/i);
+    if (match) fields[match[1].toLowerCase()] = match[2].trim();
+  });
+  return fields;
+};
+
 const Info = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { getCmsPage } = useSiteData();
   const aboutPage = getCmsPage('about');
+  const contactPage = getCmsPage('contact');
   const termsPage = getCmsPage('terms');
   const privacyPage = getCmsPage('privacy-policy');
+  const contact = parseContactPage(contactPage);
 
   useEffect(() => {
     const hash = location.hash.replace('#', '');
@@ -80,21 +100,21 @@ const Info = () => {
                   <FiPhone className="info__contact-icon" />
                   <div>
                     <strong>Phone</strong>
-                    <a href="tel:812570286">812570286</a>
+                    <a href={`tel:${contact.phone}`}>{contact.phone}</a>
                   </div>
                 </div>
                 <div className="info__contact-item">
                   <FiMail className="info__contact-icon" />
                   <div>
                     <strong>Email</strong>
-                    <a href="mailto:siritraders250925@gmail.com">siritraders250925@gmail.com</a>
+                    <a href={`mailto:${contact.email}`}>{contact.email}</a>
                   </div>
                 </div>
                 <div className="info__contact-item">
                   <FiMapPin className="info__contact-icon" />
                   <div>
                     <strong>Address</strong>
-                    <span>H.no: 10-152, Nagarjuna Colony Road No 12, Chitkul, Isnapur Municipality, Pincode 502307</span>
+                    <span>{contact.address}</span>
                   </div>
                 </div>
               </div>
