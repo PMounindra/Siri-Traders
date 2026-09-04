@@ -1361,7 +1361,9 @@ const Admin = () => {
       persistRetailProducts(retailProducts.filter(p => p.id !== productId));
     }
     if (typeof productId === 'number') {
-      adminApi.deleteProduct(productId).catch(() => {});
+      adminApi.deleteProduct(productId)
+        .then(() => broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED))
+        .catch(() => {});
     }
   };
 
@@ -1376,6 +1378,7 @@ const Admin = () => {
     if (typeof productId === 'number') {
       try {
         await adminApi.updateProduct(productId, { [field]: nextValue });
+        broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED);
       } catch (err) {
         alert(`Failed to update ${field}: ${err.message}`);
       }
