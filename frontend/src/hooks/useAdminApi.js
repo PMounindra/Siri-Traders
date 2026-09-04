@@ -192,6 +192,18 @@ export async function apiFetchAllUsers() {
   return res.json();
 }
 
+// Pass segment: 'VIP' | 'Returning' | 'New' | 'Inactive' to manually assign
+// a customer's segment, or null to clear the override and go back to auto.
+export async function apiSetCustomerSegment(userId, segment) {
+  const res = await fetch(`/api/admin/orders?resource=users&id=${encodeURIComponent(userId)}`, {
+    method: 'PATCH',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify({ segment }),
+  });
+  return asJson(res, 'Failed to update customer segment');
+}
+
 export async function apiSendBroadcast(data) {
   const res = await fetch('/api/admin/broadcast', {
     method: 'POST',
@@ -527,6 +539,7 @@ export function useAdminApi() {
     updateOrderStatus: apiUpdateOrderStatus,
     updateOrder: apiUpdateOrder,
     fetchAllUsers: apiFetchAllUsers,
+    setCustomerSegment: apiSetCustomerSegment,
     sendBroadcast: apiSendBroadcast,
 
     fetchOffers: apiFetchOffers,

@@ -25,6 +25,27 @@ export default async function handler(req, res) {
   try {
     // ── 1. Users & Customer Segmentation: ?resource=users or ?action=users ─────
     if (resource === 'users' || action === 'users') {
+      // Item: /api/admin/orders?resource=users&id=<userId> — manually assign
+      // (or clear) a customer's segment instead of relying on the auto rules.
+      if (id) {
+        if (req.method !== 'PATCH') return res.status(405).json({ error: 'Method not allowed' });
+
+        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        const allowedSegments = ['VIP', 'Returning', 'New', 'Inactive'];
+        const requested = body.segment;
+        if (requested !== null && !allowedSegments.includes(requested)) {
+          return res.status(400).json({ error: `Invalid segment. Valid: ${allowedSegments.join(', ')}, or null to reset to auto` });
+        }
+
+        const updated = await db.update(users)
+          .set({ segmentOverride: requested, updatedAt: new Date() })
+          .where(eq(users.id, id))
+          .returning();
+        if (!updated.length) return res.status(404).json({ error: 'Customer not found' });
+
+        return res.status(200).json(updated[0]);
+      }
+
       if (req.method === 'GET') {
         const allUsers = await db.select().from(users).orderBy(desc(users.createdAt));
         const allOrders = await db.select().from(orders).orderBy(desc(orders.createdAt));
@@ -58,15 +79,15 @@ export default async function handler(req, res) {
           const lastOrderDate = lastOrder ? new Date(lastOrder.createdAt) : null;
           const firstOrderDate = firstOrder ? new Date(firstOrder.createdAt) : null;
 
-          let segment = 'New';
+          let autoSegment = 'New';
           if (orderCount >= 5 || totalSpent >= 5000) {
-            segment = 'VIP';
+            autoSegment = 'VIP';
           } else if (orderCount >= 2) {
-            segment = lastOrderDate && lastOrderDate < thirtyDaysAgo ? 'Inactive' : 'Returning';
+            autoSegment = lastOrderDate && lastOrderDate < thirtyDaysAgo ? 'Inactive' : 'Returning';
           } else if (orderCount === 1) {
-            segment = lastOrderDate && lastOrderDate < thirtyDaysAgo ? 'Inactive' : 'New';
+            autoSegment = lastOrderDate && lastOrderDate < thirtyDaysAgo ? 'Inactive' : 'New';
           } else {
-            segment = 'Inactive';
+            autoSegment = 'Inactive';
           }
 
           return {
@@ -74,7 +95,11 @@ export default async function handler(req, res) {
             ordersCount: orderCount,
             totalSpent,
             averageOrderValue: aov,
-            segment,
+            // An admin-assigned segment (via PATCH ...&id=) always wins over
+            // the auto-computed one; autoSegment/segmentOverride are both
+            // still exposed so the UI can show what "Auto" would pick.
+            segment: user.segmentOverride || autoSegment,
+            autoSegment,
             lastOrderDate: lastOrderDate ? lastOrderDate.toISOString() : null,
             firstOrderDate: firstOrderDate ? firstOrderDate.toISOString() : null,
             orderHistory: userOrders

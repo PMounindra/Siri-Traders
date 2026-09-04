@@ -508,6 +508,31 @@ const Admin = () => {
     }
   };
 
+  // ── Manual customer segment (VIP / Returning / New / Inactive) ──
+  // Pass null to clear the override and fall back to the auto-computed segment.
+  const setCustomerSegmentOverride = async (customer, nextSegment) => {
+    try {
+      const updated = await adminApi.setCustomerSegment(customer.id, nextSegment);
+      setLiveCustomers(prev => (prev || []).map(c => c.id === customer.id ? { ...c, ...updated } : c));
+    } catch (err) {
+      alert(`Failed to update segment: ${err.message}`);
+    }
+  };
+
+  // ── Broadcast recipient selection (individual customers or a whole segment) ──
+  const toggleCustomerSelection = (email) => {
+    if (!email) return;
+    setSelectedBroadcastEmails(prev =>
+      prev.includes(email) ? prev.filter(e => e !== email) : [...prev, email]
+    );
+  };
+
+  const selectFilteredCustomers = () => {
+    setSelectedBroadcastEmails(filteredCustomers.map(c => c.email).filter(Boolean));
+  };
+
+  const clearCustomerSelection = () => setSelectedBroadcastEmails([]);
+
   // ── Load Reviews ──
   const loadReviews = async () => {
     setReviewsLoading(true);
@@ -3487,6 +3512,33 @@ const Admin = () => {
                       <FiRefreshCw size={13} /> Refresh Customers
                     </button>
                   </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', borderTop: '1px solid #E1E6DC', paddingTop: '12px' }}>
+                    <span style={{ fontSize: '12px', color: '#687466' }}>
+                      {selectedBroadcastEmails.length > 0
+                        ? <strong style={{ color: '#2D5016' }}>{selectedBroadcastEmails.length} customer(s) selected for messaging</strong>
+                        : 'No customers selected — check customers below, or select a whole segment tab above'}
+                    </span>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <button className="admin__ghost" style={{ fontSize: '11.5px', padding: '6px 12px' }} onClick={selectFilteredCustomers}>
+                        Select {customerSegmentFilter === 'all' ? 'All' : customerSegmentFilter} ({filteredCustomers.length})
+                      </button>
+                      <button className="admin__ghost" style={{ fontSize: '11.5px', padding: '6px 12px' }} disabled={selectedBroadcastEmails.length === 0} onClick={clearCustomerSelection}>
+                        Clear Selection
+                      </button>
+                      <button
+                        className="admin__primary"
+                        style={{ fontSize: '11.5px', padding: '6px 12px' }}
+                        disabled={selectedBroadcastEmails.length === 0}
+                        onClick={() => {
+                          setActiveTab('broadcast');
+                          setBroadcastSubject('');
+                        }}
+                      >
+                        <FiMail size={12} /> Message Selected ({selectedBroadcastEmails.length})
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -3501,6 +3553,13 @@ const Admin = () => {
                   return (
                     <div key={customer.id} className="admin-customer-card">
                       <div className="admin-customer-card__header">
+                        <input
+                          type="checkbox"
+                          className="admin-customer-select"
+                          checked={selectedBroadcastEmails.includes(customer.email)}
+                          onChange={() => toggleCustomerSelection(customer.email)}
+                          aria-label={`Select ${customer.name || customer.email} for messaging`}
+                        />
                         <div className="admin-customer-avatar">{initial}</div>
                         <div style={{ flex: 1, overflow: 'hidden' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
@@ -3515,6 +3574,21 @@ const Admin = () => {
                             {customer.email}
                           </span>
                         </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
+                        <span style={{ color: '#687466' }}>Segment:</span>
+                        <select
+                          className="admin-segment-select"
+                          value={customer.segmentOverride || ''}
+                          onChange={(e) => setCustomerSegmentOverride(customer, e.target.value || null)}
+                        >
+                          <option value="">Auto ({customer.autoSegment || 'New'})</option>
+                          <option value="VIP">VIP</option>
+                          <option value="Returning">Returning</option>
+                          <option value="New">New</option>
+                          <option value="Inactive">Inactive</option>
+                        </select>
                       </div>
 
                       <div className="admin-customer-stats-row">
@@ -4455,17 +4529,17 @@ const Admin = () => {
                   {filteredProducts.map(product => (
                     <div key={product.id} className="admin-product-card-enhanced">
                       <div className="admin-product-top-row">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />
-                          <div>
-                            <strong>{product.name}</strong>
-                            <span style={{ fontSize: '12px', color: '#687466', display: 'block' }}>{product.brand} · {product.category} · {product.weight}{product.unit}</span>
+                        <div className="admin-product-info">
+                          <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                          <div style={{ minWidth: 0 }}>
+                            <strong className="admin-product-info__name">{product.name}</strong>
+                            <span className="admin-product-info__meta">{product.brand} · {product.category} · {product.weight}{product.unit}</span>
                           </div>
                         </div>
-                        <div>
+                        <div className="admin-product-price">
                           <strong style={{ fontSize: '15px' }}>{formatPrice(product.price)}</strong>
                         </div>
-                        <div style={{ display: 'flex', gap: '6px' }}>
+                        <div className="admin-product-actions">
                           <button className="admin__ghost" style={{ padding: '6px 10px', fontSize: '11.5px' }} onClick={() => editProduct(product)}>
                             <FiEdit2 size={12} /> Edit
                           </button>
