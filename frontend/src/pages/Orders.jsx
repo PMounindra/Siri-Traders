@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { Fragment, useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiPackage, FiChevronDown, FiChevronUp, FiRefreshCw, FiShoppingBag, FiNavigation, FiStar, FiCheckCircle, FiX } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
@@ -211,8 +211,11 @@ const Orders = () => {
               {orders.map(order => {
                 const status = getStatusStyle(order.status);
                 const isExpanded = expandedId === order.id;
+                const reviewableItems = order.items.filter(item => item.productId);
+                const unreviewedItems = reviewableItems.filter(item => !reviewedProductIds.has(item.productId));
                 return (
-                  <div key={order.id} className="orders__card">
+                  <Fragment key={order.id}>
+                  <div className="orders__card">
                     <div className="orders__card-header" onClick={() => setExpandedId(isExpanded ? null : order.id)}>
                       <div className="orders__card-top">
                         <div>
@@ -243,22 +246,7 @@ const Orders = () => {
                         {order.items.map((item, i) => (
                           <div key={i} className="orders__detail-item">
                             <span>{item.name} x {item.qty || item.quantity}</span>
-                            <span className="orders__detail-item-right">
-                              {formatPrice(item.price * (item.qty || item.quantity || 1))}
-                              {order.status === 'delivered' && item.productId && (
-                                reviewedProductIds.has(item.productId) ? (
-                                  <span className="orders__reviewed-badge"><FiCheckCircle size={12} /> Reviewed</span>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    className="orders__review-btn"
-                                    onClick={(e) => { e.stopPropagation(); openReviewModal(item); }}
-                                  >
-                                    <FiStar size={12} /> Rate & Review
-                                  </button>
-                                )
-                              )}
-                            </span>
+                            <span>{formatPrice(item.price * (item.qty || item.quantity || 1))}</span>
                           </div>
                         ))}
                         <div className="orders__detail-total">
@@ -281,6 +269,33 @@ const Orders = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Review prompt — always visible below the order (not hidden
+                      behind expand) for any delivered order with reviewable items. */}
+                  {order.status === 'delivered' && reviewableItems.length > 0 && (
+                    <div className="orders__review-prompt">
+                      {unreviewedItems.length > 0 ? (
+                        <>
+                          <span className="orders__review-prompt-label">Rate your items from this order</span>
+                          <div className="orders__review-prompt-list">
+                            {unreviewedItems.map((item, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                className="orders__review-btn"
+                                onClick={() => openReviewModal(item)}
+                              >
+                                <FiStar size={12} /> {item.name}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <span className="orders__reviewed-badge"><FiCheckCircle size={12} /> All items from this order reviewed</span>
+                      )}
+                    </div>
+                  )}
+                  </Fragment>
                 );
               })}
             </div>

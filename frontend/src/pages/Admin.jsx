@@ -211,7 +211,7 @@ const blankAdmin = {
   name: '',
   email: '',
   password: '',
-  role: 'Manager'
+  role: 'Viewer'
 };
 
 const csvEscape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
@@ -287,7 +287,7 @@ const ADMIN_NAV_SECTIONS = [
 ];
 
 const Admin = () => {
-  const [selectedAdminRole, setSelectedAdminRole] = useState('Owner');
+  const [selectedAdminRole, setSelectedAdminRole] = useState('Viewer');
   const navigate = useNavigate();
   const [adminSession, setAdminSession] = useState(null);
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -605,9 +605,11 @@ const Admin = () => {
   useEffect(() => {
     if (adminSession?.role) {
       const sessionRole = String(adminSession.role);
-      if (ADMIN_ROLE_PERMISSIONS[sessionRole]) {
-        setSelectedAdminRole(sessionRole);
-      }
+      // An unrecognized role (e.g. old/bad data) must fall back to the least-
+      // privileged Viewer tab set, not silently keep whatever selectedAdminRole
+      // happened to already be — leaving it unset here let an unrecognized
+      // role keep the component's initial 'Owner' state, i.e. full access.
+      setSelectedAdminRole(ADMIN_ROLE_PERMISSIONS[sessionRole] ? sessionRole : 'Viewer');
     }
   }, [adminSession]);
 
@@ -1477,7 +1479,7 @@ const Admin = () => {
     const email = adminDraft.email.trim().toLowerCase();
     if (!adminDraft.name.trim() || !email || !adminDraft.password.trim()) return;
     try {
-      await adminApi.createAdminUser({
+      const created = await adminApi.createAdminUser({
         name: adminDraft.name.trim(),
         email,
         password: adminDraft.password,
@@ -1486,8 +1488,46 @@ const Admin = () => {
       const refreshed = await adminApi.fetchAdminUsers();
       setAdminAccounts(refreshed);
       setAdminDraft(blankAdmin);
+      setSaveToast({
+        type: created.emailSent ? 'success' : 'error',
+        msg: created.emailSent
+          ? `✅ ${created.name} added as ${created.role}. Welcome email with login details sent.`
+          : `⚠️ ${created.name} added as ${created.role}, but the welcome email failed to send — share their password manually.`
+      });
+      setTimeout(() => setSaveToast(null), 6000);
     } catch (err) {
       setAdminError(err.message || 'Failed to create admin');
+    }
+  };
+
+  // ── Change an existing admin's role or password ──
+  const updateAdminRole = async (account, nextRole) => {
+    try {
+      const updated = await adminApi.updateAdminUser(account.id, { role: nextRole });
+      setAdminAccounts(prev => prev.map(a => a.id === account.id ? { ...a, ...updated } : a));
+    } catch (err) {
+      alert(`Failed to update role: ${err.message}`);
+    }
+  };
+
+  const resetAdminPassword = async (account) => {
+    const nextPassword = window.prompt(`New password for ${account.name} (min 8 characters):`);
+    if (!nextPassword) return;
+    if (nextPassword.trim().length < 8) {
+      alert('Password must be at least 8 characters.');
+      return;
+    }
+    try {
+      const updated = await adminApi.updateAdminUser(account.id, { password: nextPassword.trim() });
+      setSaveToast({
+        type: updated.emailSent ? 'success' : 'error',
+        msg: updated.emailSent
+          ? `✅ Password changed for ${account.name}. Notification email sent.`
+          : `⚠️ Password changed for ${account.name}, but the notification email failed to send — share the new password manually.`
+      });
+      setTimeout(() => setSaveToast(null), 6000);
+    } catch (err) {
+      alert(`Failed to change password: ${err.message}`);
     }
   };
 
@@ -4929,32 +4969,60 @@ const Admin = () => {
               </form>
               <div className="admin-card">
                 <h2>Admin accounts ({adminAccounts.length})</h2>
-                {adminAccounts.map(account => (
-                  <div key={account.id} className="admin-row admin-row--plain">
-                    <FiLock />
-                    <span>{account.name}<small>{account.email} / {account.role}</small></span>
-                    <span />
-                    {account.email === adminSession?.email ? (
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#687466' }}>You</span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="admin-danger"
-                        style={{ padding: '6px 10px', fontSize: '11.5px' }}
-                        onClick={async () => {
-                          if (window.confirm(`Remove admin access for ${account.name} (${account.email})?`)) {
-                            try {
-                              await adminApi.deleteAdminUser(account.id);
-                              setAdminAccounts(prev => prev.filter(a => a.id !== account.id));
-                            } catch (err) { alert(err.message); }
-                          }
-                        }}
+                {adminAccounts.map(account => {
+                  const isSelf = account.email === adminSession?.email;
+                  return (
+                    <div key={account.id} className="admin-row admin-row--plain">
+                      <FiLock />
+                      <span>{account.name}<small>{account.email}</small></span>
+                      <select
+                        className="admin-segment-select"
+                        value={account.role}
+                        disabled={isSelf}
+                        title={isSelf ? "You can't change your own role" : 'Change role'}
+                        onChange={(e) => updateAdminRole(account, e.target.value)}
                       >
-                        <FiTrash2 size={12} /> Remove
-                      </button>
-                    )}
-                  </div>
-                ))}
+                        <option value="Owner">Owner</option>
+                        <option value="Super Admin">Super Admin</option>
+                        <option value="Product Manager">Product Manager</option>
+                        <option value="Order Manager">Order Manager</option>
+                        <option value="Marketing Manager">Marketing Manager</option>
+                        <option value="Content Manager">Content Manager</option>
+                        <option value="Customer Support">Customer Support</option>
+                        <option value="Viewer">Viewer</option>
+                      </select>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          className="admin__ghost"
+                          style={{ padding: '6px 10px', fontSize: '11.5px' }}
+                          onClick={() => resetAdminPassword(account)}
+                        >
+                          <FiLock size={12} /> Reset Password
+                        </button>
+                        {isSelf ? (
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#687466' }}>You</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="admin-danger"
+                            style={{ padding: '6px 10px', fontSize: '11.5px' }}
+                            onClick={async () => {
+                              if (window.confirm(`Remove admin access for ${account.name} (${account.email})?`)) {
+                                try {
+                                  await adminApi.deleteAdminUser(account.id);
+                                  setAdminAccounts(prev => prev.filter(a => a.id !== account.id));
+                                } catch (err) { alert(err.message); }
+                              }
+                            }}
+                          >
+                            <FiTrash2 size={12} /> Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </section>
           )}

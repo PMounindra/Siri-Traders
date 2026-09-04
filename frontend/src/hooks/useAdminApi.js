@@ -54,6 +54,17 @@ export async function apiCreateAdminUser(data) {
   return asJson(res, 'Failed to create admin');
 }
 
+// data may include { role } and/or { password } — pass whichever changed.
+export async function apiUpdateAdminUser(id, data) {
+  const res = await fetch(`/api/admin/auth?action=admin-users&id=${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify(data),
+  });
+  return asJson(res, 'Failed to update admin');
+}
+
 export async function apiDeleteAdminUser(id) {
   const res = await fetch(`/api/admin/auth?action=admin-users&id=${encodeURIComponent(id)}`, {
     method: 'DELETE',
@@ -521,6 +532,7 @@ export function useAdminApi() {
     logout: apiAdminLogout,
     fetchAdminUsers: apiFetchAdminUsers,
     createAdminUser: apiCreateAdminUser,
+    updateAdminUser: apiUpdateAdminUser,
     deleteAdminUser: apiDeleteAdminUser,
 
     uploadImage: apiUploadImage,

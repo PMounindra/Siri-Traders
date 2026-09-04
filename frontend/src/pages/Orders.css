@@ -117,6 +117,28 @@
   white-space: nowrap;
 }
 
+.orders__review-prompt {
+  background: var(--color-accent-pale);
+  border: 1px dashed var(--color-accent);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.orders__review-prompt-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.orders__review-prompt-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .orders__review-backdrop {
   position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5);
   display: flex; align-items: center; justify-content: center;

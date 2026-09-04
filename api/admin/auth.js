@@ -6,12 +6,24 @@ import { setCorsHeaders } from '../_cors.js';
 import { isAdminRequest } from '../_adminAuth.js';
 import { getAuthenticatedUserId, clerk } from '../_clerkAuth.js';
 import { signAdminSession, setSessionCookie, clearSessionCookie, getSessionFromRequest } from '../_adminSession.js';
+import { sendAdminWelcomeEmail, sendAdminPasswordChangedEmail } from '../_email.js';
+
+// Must match ADMIN_ROLE_PERMISSIONS in frontend/src/pages/Admin.jsx — any
+// role outside this list gets no tabs there, so reject it here too.
+const ADMIN_ROLES = ['Owner', 'Super Admin', 'Product Manager', 'Order Manager', 'Marketing Manager', 'Content Manager', 'Customer Support', 'Viewer'];
 
 const createAdminSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(8),
-  role: z.string().min(1).optional()
+  role: z.enum(ADMIN_ROLES).optional()
+});
+
+const updateAdminSchema = z.object({
+  role: z.enum(ADMIN_ROLES).optional(),
+  password: z.string().min(8).optional()
+}).refine(data => data.role !== undefined || data.password !== undefined, {
+  message: 'Provide at least a role or a password to update'
 });
 
 async function handleLogin(req, res) {
@@ -78,6 +90,33 @@ async function handleAdminUsers(req, res) {
     return res.status(200).json({ success: true, id });
   }
 
+  if (req.method === 'PATCH') {
+    const { id } = req.query;
+    if (!id) return res.status(400).json({ error: 'Admin user id is required' });
+
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const validation = updateAdminSchema.safeParse(body);
+    if (!validation.success) {
+      return res.status(400).json({ error: 'Validation failed', details: validation.error.errors });
+    }
+
+    const { role, password } = validation.data;
+    const updateData = {};
+    if (role !== undefined) updateData.role = role;
+    if (password !== undefined) updateData.passwordHash = await bcrypt.hash(password, 10);
+
+    const updated = await db.update(adminUsers).set(updateData).where(eq(adminUsers.id, id)).returning();
+    if (!updated.length) return res.status(404).json({ error: 'Admin user not found' });
+
+    let emailSent = null;
+    if (password !== undefined) {
+      emailSent = await sendAdminPasswordChangedEmail(updated[0], password);
+    }
+
+    const { passwordHash: _omit, ...safe } = updated[0];
+    return res.status(200).json({ ...safe, emailSent });
+  }
+
   if (req.method === 'POST') {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const validation = createAdminSchema.safeParse(body);
@@ -87,6 +126,7 @@ async function handleAdminUsers(req, res) {
 
     const { name, email, password, role } = validation.data;
     const normalizedEmail = email.trim().toLowerCase();
+    const finalRole = role || 'Viewer';
     const passwordHash = await bcrypt.hash(password, 10);
     const id = `admin-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -95,11 +135,13 @@ async function handleAdminUsers(req, res) {
       name,
       email: normalizedEmail,
       passwordHash,
-      role: role || 'Manager'
+      role: finalRole
     }).returning();
 
+    const emailSent = await sendAdminWelcomeEmail(inserted[0], password);
+
     const { passwordHash: _omit, ...safe } = inserted[0];
-    return res.status(201).json(safe);
+    return res.status(201).json({ ...safe, emailSent });
   }
 
   return res.status(405).json({ error: 'Method not allowed' });

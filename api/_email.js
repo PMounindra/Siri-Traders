@@ -154,6 +154,135 @@ export async function sendCustomerOrderConfirmationEmail(customerEmail, customer
   }
 }
 
+export async function sendAdminWelcomeEmail(admin, plainPassword) {
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  const smtpSender = process.env.SMTP_SENDER || `"Siri Traders" <${smtpUser}>`;
+
+  const subject = `Welcome to the Siri Traders Admin Team — ${admin.role}`;
+
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #faf9f6;">
+      <div style="text-align: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #2d5016;">
+        <h1 style="color: #2d5016; margin: 0; font-size: 24px; letter-spacing: 0.5px;">SIRI TRADERS</h1>
+        <p style="color: #687466; margin: 4px 0 0; font-size: 13px;">Admin Control Panel Access</p>
+      </div>
+
+      <div style="color: #1f2937; font-size: 15px; line-height: 1.6;">
+        <p>Hi ${admin.name || 'there'},</p>
+        <p>You've been added to the Siri Traders admin team as <strong>${admin.role}</strong>. Here are your login credentials:</p>
+
+        <div style="background-color: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb; margin: 20px 0;">
+          <p style="margin: 4px 0; font-size: 13px;"><strong>Email:</strong> ${admin.email}</p>
+          <p style="margin: 4px 0; font-size: 13px;"><strong>Password:</strong> <code style="background: #F1F8E9; padding: 2px 6px; border-radius: 4px;">${plainPassword}</code></p>
+          <p style="margin: 4px 0; font-size: 13px;"><strong>Role:</strong> ${admin.role}</p>
+        </div>
+
+        <p style="font-size: 13px; color: #687466;">For security, please sign in and treat this password as confidential. Contact the site owner if you didn't expect this email.</p>
+      </div>
+
+      <div style="text-align: center; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+        <a href="https://www.siritrader.com/admin-login" style="display: inline-block; background-color: #2d5016; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px;">Sign In to Admin Panel</a>
+        <p style="color: #9ca3af; font-size: 11px; margin-top: 20px;">
+          Siri Traders — Fast & Reliable Grocery Delivery
+        </p>
+      </div>
+    </div>
+  `;
+
+  if (!smtpHost || !smtpUser || !smtpPass) {
+    console.warn('[EMAIL] SMTP credentials not configured — could not send admin welcome email.');
+    return false;
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: { user: smtpUser, pass: smtpPass }
+    });
+
+    await transporter.sendMail({
+      from: smtpSender,
+      to: admin.email,
+      subject: subject,
+      html: htmlContent
+    });
+
+    return true;
+  } catch (error) {
+    console.error('[EMAIL] Failed to send admin welcome email:', error.message);
+    return false;
+  }
+}
+
+export async function sendAdminPasswordChangedEmail(admin, plainPassword) {
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  const smtpSender = process.env.SMTP_SENDER || `"Siri Traders" <${smtpUser}>`;
+
+  const subject = `Your Siri Traders Admin Password Was Changed`;
+
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #faf9f6;">
+      <div style="text-align: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #2d5016;">
+        <h1 style="color: #2d5016; margin: 0; font-size: 24px; letter-spacing: 0.5px;">SIRI TRADERS</h1>
+        <p style="color: #687466; margin: 4px 0 0; font-size: 13px;">Admin Control Panel Access</p>
+      </div>
+
+      <div style="color: #1f2937; font-size: 15px; line-height: 1.6;">
+        <p>Hi ${admin.name || 'there'},</p>
+        <p>Your Siri Traders admin password was just changed by another admin. Your new login credentials are:</p>
+
+        <div style="background-color: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb; margin: 20px 0;">
+          <p style="margin: 4px 0; font-size: 13px;"><strong>Email:</strong> ${admin.email}</p>
+          <p style="margin: 4px 0; font-size: 13px;"><strong>New Password:</strong> <code style="background: #F1F8E9; padding: 2px 6px; border-radius: 4px;">${plainPassword}</code></p>
+        </div>
+
+        <p style="font-size: 13px; color: #687466;">If you didn't expect this change, contact the site owner immediately.</p>
+      </div>
+
+      <div style="text-align: center; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+        <a href="https://www.siritrader.com/admin-login" style="display: inline-block; background-color: #2d5016; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px;">Sign In to Admin Panel</a>
+        <p style="color: #9ca3af; font-size: 11px; margin-top: 20px;">
+          Siri Traders — Fast & Reliable Grocery Delivery
+        </p>
+      </div>
+    </div>
+  `;
+
+  if (!smtpHost || !smtpUser || !smtpPass) {
+    console.warn('[EMAIL] SMTP credentials not configured — could not send admin password-changed email.');
+    return false;
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: { user: smtpUser, pass: smtpPass }
+    });
+
+    await transporter.sendMail({
+      from: smtpSender,
+      to: admin.email,
+      subject: subject,
+      html: htmlContent
+    });
+
+    return true;
+  } catch (error) {
+    console.error('[EMAIL] Failed to send admin password-changed email:', error.message);
+    return false;
+  }
+}
+
 export async function sendCustomerOrderStatusUpdateEmail(customerEmail, customerName, order, status) {
   const smtpHost = process.env.SMTP_HOST;
   const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
