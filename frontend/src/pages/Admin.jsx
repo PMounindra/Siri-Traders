@@ -1090,6 +1090,41 @@ const Admin = () => {
   };
   const removeVariantRow = (idx) => setDetailedVariants(prev => prev.filter((_, i) => i !== idx));
 
+  // Downscales/re-encodes large phone-camera photos before upload — a raw
+  // 4-8MB photo could take a very long time to upload over a slow mobile
+  // connection (or hit the server's size cap outright). Falls back to the
+  // original file untouched on anything unexpected (small file, unusual
+  // type, decode error) rather than risk blocking the upload entirely.
+  const compressImageFile = (file, maxDimension = 1280, quality = 0.8) => new Promise((resolve) => {
+    if (file.size < 300 * 1024 || !/^image\/(jpeg|png|webp)$/.test(file.type)) {
+      resolve(file);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        if (!blob || blob.size >= file.size) {
+          resolve(file);
+          return;
+        }
+        resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(file);
+    };
+    img.src = objectUrl;
+  });
+
   // Uploads the picked file to Vercel Blob storage and stores the returned
   // URL on the draft — images used to be embedded as base64 text directly in
   // the DB row, which is what blew through the Neon data-transfer quota.
@@ -1099,7 +1134,8 @@ const Admin = () => {
     setDraft(prev => ({ ...prev, image: previewUrl }));
     setImageUploading(true);
     try {
-      const url = await adminApi.uploadImage(file);
+      const compressed = await compressImageFile(file);
+      const url = await adminApi.uploadImage(compressed);
       setDraft(prev => ({ ...prev, image: url }));
       URL.revokeObjectURL(previewUrl);
     } catch (err) {
@@ -1428,7 +1464,7 @@ const Admin = () => {
       startDate: offerDraft.startDate || null,
       endDate: offerDraft.endDate || null,
       usageLimit: offerDraft.usageLimit ? Number(offerDraft.usageLimit) : null,
-      active: true,
+      active: offerDraft.active !== false,
       image: offerDraft.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=700&q=80'
     };
     try {
@@ -1437,9 +1473,15 @@ const Admin = () => {
       setOfferDraft(blankOffer);
       setSaveToast({ type: 'success', msg: `🎁 Promotion "${saved.title}" saved successfully!` });
       setTimeout(() => setSaveToast(null), 4000);
+      broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
     } catch (err) {
       alert(err.message);
     }
+  };
+
+  const editFestiveOffer = (offer) => {
+    setOfferDraft({ ...blankOffer, ...offer });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const saveCoupon = async (event) => {
@@ -2450,6 +2492,7 @@ const Admin = () => {
                       <select value={couponDraft.customerType} onChange={(e) => setCouponDraft(prev => ({ ...prev, customerType: e.target.value }))}>
                         <option value="retail">Retail Store</option>
                         <option value="wholesale">Wholesale B2B</option>
+                        <option value="all">Both Retail & Wholesale</option>
                       </select>
                     </div>
                   </div>
@@ -2521,7 +2564,7 @@ const Admin = () => {
 
                       <div style={{ background: '#FAF9F5', padding: '8px 10px', borderRadius: '8px', fontSize: '11.5px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
                         <span>Scope: <strong>{coupon.targetType || 'All'}</strong></span>
-                        <span>Customer: <strong>{coupon.customerType || 'Retail'}</strong></span>
+                        <span>Customer: <strong>{coupon.customerType === 'all' ? 'Retail & Wholesale' : (coupon.customerType || 'Retail')}</strong></span>
                         <span>Used: <strong>{coupon.timesUsed || 0} times</strong></span>
                         <span>Discount Given: <strong>₹{coupon.totalDiscountGiven || 0}</strong></span>
                       </div>
@@ -2584,9 +2627,16 @@ const Admin = () => {
             <div className="admin-promos-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="admin-grid" style={{ gridTemplateColumns: '1.2fr 1fr' }}>
                 <form className="admin-form" onSubmit={(e) => saveOffer(e, 'festival')}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <FiGift size={18} style={{ color: '#2D5016' }} />
-                    <h2 style={{ margin: 0 }}>Add Festive Offer</h2>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <FiGift size={18} style={{ color: '#2D5016' }} />
+                      <h2 style={{ margin: 0 }}>{offerDraft.id ? 'Edit Festive Offer' : 'Add Festive Offer'}</h2>
+                    </div>
+                    {offerDraft.id && (
+                      <button type="button" className="admin__ghost" style={{ padding: '4px 10px', fontSize: '11.5px' }} onClick={() => setOfferDraft(blankOffer)}>
+                        Cancel Edit
+                      </button>
+                    )}
                   </div>
 
                   <input value={offerDraft.title} onChange={(e) => setOfferDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Deal Title e.g. Diwali Mega Rice Fest" required />
@@ -2613,7 +2663,9 @@ const Admin = () => {
                     </div>
                   </div>
 
-                  <button className="admin__primary" disabled={imageUploading}>{imageUploading ? 'Uploading image...' : <><FiPlus /> Publish Festive Offer</>}</button>
+                  <button className="admin__primary" disabled={imageUploading}>
+                    {imageUploading ? 'Uploading image...' : <><FiPlus /> {offerDraft.id ? 'Update Festive Offer' : 'Publish Festive Offer'}</>}
+                  </button>
                 </form>
 
                 <div className="admin-card">
@@ -2676,6 +2728,15 @@ const Admin = () => {
                           {offer.active !== false ? '🟢 Active' : '⚪ Inactive'}
                         </button>
 
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          type="button"
+                          className="admin__ghost"
+                          style={{ width: '28px', height: '28px', padding: 0, borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          onClick={() => editFestiveOffer(offer)}
+                        >
+                          <FiEdit2 size={12} />
+                        </button>
                         <button
                           type="button"
                           className="admin-danger"
@@ -2690,6 +2751,7 @@ const Admin = () => {
                         >
                           <FiTrash2 size={12} />
                         </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -4346,7 +4408,6 @@ const Admin = () => {
                           <th>DATE & TIME</th>
                           <th>PRODUCT</th>
                           <th>ACTION</th>
-                          <th>QTY</th>
                           <th>BEFORE ➔ AFTER</th>
                           <th>REASON</th>
                         </tr>
@@ -4357,7 +4418,6 @@ const Admin = () => {
                             <td style={{ fontSize: '11.5px', color: '#687466' }}>{new Date(log.createdAt).toLocaleString('en-IN')}</td>
                             <td><strong>{log.productName}</strong></td>
                             <td>{log.changeType}</td>
-                            <td><strong>{log.quantity > 0 ? `+${log.quantity}` : log.quantity}</strong></td>
                             <td>{log.stockBefore} ➔ {log.stockAfter}</td>
                             <td>{log.reason}</td>
                           </tr>
@@ -4560,6 +4620,40 @@ const Admin = () => {
                       <FiPlus /> Add New Item
                     </button>
                   </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '12px' }}>
+                  <div className="admin-search-label" style={{ flex: 1, minWidth: '220px', maxWidth: '420px' }}>
+                    <FiSearch />
+                    <input
+                      placeholder="Search by name, brand, SKU, barcode..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <select
+                    className="admin-input-box"
+                    style={{ width: 'auto', minWidth: '160px' }}
+                    value={productCategoryFilter}
+                    onChange={(e) => setProductCategoryFilter(e.target.value)}
+                  >
+                    <option value="all">All Categories</option>
+                    {(dbCategories.length ? dbCategories : categories).map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <select
+                    className="admin-input-box"
+                    style={{ width: 'auto', minWidth: '140px' }}
+                    value={productStatusFilter}
+                    onChange={(e) => setProductStatusFilter(e.target.value)}
+                  >
+                    <option value="all">All Status</option>
+                    <option value="published">Published</option>
+                    <option value="draft">Draft</option>
+                    <option value="archived">Archived</option>
+                  </select>
                 </div>
               </div>
 

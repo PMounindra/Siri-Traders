@@ -119,8 +119,8 @@ export const SiteDataProvider = ({ children }) => {
 
   const dailyOffers = offers.filter(o => o.active !== false && o.group === 'daily');
   const festivalOffers = offers.filter(o => o.active !== false && o.group === 'festival');
-  const retailCoupons = coupons.filter(c => c.active !== false && (c.customerType || 'retail') === 'retail');
-  const wholesaleCoupons = coupons.filter(c => c.active !== false && c.customerType === 'wholesale');
+  const retailCoupons = coupons.filter(c => c.active !== false && (c.customerType || 'retail') !== 'wholesale');
+  const wholesaleCoupons = coupons.filter(c => c.active !== false && (c.customerType === 'wholesale' || c.customerType === 'all'));
 
   const getCmsPage = (slug) => cmsPages.find(p => p.slug === slug && p.isPublished !== false) || null;
 

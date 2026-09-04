@@ -8,6 +8,7 @@ import {
   MinusIcon,
   PlusIcon,
   ShoppingCartIcon,
+  StarIcon,
 } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
@@ -32,6 +33,23 @@ const ProductDetail = () => {
   const [localQuantity, setLocalQuantity] = useState(1);
   const [imageFailed, setImageFailed] = useState(false);
   const [selectedVariant, setSelectedVariant] = useState(null);
+  const [reviews, setReviews] = useState([]);
+
+  useEffect(() => {
+    if (!product?.id) {
+      setReviews([]);
+      return;
+    }
+    let active = true;
+    fetch('/api/admin/auth?action=reviews')
+      .then(r => (r.ok ? r.json() : []))
+      .then(all => {
+        if (!active) return;
+        setReviews(all.filter(r => r.productId === product.id && r.status === 'Approved'));
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [product?.id]);
 
   useEffect(() => {
     // Scroll to top immediately before anything renders
@@ -95,6 +113,11 @@ const ProductDetail = () => {
     if (!product) return "";
     return product.category.replace(/-/g, " ");
   }, [product]);
+
+  const reviewCount = reviews.length;
+  const avgRating = reviewCount
+    ? reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviewCount
+    : 0;
 
   if (loading || productsLoading) return <Loading />;
 
@@ -223,6 +246,21 @@ const ProductDetail = () => {
               <span className="pd__category">{categoryLabel}</span>
               <h1 className="pd__name">{product.name}</h1>
 
+              {reviewCount > 0 && (
+                <div className="pd__rating-row">
+                  <div className="pd__stars" aria-label={`Rated ${avgRating.toFixed(1)} out of 5`}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <StarIcon
+                        key={star}
+                        className={star <= Math.round(avgRating) ? "pd__star pd__star--active" : "pd__star"}
+                      />
+                    ))}
+                  </div>
+                  <span className="pd__rating-value">{avgRating.toFixed(1)}</span>
+                  <span className="pd__rating-count">({reviewCount} review{reviewCount === 1 ? '' : 's'})</span>
+                </div>
+              )}
+
               <div className="pd__price-row">
                 <span className="pd__price">{formatPrice(activeVariant?.price || product.price)}</span>
                 {(activeVariant?.mrp || product.mrp) > (activeVariant?.price || product.price) && (
@@ -314,6 +352,31 @@ const ProductDetail = () => {
               </div>
             </div>
           </section>
+
+          {reviewCount > 0 && (
+            <section className="pd-reviews">
+              <div className="pd-reviews__header">
+                <div>
+                  <h2 className="pd-reviews__title">Customer Reviews</h2>
+                  <p className="pd-reviews__subtitle">What shoppers are saying about {product.name}</p>
+                </div>
+                <span className="pd-reviews__count">{reviewCount} review{reviewCount === 1 ? '' : 's'}</span>
+              </div>
+
+              <div className="pd-reviews__grid">
+                {reviews.map((review) => (
+                  <article key={review.id} className="pd-reviews__card">
+                    <div className="pd-reviews__meta">
+                      <strong>{review.userName || 'Customer'}</strong>
+                      <span>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</span>
+                    </div>
+                    {review.title && <p style={{ fontWeight: 700 }}>{review.title}</p>}
+                    {review.comment && <p>{review.comment}</p>}
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
 
           {relatedProducts.length > 0 && (
             <section className="pd-related">
