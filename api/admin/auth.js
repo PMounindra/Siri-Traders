@@ -161,27 +161,38 @@ async function handleReviews(req, res) {
     if (!userId) return res.status(401).json({ error: 'Please sign in to leave a review.' });
 
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    const productId = Number(body?.productId);
+    // Combo/festive-offer line items have no real productId — orderItemId
+    // (the purchased line item's own id) anchors the review in that case.
+    const productId = body?.productId ? Number(body.productId) : null;
+    const orderItemId = body?.orderItemId ? Number(body.orderItemId) : null;
     const rating = Number(body?.rating);
-    if (!productId || !rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ error: 'productId and a rating between 1 and 5 are required' });
+    if ((!productId && !orderItemId) || !rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'productId or orderItemId, and a rating between 1 and 5, are required' });
     }
 
-    // Only reviewable if this user actually has a delivered order containing this product.
+    // Only reviewable if this user actually has a delivered order containing this item.
     const deliveredOrders = await db.select().from(orders)
       .where(and(eq(orders.userId, userId), eq(orders.status, 'Delivered')));
     const purchasedItem = deliveredOrders.length
       ? (await db.select().from(orderItems)
-          .where(and(inArray(orderItems.orderId, deliveredOrders.map(o => o.id)), eq(orderItems.productId, productId))))[0]
+          .where(and(
+            inArray(orderItems.orderId, deliveredOrders.map(o => o.id)),
+            productId ? eq(orderItems.productId, productId) : eq(orderItems.id, orderItemId)
+          )))[0]
       : null;
     if (!purchasedItem) {
-      return res.status(403).json({ error: 'You can only review products from your delivered orders.' });
+      return res.status(403).json({ error: 'You can only review items from your delivered orders.' });
     }
 
+    // Product reviews stay scoped by product (one review covers every order
+    // of that product); offer/combo items are scoped by the specific line
+    // item purchased, since they have no shared product identity.
     const alreadyReviewed = await db.select().from(reviews)
-      .where(and(eq(reviews.userId, userId), eq(reviews.productId, productId)));
+      .where(productId
+        ? and(eq(reviews.userId, userId), eq(reviews.productId, productId))
+        : and(eq(reviews.userId, userId), eq(reviews.orderItemId, orderItemId)));
     if (alreadyReviewed.length) {
-      return res.status(409).json({ error: 'You have already reviewed this product.' });
+      return res.status(409).json({ error: 'You have already reviewed this item.' });
     }
 
     let userName = 'Customer';
@@ -194,7 +205,8 @@ async function handleReviews(req, res) {
 
     const inserted = await db.insert(reviews).values({
       productId,
-      productName: purchasedItem.name || `Product #${productId}`,
+      orderItemId: productId ? null : orderItemId,
+      productName: purchasedItem.name || (productId ? `Product #${productId}` : 'Item'),
       userId,
       userName,
       rating,

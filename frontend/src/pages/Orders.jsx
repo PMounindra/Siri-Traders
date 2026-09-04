@@ -5,22 +5,28 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { getUserStorageKey } from '../utils/userStorage';
 import { formatPrice } from '../utils/format';
+import Loading from '../components/Loading';
 import './Orders.css';
 
 const Orders = () => {
   const navigate = useNavigate();
   const { addToCart } = useCart();
-  const { user, isAuthenticated, getToken } = useAuth();
+  const { user, isAuthenticated, isLoaded, getToken } = useAuth();
   const [expandedId, setExpandedId] = useState(null);
   const [reordered, setReordered] = useState(null);
   const [dbOrders, setDbOrders] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [reviewedProductIds, setReviewedProductIds] = useState(new Set());
-  const [reviewModal, setReviewModal] = useState(null); // { productId, productName }
+  const [reviewedKeys, setReviewedKeys] = useState(new Set());
+  const [reviewModal, setReviewModal] = useState(null); // { productId, orderItemId, productName }
   const [reviewForm, setReviewForm] = useState({ rating: 5, title: '', comment: '' });
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState('');
+
+  // Real products are reviewed once per product (covers every order); combo/
+  // festive-offer items have no shared product identity, so they're keyed by
+  // the specific purchased line item instead.
+  const reviewKey = (item) => item.productId ? `p:${item.productId}` : `oi:${item.id}`;
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
@@ -29,8 +35,10 @@ const Orders = () => {
       .then(r => (r.ok ? r.json() : []))
       .then(allReviews => {
         if (!active) return;
-        const mine = allReviews.filter(r => r.userId === user.id).map(r => r.productId);
-        setReviewedProductIds(new Set(mine));
+        const mine = allReviews
+          .filter(r => r.userId === user.id)
+          .map(r => r.productId ? `p:${r.productId}` : `oi:${r.orderItemId}`);
+        setReviewedKeys(new Set(mine));
       })
       .catch(() => {});
     return () => { active = false; };
@@ -39,7 +47,7 @@ const Orders = () => {
   const openReviewModal = (item) => {
     setReviewForm({ rating: 5, title: '', comment: '' });
     setReviewError('');
-    setReviewModal({ productId: item.productId, productName: item.name });
+    setReviewModal({ productId: item.productId || null, orderItemId: item.id, productName: item.name });
   };
 
   const submitReview = async () => {
@@ -53,6 +61,7 @@ const Orders = () => {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           productId: reviewModal.productId,
+          orderItemId: reviewModal.orderItemId,
           rating: reviewForm.rating,
           title: reviewForm.title,
           comment: reviewForm.comment,
@@ -63,7 +72,8 @@ const Orders = () => {
         setReviewError(data.error || 'Failed to submit review.');
         return;
       }
-      setReviewedProductIds(prev => new Set(prev).add(reviewModal.productId));
+      const key = reviewModal.productId ? `p:${reviewModal.productId}` : `oi:${reviewModal.orderItemId}`;
+      setReviewedKeys(prev => new Set(prev).add(key));
       setReviewModal(null);
     } catch {
       setReviewError('Network error. Please try again.');
@@ -73,6 +83,13 @@ const Orders = () => {
   };
 
   useEffect(() => {
+    // Wait for Clerk to finish restoring the session before deciding whether
+    // to fetch — on a fresh page load isAuthenticated reads false for a
+    // moment even for an already-signed-in user, which used to render the
+    // (often stale/smaller) localStorage order list first and then swap to
+    // the real DB list a moment later — the "5 orders, then 2" flicker.
+    if (!isLoaded) return;
+
     let active = true;
     const fetchDbOrders = async () => {
       if (isAuthenticated && getToken) {
@@ -102,6 +119,9 @@ const Orders = () => {
             setLoading(false);
           }
         }
+      } else {
+        // Confirmed guest — nothing to fetch.
+        if (active) setLoading(false);
       }
     };
     fetchDbOrders();
@@ -114,7 +134,7 @@ const Orders = () => {
     // still-loading dbOrders/localOrders count for a moment before the next
     // fetch resolved, i.e. the order count flickering between two values.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated]);
+  }, [isLoaded, isAuthenticated]);
 
   const localOrders = useMemo(() => {
     if (!isAuthenticated) return [];
@@ -185,6 +205,13 @@ const Orders = () => {
     setTimeout(() => setReordered(null), 2000);
   };
 
+  // Show a loading skeleton instead of rendering the localStorage fallback
+  // list first — orders otherwise flashed a stale/smaller cached count for
+  // a moment before the real database list replaced it.
+  if (!isLoaded || loading) {
+    return <Loading />;
+  }
+
   return (
     <div className="page-wrapper">
       <div className="orders">
@@ -217,8 +244,8 @@ const Orders = () => {
               {orders.map(order => {
                 const status = getStatusStyle(order.status);
                 const isExpanded = expandedId === order.id;
-                const reviewableItems = order.items.filter(item => item.productId);
-                const unreviewedItems = reviewableItems.filter(item => !reviewedProductIds.has(item.productId));
+                const reviewableItems = order.items.filter(item => item.productId || item.id);
+                const unreviewedItems = reviewableItems.filter(item => !reviewedKeys.has(reviewKey(item)));
                 return (
                   <Fragment key={order.id}>
                   <div className="orders__card">
