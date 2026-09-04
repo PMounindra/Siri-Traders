@@ -109,6 +109,43 @@
   line-height: 1.5;
 }
 
+.checkout__locate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 40px;
+  border-radius: 10px;
+  border: 1.5px dashed rgba(45, 80, 22, 0.35);
+  background: #FFFFFF;
+  color: #2D5016;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: var(--space-sm);
+  transition: background 0.18s, border-color 0.18s;
+}
+
+.checkout__locate-btn:hover:not(:disabled) {
+  background: #F1F8E9;
+  border-color: #2D5016;
+}
+
+.checkout__locate-btn:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.checkout__locate-icon--spin {
+  animation: checkout-locate-spin 1s linear infinite;
+}
+
+@keyframes checkout-locate-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* Saved address cards */
 .checkout__address-list {
   display: flex;

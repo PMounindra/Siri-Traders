@@ -19,7 +19,7 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useSiteData } from "../context/SiteDataContext";
 import { getUserStorageKey } from "../utils/userStorage";
-import { getDeliveryTimeForAddress } from "../utils/deliveryZones";
+import { getDeliveryTimeForAddress, detectCurrentDeliveryZone } from "../utils/deliveryZones";
 import "./Navbar.css";
 
 const emptyAddress = {
@@ -157,60 +157,16 @@ const Navbar = () => {
     requestAnimationFrame(() => flatNoInputRef.current?.focus());
   };
 
-  // Detects the browser's GPS position, reverse-geocodes it (OpenStreetMap's
-  // free Nominatim API — no key needed), and matches the result against our
-  // serviceable delivery zones by pincode first, then by locality name.
   const useCurrentLocation = async () => {
-    if (!navigator.geolocation) {
-      setDeliveryError("Your browser doesn't support location detection. Please select your area manually.");
-      return;
-    }
     setDeliveryError("");
     setLocating(true);
-
-    const position = await new Promise((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => resolve(pos),
-        () => resolve(null),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-      );
-    });
-
-    if (!position) {
-      setDeliveryError("Couldn't access your location. Please allow location access or select your area manually.");
-      setLocating(false);
-      return;
+    const { zone, error } = await detectCurrentDeliveryZone(deliveryZones);
+    if (zone) {
+      pickArea(zone);
+    } else {
+      setDeliveryError(error);
     }
-
-    try {
-      const { latitude, longitude } = position.coords;
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=16&addressdetails=1`,
-        { headers: { Accept: "application/json" } }
-      );
-      if (!res.ok) throw new Error("geocode failed");
-      const data = await res.json();
-      const addr = data?.address || {};
-      const postcode = addr.postcode || "";
-      const localityCandidates = [addr.suburb, addr.neighbourhood, addr.city_district, addr.village, addr.town, addr.city].filter(Boolean);
-
-      let zone = postcode ? deliveryZones.find((z) => z.pincode === postcode) : null;
-      if (!zone) {
-        zone = deliveryZones.find((z) =>
-          localityCandidates.some((loc) => loc.toLowerCase().includes(z.area.toLowerCase()) || z.area.toLowerCase().includes(loc.toLowerCase()))
-        );
-      }
-
-      if (zone) {
-        pickArea({ name: zone.area, pincode: zone.pincode });
-      } else {
-        setDeliveryError("We don't deliver to your current location yet. Please select a serviceable area manually.");
-      }
-    } catch {
-      setDeliveryError("Couldn't detect your area right now. Please select it manually.");
-    } finally {
-      setLocating(false);
-    }
+    setLocating(false);
   };
 
   const currentAddressText =

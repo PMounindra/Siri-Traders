@@ -3,14 +3,14 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FiArrowLeft, FiAward, FiBriefcase, FiCheck, FiCheckCircle,
-  FiCreditCard, FiHome, FiMoreHorizontal, FiPlus,
+  FiCreditCard, FiCrosshair, FiHome, FiMoreHorizontal, FiPlus,
   FiRefreshCw, FiShield, FiShoppingBag, FiTag, FiTruck, FiX
 } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useSiteData } from '../context/SiteDataContext';
 import { getUserStorageKey } from '../utils/userStorage';
-import { getDeliveryTimeForAddress } from '../utils/deliveryZones';
+import { getDeliveryTimeForAddress, detectCurrentDeliveryZone } from '../utils/deliveryZones';
 import { applyCoupon } from '../data/coupons';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
@@ -87,6 +87,7 @@ const Checkout = () => {
     email: user?.email || '',
   }));
   const [addressError, setAddressError] = useState('');
+  const [locatingArea, setLocatingArea] = useState(false);
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
@@ -156,6 +157,18 @@ const Checkout = () => {
     const area = deliveryZones.find(a => a.area === areaName);
     setAddressForm(prev => ({ ...prev, area: areaName, pincode: area ? area.pincode : '' }));
     setAddressError('');
+  };
+
+  const useCurrentLocationCheckout = async () => {
+    setAddressError('');
+    setLocatingArea(true);
+    const { zone, error } = await detectCurrentDeliveryZone(deliveryZones);
+    if (zone) {
+      updateAddressArea(zone.name);
+    } else {
+      setAddressError(error);
+    }
+    setLocatingArea(false);
   };
 
   const handleApplyCoupon = () => {
@@ -512,6 +525,15 @@ const Checkout = () => {
                           onChange={(e) => updateAddressField('landmark', e.target.value)} className="checkout__input" />
                       </label>
                     </div>
+                    <button
+                      type="button"
+                      className="checkout__locate-btn"
+                      onClick={useCurrentLocationCheckout}
+                      disabled={locatingArea}
+                    >
+                      <FiCrosshair className={locatingArea ? 'checkout__locate-icon--spin' : ''} />
+                      {locatingArea ? 'Detecting your location…' : 'Use my current location'}
+                    </button>
                     <div className="checkout__input-row">
                       <label className="checkout__field">
                         <span>Delivery Area *</span>
