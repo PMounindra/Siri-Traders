@@ -34,7 +34,7 @@ const Orders = () => {
       })
       .catch(() => {});
     return () => { active = false; };
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user?.id]);
 
   const openReviewModal = (item) => {
     setReviewForm({ rating: 5, title: '', comment: '' });
@@ -108,7 +108,13 @@ const Orders = () => {
     return () => {
       active = false;
     };
-  }, [isAuthenticated, getToken]);
+    // getToken is called fresh above, not read reactively — depending on its
+    // identity (which some Clerk versions don't keep stable across renders)
+    // re-ran this fetch on unrelated re-renders and could show a stale,
+    // still-loading dbOrders/localOrders count for a moment before the next
+    // fetch resolved, i.e. the order count flickering between two values.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   const localOrders = useMemo(() => {
     if (!isAuthenticated) return [];

@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useUser, useClerk, useAuth as useClerkAuth } from '@clerk/clerk-react';
 
 const AuthContext = createContext();
@@ -59,14 +59,28 @@ const ClerkAuthProvider = ({ children }) => {
     localStorage.setItem('siri-traders-customer-type', customerType);
   }, [customerType]);
 
-  const user = clerkUser ? {
+  // Memoized so `user` keeps a stable reference across re-renders whenever
+  // the underlying Clerk data hasn't actually changed — every consumer that
+  // depends on `user` in a useEffect/useMemo array (order fetching, review
+  // fetching, address/notification hydration, etc.) was re-running on every
+  // unrelated re-render of this provider otherwise, since a fresh object
+  // literal here meant the effect always saw a "different" user reference.
+  const user = useMemo(() => (clerkUser ? {
     id: clerkUser.id,
     name: clerkUser.fullName || clerkUser.username || clerkUser.primaryEmailAddress?.emailAddress?.split('@')[0] || 'User',
     email: clerkUser.primaryEmailAddress?.emailAddress || '',
     phone: clerkUser.primaryPhoneNumber?.phoneNumber || '',
     avatar: clerkUser.imageUrl || null,
     isAdmin: clerkUser.publicMetadata?.role === 'admin' || false
-  } : null;
+  } : null), [
+    clerkUser?.id,
+    clerkUser?.fullName,
+    clerkUser?.username,
+    clerkUser?.primaryEmailAddress?.emailAddress,
+    clerkUser?.primaryPhoneNumber?.phoneNumber,
+    clerkUser?.imageUrl,
+    clerkUser?.publicMetadata?.role
+  ]);
 
   const logout = () => signOut();
 
