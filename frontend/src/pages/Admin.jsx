@@ -61,6 +61,7 @@ import { products as baseProducts, getProducts as getAllProducts } from '../data
 import { categories } from '../data/categories';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
+import { broadcastSync, SYNC_EVENTS } from '../utils/syncChannel';
 import './Admin.css';
 
 const formatWeightUnit = (weight, unit) => {
@@ -1197,17 +1198,21 @@ const Admin = () => {
         const saved = await adminApi.createProduct(apiPayload);
         nextProduct = { ...nextProduct, id: saved.id };
       }
-      setSaveToast({ type: 'success', msg: `✅ “${nextProduct.name}” saved to database` });
-      setTimeout(() => setSaveToast(null), 5000);
-      loadInventory();
     } catch (err) {
-      if (!productDraft.id) nextProduct = { ...nextProduct, id: Date.now() };
+      // Save actually failed — show the real error and leave the modal open
+      // so it's obvious nothing was saved, instead of pretending it worked.
       setSaveToast({ type: 'error', msg: `⚠️ DB error: ${err.message}` });
       setTimeout(() => setSaveToast(null), 8000);
-    } finally {
       setApiLoading(false);
+      return;
     }
-    
+    setApiLoading(false);
+
+    setSaveToast({ type: 'success', msg: `✅ “${nextProduct.name}” saved to database` });
+    setTimeout(() => setSaveToast(null), 5000);
+    loadInventory();
+    broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED);
+
     if (isWholesale) {
       const exists = wholesaleProducts.some(p => String(p.id) === String(nextProduct.id));
       const next = exists ? wholesaleProducts.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p) : [nextProduct, ...wholesaleProducts];
@@ -1431,6 +1436,7 @@ const Admin = () => {
       setCouponDraft(blankCoupon);
       setSaveToast({ type: 'success', msg: `🎟️ Coupon "${saved.code}" saved and active!` });
       setTimeout(() => setSaveToast(null), 4000);
+      broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
     } catch (err) {
       alert(err.message);
     }
@@ -2468,6 +2474,7 @@ const Admin = () => {
                             try {
                               const updated = await adminApi.updateCoupon(coupon.id, { active: nextActive });
                               setCoupons(prev => prev.map(c => c.id === updated.id ? updated : c));
+                              broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
                             } catch (err) { alert(err.message); }
                           }}
                         >
@@ -2482,6 +2489,7 @@ const Admin = () => {
                             if (window.confirm(`Delete coupon code ${coupon.code}?`)) {
                               await adminApi.deleteCoupon(coupon.id);
                               setCoupons(prev => prev.filter(c => c.id !== coupon.id));
+                              broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
                             }
                           }}
                         >

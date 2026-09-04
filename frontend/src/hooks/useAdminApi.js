@@ -75,6 +75,21 @@ export async function apiFetchProducts(includeArchived = true) {
   return res.json();
 }
 
+// Surfaces the specific field(s) that failed zod validation (api/products.js
+// returns { error: 'Validation failed', details: [...] }) instead of just
+// the generic "Validation failed" — needed to actually see why a save failed.
+async function asJsonWithValidationDetails(res, fallbackError) {
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (Array.isArray(json.details) && json.details.length) {
+      const fields = json.details.map(d => `${(d.path || []).join('.')}: ${d.message}`).join('; ');
+      throw new Error(`${json.error || fallbackError} — ${fields}`);
+    }
+    throw new Error(json.error || fallbackError);
+  }
+  return json;
+}
+
 export async function apiCreateProduct(data) {
   const res = await fetch('/api/products', {
     method: 'POST',
@@ -82,7 +97,7 @@ export async function apiCreateProduct(data) {
     ...withCreds,
     body: JSON.stringify(data),
   });
-  return asJson(res, 'Failed to create product');
+  return asJsonWithValidationDetails(res, 'Failed to create product');
 }
 
 export async function apiUpdateProduct(id, data) {
@@ -92,7 +107,7 @@ export async function apiUpdateProduct(id, data) {
     ...withCreds,
     body: JSON.stringify(data),
   });
-  return asJson(res, 'Failed to update product');
+  return asJsonWithValidationDetails(res, 'Failed to update product');
 }
 
 export async function apiDeleteProduct(id) {

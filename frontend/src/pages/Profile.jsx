@@ -84,6 +84,10 @@ const Profile = () => {
       setAddressError('Please fill all address details, including your delivery area.');
       return;
     }
+    if (!/^[6-9]\d{9}$/.test(trimmed.phone)) {
+      setAddressError('Please enter a valid 10 digit mobile number.');
+      return;
+    }
     const isServiceable = deliveryZones.some(z => z.area.toLowerCase() === trimmed.area.toLowerCase() && z.pincode === trimmed.pincode);
     if (!isServiceable) {
       setAddressError("We can't deliver to this area.");
