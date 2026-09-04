@@ -4724,6 +4724,18 @@ const Admin = () => {
                           <input type="file" accept="image/*" onChange={handleImageUpload} />
                         </label>
                       </div>
+
+                      <div style={{ marginTop: '8px' }}>
+                        <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Description</label>
+                        <textarea
+                          className="admin-input-box"
+                          style={{ height: 'auto' }}
+                          rows={3}
+                          value={productDraft.description || ''}
+                          onChange={(e) => setProductDraft(prev => ({ ...prev, description: e.target.value }))}
+                          placeholder="Shown on the product page — e.g. Urad Dal (Split Black Gram). Essential for dal makhani and idli batter."
+                        />
+                      </div>
                     </div>
 
                     <div className="admin-form-section">

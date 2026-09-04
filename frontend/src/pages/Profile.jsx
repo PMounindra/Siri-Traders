@@ -39,9 +39,33 @@ const getStoredObject = (key, fallback) => {
   }
 };
 
+// Help & Support is edited as "Phone: ...", "Email: ...", "Address: ..."
+// lines (one per field) in the admin's Terms & Policy page editor — any
+// field left out of the CMS content keeps its default.
+const parseSupportPage = (page) => {
+  const defaults = {
+    phone: '+918125702866',
+    phoneDisplay: '+91 81257 02866',
+    email: 'siritraders250925@gmail.com',
+    address: 'H.No 10-152, Nagarjuna Colony Road No 12, Chitkul, Isnapur Municipality, Hyderabad — 502307',
+  };
+  if (!page?.content?.trim()) return defaults;
+  const fields = { ...defaults };
+  page.content.split('\n').forEach(line => {
+    const match = line.match(/^\s*(phone|email|address)\s*:\s*(.+)$/i);
+    if (match) {
+      const key = match[1].toLowerCase();
+      fields[key] = match[2].trim();
+      if (key === 'phone') fields.phoneDisplay = match[2].trim();
+    }
+  });
+  return fields;
+};
+
 const Profile = () => {
   const { user, isAuthenticated, isLoaded, logout, location, setLocation } = useAuth();
-  const { deliveryZones } = useSiteData();
+  const { deliveryZones, getCmsPage } = useSiteData();
+  const support = parseSupportPage(getCmsPage('help-support'));
   const navigate = useNavigate();
   const [activePanel, setActivePanel] = useState(null);
   const addressKey = getUserStorageKey(user, 'addresses');
@@ -277,11 +301,11 @@ const Profile = () => {
 
             {activePanel === 'support' && (
               <div className="profile-panel">
-                <a className="profile-contact-card" href="tel:+918125702866"><FiPhone /><span>Call support</span><strong>+91 81257 02866</strong></a>
-                <a className="profile-contact-card" href="mailto:siritraders250925@gmail.com"><FiMail /><span>Email us</span><strong>siritraders250925@gmail.com</strong></a>
+                <a className="profile-contact-card" href={`tel:${support.phone}`}><FiPhone /><span>Call support</span><strong>{support.phoneDisplay}</strong></a>
+                <a className="profile-contact-card" href={`mailto:${support.email}`}><FiMail /><span>Email us</span><strong>{support.email}</strong></a>
                 <div className="profile-legal-block">
                   <h4>Store Address</h4>
-                  <p>H.No 10-152, Nagarjuna Colony Road No 12,<br />Chitkul, Isnapur Municipality,<br />Hyderabad — 502307</p>
+                  <p>{support.address}</p>
                 </div>
                 <button className="profile-action-btn" onClick={() => navigate('/orders')}>Get help with an order</button>
               </div>

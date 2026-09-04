@@ -230,7 +230,9 @@ const ProductDetail = () => {
                 )}
               </div>
 
-              <p className="pd__description">{product.description}</p>
+              {product.description && (
+                <p className="pd__description">{product.description}</p>
+              )}
 
               {/* Variant chips */}
               {variants.length > 1 && (
