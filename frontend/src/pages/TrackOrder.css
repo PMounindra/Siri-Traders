@@ -68,6 +68,11 @@
   background: linear-gradient(135deg, #3A6B1A, #FFC107);
 }
 
+.track__eta-banner--cancelled {
+  background: linear-gradient(135deg, #991B1B, #DC2626);
+  box-shadow: 0 8px 20px rgba(153, 27, 27, 0.2);
+}
+
 .track__eta-icon {
   font-size: 26px;
   flex-shrink: 0;
@@ -140,6 +145,14 @@
   animation: pulse-ring 1.5s infinite;
 }
 
+.track__step--cancelled { opacity: 1; }
+
+.track__step-circle--cancelled {
+  border-color: #991B1B;
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
 @keyframes pulse-ring {
   0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.35); }
   70% { box-shadow: 0 0 0 8px rgba(255, 193, 7, 0); }
@@ -170,6 +183,9 @@
 }
 
 .track__step-label--active { color: #2D5016; font-size: 15px; }
+
+.track__step--cancelled .track__step-label { color: #991B1B; font-size: 15px; }
+.track__step--cancelled .track__step-right { padding-bottom: 8px; }
 
 .track__step-sub {
   font-size: 12px;

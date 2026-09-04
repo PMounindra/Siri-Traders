@@ -831,6 +831,41 @@
   border-color: #2D5016;
 }
 
+.navbar__locate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1.5px dashed rgba(45,80,22,0.35);
+  background: #FFFFFF;
+  color: #2D5016;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s;
+}
+
+.navbar__locate-btn:hover:not(:disabled) {
+  background: #F1F8E9;
+  border-color: #2D5016;
+}
+
+.navbar__locate-btn:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.navbar__locate-icon--spin {
+  animation: navbar-locate-spin 1s linear infinite;
+}
+
+@keyframes navbar-locate-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .navbar__delivery-error {
   padding: 10px 12px;
   border-radius: 10px;

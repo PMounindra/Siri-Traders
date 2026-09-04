@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { FiArrowLeft, FiCheckCircle, FiClock, FiPackage, FiTruck, FiHome, FiMapPin } from 'react-icons/fi';
+import { FiArrowLeft, FiCheckCircle, FiClock, FiPackage, FiTruck, FiHome, FiMapPin, FiXCircle } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import { getUserStorageKey } from '../utils/userStorage';
 import { formatPrice } from '../utils/format';
@@ -56,7 +56,7 @@ const TrackOrder = () => {
   const applyOrder = useCallback((found) => {
     setOrder(found);
     setCurrentStep(STATUS_TO_STEP[found.status?.toLowerCase()] ?? 0);
-    if (found.deliveryTime) setEta(computeEta(found.deliveryTime));
+    if (found.deliveryTime && found.status?.toLowerCase() !== 'cancelled') setEta(computeEta(found.deliveryTime));
   }, []);
 
   const refreshOrder = useCallback(async (showLoading = true) => {
@@ -83,6 +83,8 @@ const TrackOrder = () => {
             address: { name: data.customerName, address: data.deliveryAddress, phone: data.customerPhone },
             total: data.total,
             items: data.items || [],
+            cancellationReason: data.cancellationReason || '',
+            cancelledAt: data.cancelledAt || null,
           });
           setLoading(false);
           return;
@@ -138,12 +140,14 @@ const TrackOrder = () => {
   useEffect(() => { refreshOrder(); }, [refreshOrder]);
 
   // Poll for status updates while the order is still moving, so an admin
-  // marking it In Transit / Delivered / Paid shows up without a manual reload.
+  // marking it In Transit / Delivered / Paid / Cancelled shows up without a
+  // manual reload. Both terminal states (delivered, cancelled) stop polling.
+  const isCancelled = order?.status?.toLowerCase() === 'cancelled';
   useEffect(() => {
-    if (!order || currentStep >= STEPS.length - 1) return;
+    if (!order || isCancelled || currentStep >= STEPS.length - 1) return;
     const interval = setInterval(() => refreshOrder(false), 20000);
     return () => clearInterval(interval);
-  }, [order, currentStep, refreshOrder]);
+  }, [order, isCancelled, currentStep, refreshOrder]);
 
   if (loading) {
     return (
@@ -216,7 +220,21 @@ const TrackOrder = () => {
           )}
 
           {/* ETA banner */}
-          {!isDelivered && eta && (
+          {isCancelled && (
+            <div className="track__eta-banner track__eta-banner--cancelled">
+              <FiXCircle className="track__eta-icon" />
+              <div>
+                <p className="track__eta-label">Order Cancelled</p>
+                <p className="track__eta-time">
+                  {order.cancellationReason || 'This order has been cancelled.'}
+                  {order.cancelledAt && (
+                    <span className="track__eta-mins"> ({new Date(order.cancelledAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })})</span>
+                  )}
+                </p>
+              </div>
+            </div>
+          )}
+          {!isCancelled && !isDelivered && eta && (
             <div className="track__eta-banner">
               <FiClock className="track__eta-icon" />
               <div>
@@ -228,7 +246,7 @@ const TrackOrder = () => {
               </div>
             </div>
           )}
-          {!isDelivered && !eta && order.deliveryTime && (
+          {!isCancelled && !isDelivered && !eta && order.deliveryTime && (
             <div className="track__eta-banner">
               <FiClock className="track__eta-icon" />
               <div>
@@ -237,7 +255,7 @@ const TrackOrder = () => {
               </div>
             </div>
           )}
-          {isDelivered && (
+          {!isCancelled && isDelivered && (
             <div className="track__eta-banner track__eta-banner--done">
               <FiCheckCircle className="track__eta-icon" />
               <div>
@@ -247,30 +265,48 @@ const TrackOrder = () => {
             </div>
           )}
 
-          {/* Stepper */}
-          <div className="track__steps">
-            {STEPS.map((step, i) => {
-              const done = i <= currentStep;
-              const active = i === currentStep;
-              const Icon = step.icon;
-              return (
-                <div key={step.id} className={`track__step ${done ? 'track__step--done' : ''} ${active ? 'track__step--active' : ''}`}>
-                  <div className="track__step-left">
-                    <div className={`track__step-circle ${done ? 'track__step-circle--done' : ''} ${active ? 'track__step-circle--active' : ''}`}>
-                      {done && !active ? <FiCheckCircle size={18} /> : <Icon size={18} />}
-                    </div>
-                    {i < STEPS.length - 1 && (
-                      <div className={`track__step-line ${i < currentStep ? 'track__step-line--done' : ''}`} />
-                    )}
-                  </div>
-                  <div className="track__step-right">
-                    <p className={`track__step-label ${active ? 'track__step-label--active' : ''}`}>{step.label}</p>
-                    <p className="track__step-sub">{active ? <span className="track__step-sub--live">● {step.sub}</span> : step.sub}</p>
+          {/* Stepper — replaced by a single cancelled marker when the order
+             never reached delivery, since a fulfillment progress bar doesn't
+             make sense for an order that was called off. */}
+          {isCancelled ? (
+            <div className="track__steps track__steps--cancelled">
+              <div className="track__step track__step--cancelled">
+                <div className="track__step-left">
+                  <div className="track__step-circle track__step-circle--cancelled">
+                    <FiXCircle size={18} />
                   </div>
                 </div>
-              );
-            })}
-          </div>
+                <div className="track__step-right">
+                  <p className="track__step-label">Order Cancelled</p>
+                  <p className="track__step-sub">This order will not be delivered</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="track__steps">
+              {STEPS.map((step, i) => {
+                const done = i <= currentStep;
+                const active = i === currentStep;
+                const Icon = step.icon;
+                return (
+                  <div key={step.id} className={`track__step ${done ? 'track__step--done' : ''} ${active ? 'track__step--active' : ''}`}>
+                    <div className="track__step-left">
+                      <div className={`track__step-circle ${done ? 'track__step-circle--done' : ''} ${active ? 'track__step-circle--active' : ''}`}>
+                        {done && !active ? <FiCheckCircle size={18} /> : <Icon size={18} />}
+                      </div>
+                      {i < STEPS.length - 1 && (
+                        <div className={`track__step-line ${i < currentStep ? 'track__step-line--done' : ''}`} />
+                      )}
+                    </div>
+                    <div className="track__step-right">
+                      <p className={`track__step-label ${active ? 'track__step-label--active' : ''}`}>{step.label}</p>
+                      <p className="track__step-sub">{active ? <span className="track__step-sub--live">● {step.sub}</span> : step.sub}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Delivery address */}
           {order.address && (
