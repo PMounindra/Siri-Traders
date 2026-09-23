@@ -59,7 +59,7 @@ import {
 } from 'react-icons/fi';
 import { useAdminApi } from '../hooks/useAdminApi';
 import { useSiteData } from '../context/SiteDataContext';
-import { formatPrice } from '../utils/format';
+import { formatPrice, getOrderBillBreakdown } from '../utils/format';
 import { toWebpImage } from '../utils/images';
 import { broadcastSync, SYNC_EVENTS } from '../utils/syncChannel';
 import './Admin.css';
@@ -3664,21 +3664,7 @@ const Admin = () => {
                       </table>
 
                       {(() => {
-                        const itemsTotal = (invoiceModalOrder.items || []).reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity || i.qty) || 1), 0);
-                        const subtotal = invoiceModalOrder.subtotal !== undefined && Number(invoiceModalOrder.subtotal) > 0
-                          ? Number(invoiceModalOrder.subtotal)
-                          : itemsTotal;
-                        const deliveryFee = invoiceModalOrder.deliveryFee !== undefined 
-                          ? Number(invoiceModalOrder.deliveryFee) 
-                          : (invoiceModalOrder.delivery_fee !== undefined ? Number(invoiceModalOrder.delivery_fee) : 0);
-                        const handlingCharge = invoiceModalOrder.handlingCharge !== undefined 
-                          ? Number(invoiceModalOrder.handlingCharge) 
-                          : (invoiceModalOrder.handling_charge !== undefined ? Number(invoiceModalOrder.handling_charge) : 0);
-                        const discount = invoiceModalOrder.discount !== undefined 
-                          ? Number(invoiceModalOrder.discount) 
-                          : 0;
-                        const couponCode = invoiceModalOrder.couponCode || invoiceModalOrder.coupon_code || '';
-                        const grandTotal = Number(invoiceModalOrder.total) || (subtotal + deliveryFee + handlingCharge - discount);
+                        const { subtotal, deliveryFee, handlingCharge, discount, couponCode, grandTotal } = getOrderBillBreakdown(invoiceModalOrder);
 
                         return (
                           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>

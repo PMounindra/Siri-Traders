@@ -4,7 +4,7 @@ import { FiPackage, FiChevronDown, FiChevronUp, FiRefreshCw, FiShoppingBag, FiNa
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { getUserStorageKey } from '../utils/userStorage';
-import { formatPrice } from '../utils/format';
+import { formatPrice, getOrderBillBreakdown } from '../utils/format';
 import Loading from '../components/Loading';
 import './Orders.css';
 
@@ -282,24 +282,29 @@ const Orders = () => {
                             <span>{formatPrice(item.price * (item.qty || item.quantity || 1))}</span>
                           </div>
                         ))}
-                        {order.deliveryFee > 0 && (
-                          <div className="orders__detail-item" style={{ color: '#4b5563' }}>
-                            <span>Delivery Fee</span>
-                            <span>{formatPrice(order.deliveryFee)}</span>
-                          </div>
-                        )}
-                        {order.handlingCharge > 0 && (
-                          <div className="orders__detail-item" style={{ color: '#4b5563' }}>
-                            <span>Handling Charge</span>
-                            <span>{formatPrice(order.handlingCharge)}</span>
-                          </div>
-                        )}
-                        {order.discount > 0 && (
-                          <div className="orders__detail-item" style={{ color: '#166534', fontWeight: 600 }}>
-                            <span>Coupon ({order.couponCode || 'Applied'})</span>
-                            <span>-{formatPrice(order.discount)}</span>
-                          </div>
-                        )}
+                        {(() => {
+                          const breakdown = getOrderBillBreakdown(order);
+                          return (
+                            <>
+                              <div className="orders__detail-item" style={{ color: '#4b5563' }}>
+                                <span>Delivery Fee</span>
+                                <span>{breakdown.deliveryFee > 0 ? formatPrice(breakdown.deliveryFee) : <strong style={{ color: '#166534' }}>FREE</strong>}</span>
+                              </div>
+                              {breakdown.handlingCharge > 0 && (
+                                <div className="orders__detail-item" style={{ color: '#4b5563' }}>
+                                  <span>Handling Charge</span>
+                                  <span>{formatPrice(breakdown.handlingCharge)}</span>
+                                </div>
+                              )}
+                              {(breakdown.discount > 0 || breakdown.couponCode) && (
+                                <div className="orders__detail-item" style={{ color: '#166534', fontWeight: 600 }}>
+                                  <span>Coupon ({breakdown.couponCode || 'Applied'})</span>
+                                  <span>-{formatPrice(breakdown.discount)}</span>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                         <div className="orders__detail-total">
                           <span>Total</span><span>{formatPrice(order.total)}</span>
                         </div>
