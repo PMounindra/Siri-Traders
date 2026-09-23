@@ -1,5 +1,5 @@
 import { db, settings, deliveryZones, cmsBanners, cmsPages, cmsFaqs, cmsBlogs, seoRedirects } from '../db/index.js';
-import { eq, asc, desc } from 'drizzle-orm';
+import { eq, asc, desc, sql } from 'drizzle-orm';
 import { setCorsHeaders } from './_cors.js';
 import { isAdminRequest } from './_adminAuth.js';
 
@@ -359,8 +359,17 @@ export default async function handler(req, res) {
 
     // ── Global Settings & SEO: /api/settings ──────────────────────────
     if (req.method === 'GET') {
-      const rows = await db.select().from(settings).where(eq(settings.id, 'default'));
-      return res.status(200).json(rows[0] || DEFAULTS);
+      try {
+        const rows = await db.select().from(settings).where(eq(settings.id, 'default'));
+        return res.status(200).json(rows[0] || DEFAULTS);
+      } catch (getErr) {
+        if (String(getErr).includes('home_sections') || getErr?.code === '42703') {
+          await db.execute(sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS home_sections JSONB DEFAULT '{"todaysDeals":true,"bestsellers":true,"dailyOffers":true,"festiveOffers":true,"shopByCategory":true,"categories":{}}'::jsonb;`);
+          const rows = await db.select().from(settings).where(eq(settings.id, 'default'));
+          return res.status(200).json(rows[0] || DEFAULTS);
+        }
+        throw getErr;
+      }
     }
 
     if (req.method === 'PUT') {
@@ -391,12 +400,21 @@ export default async function handler(req, res) {
         homeSections: body.homeSections !== undefined ? body.homeSections : DEFAULTS.homeSections
       };
 
-      const saved = await db.insert(settings).values(values).onConflictDoUpdate({
-        target: settings.id,
-        set: values
-      }).returning();
-
-      return res.status(200).json(saved[0]);
+      try {
+        const saved = await db.insert(settings).values(values).onConflictDoUpdate({
+          target: settings.id,
+          set: values
+        }).returning();
+        return res.status(200).json(saved[0]);
+      } catch (saveErr) {
+        console.warn('First save attempt in /api/settings failed, ensuring column exists:', saveErr?.message || saveErr);
+        await db.execute(sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS home_sections JSONB DEFAULT '{"todaysDeals":true,"bestsellers":true,"dailyOffers":true,"festiveOffers":true,"shopByCategory":true,"categories":{}}'::jsonb;`);
+        const saved = await db.insert(settings).values(values).onConflictDoUpdate({
+          target: settings.id,
+          set: values
+        }).returning();
+        return res.status(200).json(saved[0]);
+      }
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
