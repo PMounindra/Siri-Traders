@@ -67,7 +67,10 @@ const addressLine2 = (address) => {
 };
 
 const Checkout = () => {
-  const { cartItems, cartTotal, cartCount, clearCart, requireAuth } = useCart();
+  const {
+    cartItems, cartTotal, cartCount, clearCart, requireAuth,
+    appliedCouponCode, applyCouponCode, removeCoupon: contextRemoveCoupon, getAppliedCoupon, couponError, setCouponError
+  } = useCart();
   const { user, isAuthenticated, isLoaded, getToken, customerType } = useAuth();
   const { deliveryZones, retailCoupons, wholesaleCoupons, deliverySettings } = useSiteData();
   const coupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
@@ -88,11 +91,17 @@ const Checkout = () => {
   }));
   const [addressError, setAddressError] = useState('');
   const [locatingArea, setLocatingArea] = useState(false);
-  const [couponInput, setCouponInput] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState(null);
-  const [couponError, setCouponError] = useState('');
+  const [couponInput, setCouponInput] = useState(appliedCouponCode || '');
   const [placingOrder, setPlacingOrder] = useState(false);
   const [orderError, setOrderError] = useState('');
+
+  const appliedCoupon = getAppliedCoupon(coupons);
+
+  useEffect(() => {
+    if (appliedCouponCode) {
+      setCouponInput(appliedCouponCode);
+    }
+  }, [appliedCouponCode]);
 
   const selectedAddress = addresses.find(address => address.id === selectedAddressId);
   const addressReady = !!selectedAddress && !showAddressForm;
@@ -178,20 +187,15 @@ const Checkout = () => {
   };
 
   const handleApplyCoupon = () => {
-    const result = applyCoupon(couponInput, cartTotal, coupons, { cartItems, userEmail: user?.email });
-    if (!result.valid) {
-      setCouponError(result.error);
-      setAppliedCoupon(null);
-      return;
+    const success = applyCouponCode(couponInput, coupons);
+    if (success) {
+      setCouponInput('');
     }
-    setCouponError('');
-    setAppliedCoupon({ code: result.coupon.code, discount: result.discount, freeDelivery: result.freeDelivery });
   };
 
   const removeCoupon = () => {
-    setAppliedCoupon(null);
+    contextRemoveCoupon();
     setCouponInput('');
-    setCouponError('');
   };
 
   const saveAddress = () => {

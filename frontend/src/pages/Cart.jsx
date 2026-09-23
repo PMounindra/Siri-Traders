@@ -13,15 +13,18 @@ import { getSavedAddresses } from '../utils/userStorage';
 import './Cart.css';
 
 const Cart = () => {
-  const { cartItems, updateQuantity, removeFromCart, cartTotal, cartSavings, cartCount, requireAuth } = useCart();
+  const {
+    cartItems, updateQuantity, removeFromCart, cartTotal, cartSavings, cartCount, requireAuth,
+    appliedCouponCode, applyCouponCode, removeCoupon, getAppliedCoupon, couponError, setCouponError
+  } = useCart();
   const { user, customerType } = useAuth();
   const { retailCoupons, wholesaleCoupons, deliveryZones } = useSiteData();
   const { getProductsForType } = useProducts();
   const coupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
   const navigate = useNavigate();
-  const [coupon, setCoupon] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState(null);
-  const [couponError, setCouponError] = useState('');
+  const [coupon, setCoupon] = useState(appliedCouponCode || '');
+
+  const appliedCoupon = getAppliedCoupon(coupons);
 
   const savedAddress = getSavedAddresses(user)[0];
   const activeZone = savedAddress ? deliveryZones.find(z => z.area.toLowerCase() === savedAddress.area.toLowerCase()) : null;
@@ -32,20 +35,15 @@ const Cart = () => {
   const deliveryFee = appliedCoupon?.freeDelivery ? 0 : baseDeliveryFee;
   const handlingCharge = cartCount > 0 ? activeHandlingChargeVal : 0;
   const couponDiscount = appliedCoupon?.discount || 0;
-  const grandTotal = cartTotal + deliveryFee + handlingCharge - couponDiscount;
+  const grandTotal = Math.max(0, cartTotal + deliveryFee + handlingCharge - couponDiscount);
 
   const suggestions = getProductsForType(customerType).filter(p => p.isBestseller && !cartItems.find(i => i.productId === p.id || i.id === p.id)).slice(0, 6);
 
   const applyCoupon = (code = coupon) => {
-    const result = evaluateCoupon(code, cartTotal, coupons, { cartItems, userEmail: user?.email });
-    if (!result.valid) {
-      setCouponError(result.error);
-      setAppliedCoupon(null);
-      return;
+    const success = applyCouponCode(code, coupons);
+    if (success) {
+      setCoupon(code.toUpperCase());
     }
-    setCoupon(result.coupon.code);
-    setAppliedCoupon(result);
-    setCouponError('');
   };
 
   const handleCheckout = () => {
@@ -133,7 +131,7 @@ const Cart = () => {
                 <button
                   key={item.code}
                   type="button"
-                  className={`cart__coupon-chip ${appliedCoupon?.coupon?.code === item.code ? 'cart__coupon-chip--active' : ''}`}
+                  className={`cart__coupon-chip ${appliedCoupon?.code === item.code ? 'cart__coupon-chip--active' : ''}`}
                   onClick={() => applyCoupon(item.code)}
                 >
                   <strong>{item.code}</strong>
@@ -146,7 +144,7 @@ const Cart = () => {
                 type="text"
                 placeholder='Try "SIRI20"'
                 value={coupon}
-                onChange={(e) => { setCoupon(e.target.value); setCouponError(''); }}
+                onChange={(e) => { setCoupon(e.target.value.toUpperCase()); setCouponError(''); }}
                 className="cart__coupon-input"
                 id="cart-coupon-input"
               />
@@ -154,8 +152,9 @@ const Cart = () => {
             </div>
             {couponError && <span className="cart__coupon-error">{couponError}</span>}
             {appliedCoupon && (
-              <span className="cart__coupon-success">
-                <FiCheck /> Coupon {appliedCoupon.coupon.code} applied! You save {formatPrice(couponDiscount || (appliedCoupon.freeDelivery ? baseDeliveryFee : 0))}
+              <span className="cart__coupon-success" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span><FiCheck /> Coupon {appliedCoupon.code} applied! You save {formatPrice(couponDiscount || (appliedCoupon.freeDelivery ? baseDeliveryFee : 0))}</span>
+                <button type="button" onClick={() => { removeCoupon(); setCoupon(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#15803d', fontWeight: 'bold', textDecoration: 'underline' }}>Remove</button>
               </span>
             )}
           </div>

@@ -6,6 +6,8 @@ import { useAuth } from './AuthContext';
 import { getUserStorageKey } from '../utils/userStorage';
 import '../components/AuthRequiredModal.css';
 
+import { applyCoupon as evaluateCoupon } from '../data/coupons';
+
 const CartContext = createContext();
 
 export const useCart = () => {
@@ -20,6 +22,7 @@ export const CartProvider = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const cartStorageKey = getUserStorageKey(user, 'cart');
+  const couponStorageKey = getUserStorageKey(user, 'applied_coupon');
   const skipNextPersist = useRef(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [cartItems, setCartItems] = useState(() => {
@@ -30,6 +33,39 @@ export const CartProvider = ({ children }) => {
       return [];
     }
   });
+
+  const [appliedCouponCode, setAppliedCouponCode] = useState(() => {
+    try {
+      return couponStorageKey ? (localStorage.getItem(couponStorageKey) || '') : '';
+    } catch {
+      return '';
+    }
+  });
+  const [couponError, setCouponError] = useState('');
+
+  useEffect(() => {
+    if (!couponStorageKey) {
+      setAppliedCouponCode('');
+      setCouponError('');
+      return;
+    }
+    try {
+      const saved = localStorage.getItem(couponStorageKey);
+      setAppliedCouponCode(saved || '');
+    } catch {
+      setAppliedCouponCode('');
+    }
+  }, [couponStorageKey]);
+
+  useEffect(() => {
+    if (couponStorageKey) {
+      if (appliedCouponCode) {
+        localStorage.setItem(couponStorageKey, appliedCouponCode);
+      } else {
+        localStorage.removeItem(couponStorageKey);
+      }
+    }
+  }, [appliedCouponCode, couponStorageKey]);
 
   useEffect(() => {
     skipNextPersist.current = true;
@@ -102,14 +138,15 @@ export const CartProvider = ({ children }) => {
     return item ? item.quantity : 0;
   };
 
+  const removeCoupon = useCallback(() => {
+    setAppliedCouponCode('');
+    setCouponError('');
+  }, []);
+
   const clearCart = () => {
     setCartItems([]);
+    removeCoupon();
   };
-
-  const goToAuth = useCallback((path) => {
-    setShowAuthPrompt(false);
-    navigate(path);
-  }, [navigate]);
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   
@@ -120,6 +157,42 @@ export const CartProvider = ({ children }) => {
   const cartSavings = cartItems.reduce(
     (sum, item) => sum + (item.mrp - item.price) * item.quantity, 0
   );
+
+  const applyCouponCode = useCallback((code, couponList = []) => {
+    const rawCode = String(code || '').trim().toUpperCase();
+    if (!rawCode) {
+      setCouponError('Enter a coupon code.');
+      return false;
+    }
+
+    const result = evaluateCoupon(rawCode, cartTotal, couponList, { cartItems, userEmail: user?.email });
+    if (!result.valid) {
+      setCouponError(result.error);
+      return false;
+    }
+
+    setAppliedCouponCode(result.coupon.code);
+    setCouponError('');
+    return true;
+  }, [cartTotal, cartItems, user?.email]);
+
+  const getAppliedCoupon = useCallback((couponList = []) => {
+    if (!appliedCouponCode) return null;
+    const result = evaluateCoupon(appliedCouponCode, cartTotal, couponList, { cartItems, userEmail: user?.email });
+    if (!result.valid) return null;
+    return {
+      code: result.coupon.code,
+      discount: result.discount,
+      freeDelivery: result.freeDelivery,
+      coupon: result.coupon,
+      valid: true
+    };
+  }, [appliedCouponCode, cartTotal, cartItems, user?.email]);
+
+  const goToAuth = useCallback((path) => {
+    setShowAuthPrompt(false);
+    navigate(path);
+  }, [navigate]);
 
   return (
     <CartContext.Provider
@@ -134,7 +207,13 @@ export const CartProvider = ({ children }) => {
         showAuthPrompt: () => setShowAuthPrompt(true),
         cartCount,
         cartTotal,
-        cartSavings
+        cartSavings,
+        appliedCouponCode,
+        applyCouponCode,
+        removeCoupon,
+        getAppliedCoupon,
+        couponError,
+        setCouponError
       }}
     >
       {children}
