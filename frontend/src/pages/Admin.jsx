@@ -5063,16 +5063,40 @@ const Admin = () => {
                           <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Cost Price (₹)</label>
                           <input className="admin-input-box" value={productDraft.costPrice} onChange={(e) => setProductDraft(prev => ({ ...prev, costPrice: e.target.value }))} placeholder="330" type="number" />
                         </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Wholesale Price (₹)</label>
+                          <input className="admin-input-box" value={productDraft.wholesalePrice || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, wholesalePrice: e.target.value }))} placeholder="e.g. 380" type="number" />
+                        </div>
                       </div>
                     </div>
 
-                    {productModalMode === 'wholesale' && (
+                    {(productDraft.targetType === 'wholesale' || productDraft.targetType === 'retail_and_wholesale' || productDraft.targetType === 'both' || !productDraft.targetType || productModalMode === 'wholesale' || productDraft.wholesalePrice) && (
                       <div className="admin-form-section">
-                        <h3 className="admin-form-section__title"><FiLayers /> 3. Wholesale Price Ranges</h3>
+                        <h3 className="admin-form-section__title"><FiLayers /> 3. Wholesale & Bulk Pricing Options</h3>
                         <p style={{ fontSize: '11.5px', color: '#687466', margin: '0 0 10px' }}>
-                          Define the bulk price tiers shown to wholesale customers (e.g. 1 kg, 5 kg bulk, 10 kg bulk). Leave empty to auto-calculate from the selling price above.
+                          Define bulk pack prices and wholesale quantity tiers (e.g. 5 kg bulk, 10 kg case).
                         </p>
 
+                        <div className="admin-form__grid" style={{ marginBottom: '14px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Bulk Pack Label</label>
+                            <input className="admin-input-box" value={productDraft.bulkPackLabel || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, bulkPackLabel: e.target.value }))} placeholder="e.g. 5 kg bulk" />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Bulk Pack Price (₹)</label>
+                            <input className="admin-input-box" value={productDraft.bulkPackPrice || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, bulkPackPrice: e.target.value }))} placeholder="e.g. 1850" type="number" />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Wholesale Case Label</label>
+                            <input className="admin-input-box" value={productDraft.wholesaleCaseLabel || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, wholesaleCaseLabel: e.target.value }))} placeholder="e.g. 10 kg case" />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Wholesale Case Price (₹)</label>
+                            <input className="admin-input-box" value={productDraft.wholesaleCasePrice || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, wholesaleCasePrice: e.target.value }))} placeholder="e.g. 3600" type="number" />
+                          </div>
+                        </div>
+
+                        <h4 style={{ fontSize: '12.5px', fontWeight: 700, margin: '12px 0 6px', color: '#2D5016' }}>Custom Wholesale Price Ranges / Tiers</h4>
                         {detailedVariants.map((v, idx) => (
                           <div key={v.id || idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
                             <input
