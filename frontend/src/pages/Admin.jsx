@@ -4869,7 +4869,7 @@ const Admin = () => {
               </div>
 
               {showCategoryModal && (
-                <div className="inventory-modal-backdrop" onClick={() => setShowCategoryModal(false)}>
+                <div className="inventory-modal-backdrop">
                   <div className="inventory-modal" style={{ maxWidth: '620px' }} onClick={e => e.stopPropagation()}>
                     <div className="inventory-modal__header">
                       <h2 style={{ margin: 0 }}>Add New Category</h2>
@@ -4940,7 +4940,7 @@ const Admin = () => {
               also be opened from the Inventory Hub's "Add New Item" button
               without switching tabs. */}
           {showProductModal && (
-            <div className="inventory-modal-backdrop" onClick={() => setShowProductModal(false)}>
+            <div className="inventory-modal-backdrop">
               <div className="inventory-modal" style={{ maxWidth: '860px' }} onClick={e => e.stopPropagation()}>
                 <div className="inventory-modal__header">
                   <div>
@@ -4988,7 +4988,7 @@ const Admin = () => {
 
                         <div>
                           <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Brand</label>
-                          <input className="admin-input-box" value={productDraft.brand || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, brand: e.target.value }))} placeholder="e.g. Daawat, Fortune, Siri Select" required />
+                          <input className="admin-input-box" value={productDraft.brand || ''} onChange={(e) => setProductDraft(prev => ({ ...prev, brand: e.target.value }))} placeholder="e.g. Daawat, Fortune, Siri Select" />
                         </div>
 
                         <div>
