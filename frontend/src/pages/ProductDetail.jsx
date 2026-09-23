@@ -13,6 +13,7 @@ import {
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useProducts } from "../context/ProductContext";
+import { toWholesaleProduct } from "../data/products";
 import { formatPrice } from "../utils/format";
 import { toWebpImage } from "../utils/images";
 import ProductCard from "../components/ProductCard";
@@ -22,8 +23,7 @@ import "./ProductDetail.css";
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { addToCart, removeFromCart, updateQuantity, getItemQuantity } =
-    useCart();
+  const { addToCart, removeFromCart, updateQuantity, getItemQuantity } = useCart();
   const { customerType } = useAuth();
   const { getProductsForType, loading: productsLoading } = useProducts();
 
@@ -45,78 +45,108 @@ const ProductDetail = () => {
       .then(r => (r.ok ? r.json() : []))
       .then(all => {
         if (!active) return;
-        setReviews(all.filter(r => r.productId === product.id && r.status === 'Approved'));
+        setReviews((all || []).filter(r => String(r.productId) === String(product.id) && r.status === 'Approved'));
       })
       .catch(() => {});
     return () => { active = false; };
   }, [product?.id]);
 
   useEffect(() => {
-    // Scroll to top immediately before anything renders
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     setLoading(true);
     setLocalQuantity(1);
     setImageFailed(false);
 
-    if (productsLoading) return; // Wait until products are fetched from API
+    if (productsLoading) return;
 
-    const allProducts = getProductsForType(customerType);
+    let isCancelled = false;
+    async function loadProduct() {
+      const allProducts = getProductsForType(customerType) || [];
+      let found = allProducts.find(
+        (p) => String(p.id) === String(id)
+      );
 
-    // Match by numeric id OR string id
-    const nextProduct = allProducts.find(
-      (p) => String(p.id) === String(id)
-    );
+      // Direct fallback fetch if product not present in local context
+      if (!found && id) {
+        try {
+          const res = await fetch(`/api/products?id=${id}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.id) {
+              found = customerType === 'wholesale' ? toWholesaleProduct(data) : data;
+            }
+          }
+        } catch (e) {
+          console.warn('Direct fetch for product detail failed:', e);
+        }
+      }
 
-    if (!nextProduct) {
-      setProduct(null);
-      setRelatedProducts([]);
+      if (isCancelled) return;
+
+      if (!found) {
+        setProduct(null);
+        setRelatedProducts([]);
+        setLoading(false);
+        return;
+      }
+
+      setProduct(found);
+      const categoryProducts = allProducts.filter(
+        (item) =>
+          item.category &&
+          found.category &&
+          String(item.category).toLowerCase() === String(found.category).toLowerCase() &&
+          String(item.id) !== String(found.id)
+      );
+      setRelatedProducts(categoryProducts.slice(0, 8));
+
+      const defaultWeightLabel = `${found.weight || ''} ${found.unit || ''}`.trim() || 'Standard Pack';
+      const defaultVars = (Array.isArray(found.variants) && found.variants.length > 0)
+        ? found.variants
+        : [{ label: defaultWeightLabel, price: Number(found.price) || 0, mrp: Number(found.mrp) || Number(found.price) || 0 }];
+
+      setSelectedVariant(defaultVars[0]);
       setLoading(false);
-      return;
     }
 
-    setProduct(nextProduct);
-    setRelatedProducts(
-      allProducts
-        .filter(
-          (item) =>
-            item.category === nextProduct.category &&
-            String(item.id) !== String(nextProduct.id)
-        )
-        .slice(0, 8),
-    );
-    // Set default variant
-    const variants = nextProduct.variants || [
-      { label: `${nextProduct.weight} ${nextProduct.unit}`, price: nextProduct.price }
-    ];
-    setSelectedVariant(variants[0]);
-    setLoading(false);
-  }, [id, productsLoading, customerType]); // Re-run when products load or customer type changes
+    loadProduct();
 
-  const variants = product
-    ? (product.variants || [{ label: `${product.weight} ${product.unit}`, price: product.price }])
-    : [];
+    return () => {
+      isCancelled = true;
+    };
+  }, [id, productsLoading, customerType]);
 
-  const activeVariant = selectedVariant || variants[0];
+  const variants = useMemo(() => {
+    if (!product) return [];
+    if (Array.isArray(product.variants) && product.variants.length > 0) {
+      return product.variants.map(v => ({
+        label: String(v.label || `${product.weight || ''} ${product.unit || ''}`).trim() || 'Standard Pack',
+        price: Number(v.price) || Number(product.price) || 0,
+        mrp: Number(v.mrp) || Number(product.mrp) || Number(v.price) || Number(product.price) || 0
+      }));
+    }
+    const labelStr = `${product.weight || ''} ${product.unit || ''}`.trim() || 'Standard Pack';
+    return [{
+      label: labelStr,
+      price: Number(product.price) || 0,
+      mrp: Number(product.mrp) || Number(product.price) || 0
+    }];
+  }, [product]);
+
+  const activeVariant = selectedVariant || variants[0] || { label: 'Standard Pack', price: Number(product?.price) || 0, mrp: Number(product?.mrp) || Number(product?.price) || 0 };
   const activeCartId = product ? `${customerType}-${product.id}-${activeVariant?.label}` : null;
   const cartQuantity = activeCartId ? getItemQuantity(activeCartId) : 0;
   const inCart = cartQuantity > 0;
   const displayQuantity = inCart ? cartQuantity : localQuantity;
 
-  // Sync selectedVariant when switching to one that's already in cart
-  const activeVariantInCart = useMemo(() => {
-    if (!product) return null;
-    return variants.find(v => getItemQuantity(`${customerType}-${product.id}-${v.label}`) > 0) || null;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product, customerType, getItemQuantity]);
-
   const categoryLabel = useMemo(() => {
-    if (!product) return "";
-    return product.category.replace(/-/g, " ");
+    if (!product?.category) return "Groceries";
+    return String(product.category).replace(/-/g, " ");
   }, [product]);
 
-  const reviewCount = reviews.length;
+  const reviewCount = (reviews || []).length;
   const avgRating = reviewCount
-    ? reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviewCount
+    ? reviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / reviewCount
     : 0;
 
   if (loading || productsLoading) return <Loading />;
@@ -139,8 +169,7 @@ const ProductDetail = () => {
     );
   }
 
-  const isOrganic =
-    product.isOrganic ?? product.category === "fruits-vegetables";
+  const isOrganic = product.isOrganic ?? (product.category === "fruits-vegetables");
 
   const handleMinus = () => {
     if (inCart) {
@@ -163,20 +192,31 @@ const ProductDetail = () => {
   };
 
   const handleAddToCart = () => {
-    if (inCart) return;
-    const variantPrice = activeVariant?.price || product.price;
-    const variantMrp = activeVariant?.mrp || Math.round(variantPrice * (product.mrp / (product.price || 1)));
+    if (inCart || !product) return;
+    const variantPrice = Number(activeVariant?.price) || Number(product.price) || 0;
+    const baseMrp = Number(activeVariant?.mrp) || Number(product.mrp) || variantPrice;
+    const variantMrp = Math.max(variantPrice, baseMrp);
+    const discountPercent = variantMrp > variantPrice ? Math.round(((variantMrp - variantPrice) / variantMrp) * 100) : 0;
+
     addToCart({
       ...product,
       id: activeCartId,
-      productId: product.id,      price: variantPrice,
+      productId: product.id,
+      price: variantPrice,
       mrp: variantMrp,
-      discount: Math.max(0, Math.round(((variantMrp - variantPrice) / variantMrp) * 100)),
-      weight: activeVariant?.label || `${product.weight} ${product.unit}`,
+      discount: discountPercent,
+      weight: activeVariant?.label || `${product.weight || ''} ${product.unit || ''}`.trim() || 'Standard Pack',
       unit: '',
-      selectedVariant: activeVariant?.label || `${product.weight} ${product.unit}`,
+      selectedVariant: activeVariant?.label || `${product.weight || ''} ${product.unit || ''}`.trim() || 'Standard Pack',
     });
   };
+
+  const productInitials = (product?.name || "Product")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("");
 
   return (
     <div className="page-wrapper">
@@ -192,7 +232,7 @@ const ProductDetail = () => {
             </Link>
             <span className="pd__crumb-separator">/</span>
             <Link
-              to={`/categories?cat=${product.category}`}
+              to={`/categories?cat=${encodeURIComponent(product.category || '')}`}
               className="pd__crumb pd__crumb--muted"
             >
               {categoryLabel}
@@ -211,7 +251,7 @@ const ProductDetail = () => {
 
           <section className="pd__hero">
             <div className="pd__media">
-              {!imageFailed ? (
+              {!imageFailed && product.image ? (
                 <img
                   src={toWebpImage(product.image)}
                   alt={product.name}
@@ -220,11 +260,7 @@ const ProductDetail = () => {
                 />
               ) : (
                 <div className="pd__image pd__image-fallback">
-                  {product.name
-                    .split(" ")
-                    .slice(0, 2)
-                    .map((word) => word[0])
-                    .join("")}
+                  {productInitials}
                 </div>
               )}
 
@@ -234,7 +270,7 @@ const ProductDetail = () => {
                     <LeafIcon className="pd__tag-icon" /> Organic
                   </span>
                 )}
-                {product.discount > 0 && (
+                {(product.discount > 0) && (
                   <span className="pd__tag pd__tag--orange">
                     {product.discount}% OFF
                   </span>
@@ -364,16 +400,19 @@ const ProductDetail = () => {
               </div>
 
               <div className="pd-reviews__grid">
-                {reviews.map((review) => (
-                  <article key={review.id} className="pd-reviews__card">
-                    <div className="pd-reviews__meta">
-                      <strong>{review.userName || 'Customer'}</strong>
-                      <span>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</span>
-                    </div>
-                    {review.title && <p style={{ fontWeight: 700 }}>{review.title}</p>}
-                    {review.comment && <p>{review.comment}</p>}
-                  </article>
-                ))}
+                {reviews.map((review) => {
+                  const ratingVal = Math.max(0, Math.min(5, Math.round(Number(review.rating) || 0)));
+                  return (
+                    <article key={review.id} className="pd-reviews__card">
+                      <div className="pd-reviews__meta">
+                        <strong>{review.userName || 'Customer'}</strong>
+                        <span>{"★".repeat(ratingVal)}{"☆".repeat(5 - ratingVal)}</span>
+                      </div>
+                      {review.title && <p style={{ fontWeight: 700 }}>{review.title}</p>}
+                      {review.comment && <p>{review.comment}</p>}
+                    </article>
+                  );
+                })}
               </div>
             </section>
           )}
@@ -388,7 +427,7 @@ const ProductDetail = () => {
                   </p>
                 </div>
                 <Link
-                  to={`/categories?cat=${product.category}`}
+                  to={`/categories?cat=${encodeURIComponent(product.category || '')}`}
                   className="pd-related__link"
                 >
                   View All <ArrowRightIcon className="pd-related__link-icon" />
