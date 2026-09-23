@@ -1316,10 +1316,11 @@ const Admin = () => {
     setApiLoading(true);
     setSaveToast(null);
     try {
-      const isEdit = Boolean(productDraft.id && typeof productDraft.id === 'number');
+      const isEdit = Boolean(productDraft.id != null && String(productDraft.id).trim() !== '');
+      const targetId = Number(productDraft.id) || productDraft.id;
       const { stockNote, id: _id, ...apiPayload } = nextProduct;
       if (isEdit) {
-        const saved = await adminApi.updateProduct(productDraft.id, apiPayload);
+        const saved = await adminApi.updateProduct(targetId, apiPayload);
         nextProduct = { ...nextProduct, id: saved.id };
       } else {
         const saved = await adminApi.createProduct(apiPayload);
@@ -1439,9 +1440,10 @@ const Admin = () => {
     const updater = p => p.id === product.id ? { ...p, isArchived: nextArchived } : p;
     if (isWholesale) persistWholesaleProducts(wholesaleProducts.map(updater));
     else persistRetailProducts(retailProducts.map(updater));
-    if (typeof product.id === 'number') {
+    const targetId = Number(product.id) || product.id;
+    if (targetId) {
       try {
-        await adminApi.updateProduct(product.id, { isArchived: nextArchived });
+        await adminApi.updateProduct(targetId, { isArchived: nextArchived });
       } catch (err) {
         console.error('Failed to update archive status:', err);
       }
@@ -1456,9 +1458,10 @@ const Admin = () => {
     const updater = p => p.id === product.id ? { ...p, isPublished: nextPub } : p;
     if (isWholesale) persistWholesaleProducts(wholesaleProducts.map(updater));
     else persistRetailProducts(retailProducts.map(updater));
-    if (typeof product.id === 'number') {
+    const targetId = Number(product.id) || product.id;
+    if (targetId) {
       try {
-        await adminApi.updateProduct(product.id, { isPublished: nextPub });
+        await adminApi.updateProduct(targetId, { isPublished: nextPub });
       } catch (err) {
         console.error('Failed to update published status:', err);
       }
@@ -1474,8 +1477,9 @@ const Admin = () => {
     } else {
       persistRetailProducts(retailProducts.map(p => p.id === productId ? { ...p, stockNote, inStock } : p));
     }
-    if (typeof productId === 'number') {
-      adminApi.updateProduct(productId, { inStock }).catch(() => {});
+    const targetId = Number(productId) || productId;
+    if (targetId) {
+      adminApi.updateProduct(targetId, { inStock }).catch(() => {});
     }
   };
 
@@ -1486,8 +1490,9 @@ const Admin = () => {
     } else {
       persistRetailProducts(retailProducts.filter(p => p.id !== productId));
     }
-    if (typeof productId === 'number') {
-      adminApi.deleteProduct(productId)
+    const targetId = Number(productId) || productId;
+    if (targetId) {
+      adminApi.deleteProduct(targetId)
         .then(() => broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED))
         .catch(() => {});
     }
@@ -1501,9 +1506,10 @@ const Admin = () => {
     } else {
       persistRetailProducts(retailProducts.map(updater));
     }
-    if (typeof productId === 'number') {
+    const targetId = Number(productId) || productId;
+    if (targetId) {
       try {
-        await adminApi.updateProduct(productId, { [field]: nextValue });
+        await adminApi.updateProduct(targetId, { [field]: nextValue });
         broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED);
       } catch (err) {
         alert(`Failed to update ${field}: ${err.message}`);

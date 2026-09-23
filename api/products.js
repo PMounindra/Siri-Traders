@@ -12,7 +12,7 @@ const productSchema = z.object({
   sku: z.string().optional().nullable(),
   barcode: z.string().optional().nullable(),
   weight: z.string().optional().nullable(),
-  unit: z.string().min(1),
+  unit: z.string().optional().nullable().default('g'),
   packSize: z.string().optional().nullable(),
   price: z.number().positive(),
   mrp: z.number().positive().optional().nullable(),
@@ -39,7 +39,31 @@ const productSchema = z.object({
   variants: z.array(z.any()).optional().nullable()
 });
 
-const productUpdateSchema = productSchema.partial().strict();
+const productUpdateSchema = productSchema.partial();
+
+function normalizeProductPayload(body) {
+  if (!body || typeof body !== 'object') return {};
+  const payload = { ...body };
+
+  delete payload.id;
+  delete payload.stockNote;
+  delete payload.createdAt;
+  delete payload.updatedAt;
+
+  const numFields = ['price', 'mrp', 'costPrice', 'discount', 'gstRate', 'wholesalePrice', 'bulkPackPrice', 'wholesaleCasePrice'];
+  for (const field of numFields) {
+    if (payload[field] !== undefined && payload[field] !== null && payload[field] !== '') {
+      const parsed = Number(payload[field]);
+      if (!isNaN(parsed)) {
+        payload[field] = parsed;
+      }
+    } else if (payload[field] === '') {
+      payload[field] = null;
+    }
+  }
+
+  return payload;
+}
 
 export default async function handler(req, res) {
   setCorsHeaders(req, res);
@@ -133,7 +157,8 @@ export default async function handler(req, res) {
           return res.status(403).json({ error: 'Forbidden: admin access required' });
         }
 
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        const rawBody = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        const body = normalizeProductPayload(rawBody);
         const validationResult = productSchema.safeParse(body);
         if (!validationResult.success) {
           return res.status(400).json({ error: 'Validation failed', details: validationResult.error.errors });
@@ -165,7 +190,8 @@ export default async function handler(req, res) {
       const adminOk = await isAdminRequest(req);
       if (!adminOk) return res.status(403).json({ error: 'Forbidden: admin access required' });
 
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      const rawBody = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      const body = normalizeProductPayload(rawBody);
       const validation = productUpdateSchema.safeParse(body);
       if (!validation.success) {
         return res.status(400).json({ error: 'Validation failed', details: validation.error.errors });
