@@ -20,6 +20,60 @@ import ProductCard from "../components/ProductCard";
 import Loading from "../components/Loading";
 import "./ProductDetail.css";
 
+const getProductForm = (name = "", category = "") => {
+  const n = (name || "").toLowerCase();
+  const c = (category || "").toLowerCase();
+
+  // Soap (Solid bar / Soap)
+  if (/\b(soap|bar|bathing bar|beauty bar|soap bar)\b/i.test(n)) {
+    return "soap_bar";
+  }
+
+  // Shampoo & Hair Care (Liquid / Gel)
+  if (/\b(shampoo|conditioner|hair wash|hair serum|hair mask)\b/i.test(n)) {
+    return "shampoo";
+  }
+
+  // Liquid Soap / Body Wash / Handwash / Face Wash
+  if (/\b(body wash|shower gel|hand wash|handwash|face wash|facewash|liquid soap)\b/i.test(n)) {
+    return "liquid_wash";
+  }
+
+  // Detergent Bar vs Detergent Powder vs Liquid Detergent
+  if (/\b(detergent bar|dishwash bar|washing bar|soap cake)\b/i.test(n)) {
+    return "detergent_bar";
+  }
+  if (/\b(detergent powder|washing powder|surf powder|dishwash powder)\b/i.test(n)) {
+    return "detergent_powder";
+  }
+  if (/\b(liquid detergent|liquid wash|fabric conditioner|liquid cleaner)\b/i.test(n)) {
+    return "detergent_liquid";
+  }
+
+  // Oil
+  if (/\b(oil|hair oil|coconut oil|cooking oil|mustard oil|sunflower oil)\b/i.test(n)) {
+    return "oil";
+  }
+
+  // Tea vs Coffee
+  if (/\b(coffee|instant coffee)\b/i.test(n)) {
+    return "coffee";
+  }
+  if (/\b(tea|green tea|tea powder|leaf tea)\b/i.test(n)) {
+    return "tea";
+  }
+
+  // Generic Liquid vs Solid
+  if (/\b(ml|l|liter|litres|liquid)\b/i.test(n)) {
+    return "liquid_generic";
+  }
+  if (/\b(g|gm|grams|kg|pack|pcs|piece|pieces|sachet|bar)\b/i.test(n)) {
+    return "solid_generic";
+  }
+
+  return c || "other";
+};
+
 const extractBaseName = (name = "") => {
   return name
     .toLowerCase()
@@ -158,21 +212,47 @@ const ProductDetail = () => {
     const allProducts = getProductsForType(customerType) || [];
     const currentBase = extractBaseName(product.name);
     const currentBrand = (product.brand || "").trim().toLowerCase();
+    const currentForm = getProductForm(product.name, product.category);
 
     // Match catalog siblings
     const catalogMatches = allProducts.filter((p) => {
       if (String(p.id) === String(product.id)) return true;
 
-      // Match by brand if brand is explicit and meaningful
-      if (currentBrand && currentBrand.length > 1) {
-        const pBrand = (p.brand || "").trim().toLowerCase();
-        if (pBrand === currentBrand) return true;
+      // Category check: if category is present on both, MUST match!
+      if (
+        product.category &&
+        p.category &&
+        String(product.category).toLowerCase().trim() !== String(p.category).toLowerCase().trim()
+      ) {
+        return false;
       }
 
-      // Match by base product name
+      // Form / Type check: Soap vs Shampoo vs Liquid vs Powder MUST match!
+      const pForm = getProductForm(p.name, p.category);
+      if (currentForm !== pForm) {
+        return false;
+      }
+
+      // Match by exact base product name
       const pBase = extractBaseName(p.name);
       if (currentBase && pBase && currentBase === pBase && currentBase.length > 2) {
         return true;
+      }
+
+      // Match by brand, provided product sub-type words match
+      if (currentBrand && currentBrand.length > 1) {
+        const pBrand = (p.brand || "").trim().toLowerCase();
+        if (pBrand === currentBrand) {
+          const productWords = currentBase.split(" ").filter((w) => w.length > 2 && w !== currentBrand);
+          const pWords = pBase.split(" ").filter((w) => w.length > 2 && w !== pBrand);
+
+          if (productWords.length === 0 || pWords.length === 0) {
+            return true;
+          }
+
+          const hasCommonWord = productWords.some((w) => pWords.includes(w));
+          return hasCommonWord;
+        }
       }
 
       return false;
