@@ -123,6 +123,12 @@ const blankProduct = {
   deliveryTime: '15 mins',
   isBestseller: false,
   isTodaysDeal: false,
+  targetType: 'retail_and_wholesale',
+  wholesalePrice: '',
+  bulkPackLabel: '',
+  bulkPackPrice: '',
+  wholesaleCaseLabel: '',
+  wholesaleCasePrice: '',
   variants: []
 };
 
@@ -228,9 +234,9 @@ const downloadCsv = (filename, rows) => {
 };
 
 const ADMIN_ROLE_PERMISSIONS = {
-  Owner: ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','home-sections','retail-products','wholesale-products','offers','festive-offers','bestsellers','delivery-zones','broadcast','admins'],
-  'Super Admin': ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','home-sections','retail-products','wholesale-products','offers','festive-offers','bestsellers','delivery-zones','broadcast'],
-  'Product Manager': ['dashboard','inventory','retail-products','wholesale-products','festive-offers','reviews','bestsellers','home-sections'],
+  Owner: ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','home-sections','products','retail-products','wholesale-products','offers','festive-offers','bestsellers','delivery-zones','broadcast','admins'],
+  'Super Admin': ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','home-sections','products','retail-products','wholesale-products','offers','festive-offers','bestsellers','delivery-zones','broadcast'],
+  'Product Manager': ['dashboard','inventory','products','retail-products','wholesale-products','festive-offers','reviews','bestsellers','home-sections'],
   'Order Manager': ['dashboard','inventory','orders','customers','delivery-zones'],
   'Marketing Manager': ['dashboard','offers','festive-offers','cms','bestsellers','broadcast','reviews','home-sections'],
   'Content Manager': ['dashboard','cms','reviews','home-sections'],
@@ -273,8 +279,7 @@ const ADMIN_NAV_SECTIONS = [
   {
     title: 'PRODUCT CATALOG',
     items: [
-      ['retail-products', 'Retail Items', FiPackage],
-      ['wholesale-products', 'Wholesale Items', FiPackage],
+      ['products', 'Product Catalog', FiPackage],
       ['festive-offers', 'Festive Offers', FiGift],
       ['bestsellers', 'Bestsellers & Deals', FiStar]
     ]
@@ -302,9 +307,10 @@ const Admin = () => {
   const [retailProducts, setRetailProducts] = useState(() => readStorage(ADMIN_PRODUCTS_RETAIL_KEY, []));
   const [wholesaleProducts, setWholesaleProducts] = useState(() => readStorage(ADMIN_PRODUCTS_WHOLESALE_KEY, []));
 
-  // Status & Brand filters for products
+  // Status, Category & Target Availability filters for products
   const [productStatusFilter, setProductStatusFilter] = useState('all');
   const [productCategoryFilter, setProductCategoryFilter] = useState('all');
+  const [productTargetFilter, setProductTargetFilter] = useState('all');
   const [expandedVariantId, setExpandedVariantId] = useState(null);
   const [detailedVariants, setDetailedVariants] = useState([]);
   const [showProductModal, setShowProductModal] = useState(false);
@@ -779,6 +785,10 @@ const Admin = () => {
       if (productStatusFilter === 'draft' && (p.isPublished !== false || p.isArchived)) return false;
       if (productStatusFilter === 'archived' && !p.isArchived) return false;
       if (productCategoryFilter !== 'all' && p.category !== productCategoryFilter) return false;
+      if (productTargetFilter !== 'all') {
+        const pTarget = p.targetType || (p.wholesalePrice ? 'wholesale' : 'retail_and_wholesale');
+        if (pTarget !== productTargetFilter) return false;
+      }
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -796,9 +806,10 @@ const Admin = () => {
     });
   };
 
-  const filteredRetailProducts = useMemo(() => filterProductList(retailProducts), [retailProducts, searchQuery, productStatusFilter, productCategoryFilter]);
-  const filteredWholesaleProducts = useMemo(() => filterProductList(wholesaleProducts), [wholesaleProducts, searchQuery, productStatusFilter, productCategoryFilter]);
-  const filteredProducts = activeTab === 'wholesale-products' ? filteredWholesaleProducts : filteredRetailProducts;
+  const filteredRetailProducts = useMemo(() => filterProductList(retailProducts), [retailProducts, searchQuery, productStatusFilter, productCategoryFilter, productTargetFilter]);
+  const filteredWholesaleProducts = useMemo(() => filterProductList(wholesaleProducts), [wholesaleProducts, searchQuery, productStatusFilter, productCategoryFilter, productTargetFilter]);
+  const filteredCatalogProducts = useMemo(() => filterProductList(allProducts), [allProducts, searchQuery, productStatusFilter, productCategoryFilter, productTargetFilter]);
+  const filteredProducts = activeTab === 'wholesale-products' ? filteredWholesaleProducts : (activeTab === 'retail-products' ? filteredRetailProducts : filteredCatalogProducts);
 
   // ── Filtered Orders ──
   const filteredOrders = useMemo(() => {
@@ -1288,6 +1299,7 @@ const Admin = () => {
 
     const baseNext = {
       ...productDraft,
+      targetType: productDraft.targetType || 'retail_and_wholesale',
       subcategory: productDraft.subcategory || '',
       sku: productDraft.sku || genSku(productDraft.category),
       barcode: productDraft.barcode || genBarcode(),
@@ -1310,7 +1322,7 @@ const Admin = () => {
     };
     
     let nextProduct = baseNext;
-    if (isWholesale) {
+    if (isWholesale || productDraft.targetType === 'wholesale') {
       nextProduct = {
         ...baseNext,
         wholesalePrice: Number(productDraft.wholesalePrice) || baseNext.price,
@@ -1349,25 +1361,32 @@ const Admin = () => {
     loadInventory();
     broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED);
 
-    if (isWholesale) {
+    if (nextProduct.targetType === 'wholesale' || isWholesale) {
       const exists = wholesaleProducts.some(p => String(p.id) === String(nextProduct.id));
       const next = exists ? wholesaleProducts.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p) : [nextProduct, ...wholesaleProducts];
       persistWholesaleProducts(next);
-      setProductDraft(blankWholesaleProduct);
+      if (nextProduct.targetType === 'wholesale') {
+        persistRetailProducts(retailProducts.filter(p => String(p.id) !== String(nextProduct.id)));
+      } else {
+        const existsRt = retailProducts.some(p => String(p.id) === String(nextProduct.id));
+        const nextRt = existsRt ? retailProducts.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p) : [nextProduct, ...retailProducts];
+        persistRetailProducts(nextRt);
+      }
     } else {
       const exists = retailProducts.some(p => String(p.id) === String(nextProduct.id));
       const next = exists ? retailProducts.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p) : [nextProduct, ...retailProducts];
       persistRetailProducts(next);
-      setProductDraft(blankProduct);
+      if (nextProduct.targetType === 'retail') {
+        persistWholesaleProducts(wholesaleProducts.filter(p => String(p.id) !== String(nextProduct.id)));
+      }
     }
+    setProductDraft(blankProduct);
     setDetailedVariants([]);
     setShowProductModal(false);
   };
 
   const editProduct = (product) => {
     const isWholesale = Boolean(product.wholesalePrice);
-    const isProductsTab = activeTab === 'retail-products' || activeTab === 'wholesale-products';
-    const targetTab = isProductsTab ? activeTab : (isWholesale ? 'wholesale-products' : 'retail-products');
     
     setProductDraft({
       ...product,
@@ -1385,6 +1404,7 @@ const Admin = () => {
       price: String(product.price || ''),
       mrp: String(product.mrp || ''),
       discount: String(product.discount || ''),
+      targetType: product.targetType || (isWholesale ? 'wholesale' : 'retail_and_wholesale'),
       wholesalePrice: product.wholesalePrice != null ? String(product.wholesalePrice) : '',
       bulkPackLabel: product.bulkPackLabel || '',
       bulkPackPrice: product.bulkPackPrice != null ? String(product.bulkPackPrice) : '',
@@ -1398,8 +1418,7 @@ const Admin = () => {
       setDetailedVariants([]);
     }
 
-    setActiveTab(targetTab);
-    setProductModalMode(isWholesale ? 'wholesale' : 'retail');
+    setProductModalMode(product.targetType === 'wholesale' || isWholesale ? 'wholesale' : 'retail');
     setShowProductModal(true);
   };
 
@@ -4719,15 +4738,17 @@ const Admin = () => {
             </div>
           )}
 
-          {/* GROCERY PRODUCTS (RETAIL / WHOLESALE) */}
-          {(activeTab === 'retail-products' || activeTab === 'wholesale-products') && (
+          {/* GROCERY PRODUCTS CATALOG (UNIFIED RETAIL & WHOLESALE) */}
+          {(activeTab === 'products' || activeTab === 'retail-products' || activeTab === 'wholesale-products') && (
             <div className="admin-products-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="admin-card admin-card--wide">
                 <div className="admin-card__toolbar">
                   <div>
-                    <h2 style={{ margin: 0 }}>{activeTab === 'wholesale-products' ? 'Wholesale Items' : 'Retail Items'} ({filteredProducts.length})</h2>
+                    <h2 style={{ margin: 0 }}>
+                      {activeTab === 'products' ? 'Product Catalog' : (activeTab === 'wholesale-products' ? 'Wholesale Items' : 'Retail Items')} ({filteredProducts.length})
+                    </h2>
                     <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
-                      Manage {activeTab === 'wholesale-products' ? 'wholesale bulk' : 'retail'} grocery products and categories.
+                      Manage products, availability modes (Retail, Wholesale, or both), and categories.
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
@@ -4738,9 +4759,8 @@ const Admin = () => {
                       type="button"
                       className="admin__primary"
                       onClick={() => {
-                        const wholesale = activeTab === 'wholesale-products';
-                        setProductDraft(wholesale ? blankWholesaleProduct : blankProduct);
-                        setProductModalMode(wholesale ? 'wholesale' : 'retail');
+                        setProductDraft(blankProduct);
+                        setProductModalMode('retail');
                         setDetailedVariants([]);
                         setShowProductModal(true);
                       }}
@@ -4773,6 +4793,17 @@ const Admin = () => {
                   </select>
                   <select
                     className="admin-input-box"
+                    style={{ width: 'auto', minWidth: '170px' }}
+                    value={productTargetFilter}
+                    onChange={(e) => setProductTargetFilter(e.target.value)}
+                  >
+                    <option value="all">All Availability</option>
+                    <option value="retail_and_wholesale">Retail & Wholesale</option>
+                    <option value="retail">Retail Only</option>
+                    <option value="wholesale">Wholesale Only</option>
+                  </select>
+                  <select
+                    className="admin-input-box"
                     style={{ width: 'auto', minWidth: '140px' }}
                     value={productStatusFilter}
                     onChange={(e) => setProductStatusFilter(e.target.value)}
@@ -4794,7 +4825,29 @@ const Admin = () => {
                         <div className="admin-product-info">
                           <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
                           <div style={{ minWidth: 0 }}>
-                            <strong className="admin-product-info__name">{product.name}</strong>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <strong className="admin-product-info__name">{product.name}</strong>
+                              {(() => {
+                                const target = product.targetType || (product.wholesalePrice ? 'wholesale' : 'retail_and_wholesale');
+                                let label = 'Retail & Wholesale';
+                                let bg = '#DCFCE7';
+                                let color = '#166534';
+                                if (target === 'retail') {
+                                  label = 'Retail Only';
+                                  bg = '#DBEAFE';
+                                  color = '#1E40AF';
+                                } else if (target === 'wholesale') {
+                                  label = 'Wholesale Only';
+                                  bg = '#F3E8FF';
+                                  color = '#6B21A8';
+                                }
+                                return (
+                                  <span style={{ fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '12px', background: bg, color: color }}>
+                                    {label}
+                                  </span>
+                                );
+                              })()}
+                            </div>
                             <span className="admin-product-info__meta">{product.brand} · {product.category} · {product.weight}{product.unit}</span>
                           </div>
                         </div>
@@ -4907,6 +4960,20 @@ const Admin = () => {
                         <div>
                           <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Product Name *</label>
                           <input className="admin-input-box" value={productDraft.name} onChange={(e) => setProductDraft(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g. Dawat Lovely Gold Biryani Rice" required />
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Target Availability *</label>
+                          <select
+                            className="admin-input-box"
+                            value={productDraft.targetType || 'retail_and_wholesale'}
+                            onChange={(e) => setProductDraft(prev => ({ ...prev, targetType: e.target.value }))}
+                            required
+                          >
+                            <option value="retail_and_wholesale">Retail and Wholesale</option>
+                            <option value="retail">Retail Only</option>
+                            <option value="wholesale">Wholesale Only</option>
+                          </select>
                         </div>
 
                         <div>

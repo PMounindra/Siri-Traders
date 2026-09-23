@@ -69,12 +69,21 @@ export const ProductProvider = ({ children }) => {
     };
   }, [fetchProducts]);
 
-  // Returns the live API products
+  // Returns the live API products filtered by customerType / targetType
   const getProductsForType = (customerType = 'retail') => {
+    const list = Array.isArray(products) ? products : [];
     if (customerType === 'wholesale') {
-      return products.map(toWholesaleProduct);
+      const wholesaleItems = list.filter(p => {
+        if (!p.targetType) return true; // Default fallback for existing DB items
+        return p.targetType === 'wholesale' || p.targetType === 'retail_and_wholesale' || p.targetType === 'both';
+      });
+      return wholesaleItems.map(toWholesaleProduct);
     }
-    return products;
+
+    return list.filter(p => {
+      if (!p.targetType) return true; // Default fallback for existing DB items
+      return p.targetType === 'retail' || p.targetType === 'retail_and_wholesale' || p.targetType === 'both';
+    });
   };
 
   const addProduct = async (productData) => {

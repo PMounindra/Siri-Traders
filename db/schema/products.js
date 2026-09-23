@@ -34,5 +34,6 @@ export const products = pgTable('products', {
   bulkPackPrice: integer('bulk_pack_price'),
   wholesaleCaseLabel: text('wholesale_case_label'),
   wholesaleCasePrice: integer('wholesale_case_price'),
+  targetType: text('target_type').default('retail_and_wholesale'),
   variants: jsonb('variants')
 });

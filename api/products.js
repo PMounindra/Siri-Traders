@@ -1,5 +1,5 @@
 import { db, products, categories } from '../db/index.js';
-import { eq, and, or } from 'drizzle-orm';
+import { eq, and, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { setCorsHeaders } from './_cors.js';
 import { isAdminRequest } from './_adminAuth.js';
@@ -36,10 +36,22 @@ const productSchema = z.object({
   bulkPackPrice: z.number().nonnegative().optional().nullable(),
   wholesaleCaseLabel: z.string().optional().nullable(),
   wholesaleCasePrice: z.number().nonnegative().optional().nullable(),
+  targetType: z.string().optional().nullable().default('retail_and_wholesale'),
   variants: z.array(z.any()).optional().nullable()
 });
 
 const productUpdateSchema = productSchema.partial();
+
+async function autoMigrateProductsSchema() {
+  try {
+    await db.execute(sql`
+      ALTER TABLE products
+      ADD COLUMN IF NOT EXISTS target_type VARCHAR(32) DEFAULT 'retail_and_wholesale';
+    `);
+  } catch (err) {
+    console.warn("Auto-migration products schema failed:", err.message);
+  }
+}
 
 function normalizeProductPayload(body) {
   if (!body || typeof body !== 'object') return {};
@@ -172,7 +184,14 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: 'Validation failed', details: validationResult.error.errors });
         }
 
-        const newProduct = await db.insert(products).values(validationResult.data).returning();
+        let newProduct;
+        try {
+          newProduct = await db.insert(products).values(validationResult.data).returning();
+        } catch (insertErr) {
+          console.warn("Retrying products insert after auto-migration...", insertErr.message);
+          await autoMigrateProductsSchema();
+          newProduct = await db.insert(products).values(validationResult.data).returning();
+        }
         return res.status(201).json(newProduct[0]);
       }
 
@@ -210,11 +229,22 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: 'Product not found' });
       }
 
-      const updated = await db
-        .update(products)
-        .set(validation.data)
-        .where(eq(products.id, parsedId))
-        .returning();
+      let updated;
+      try {
+        updated = await db
+          .update(products)
+          .set(validation.data)
+          .where(eq(products.id, parsedId))
+          .returning();
+      } catch (updateErr) {
+        console.warn("Retrying products update after auto-migration...", updateErr.message);
+        await autoMigrateProductsSchema();
+        updated = await db
+          .update(products)
+          .set(validation.data)
+          .where(eq(products.id, parsedId))
+          .returning();
+      }
 
       return res.status(200).json(updated[0]);
     }
