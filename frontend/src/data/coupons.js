@@ -1,16 +1,8 @@
 // Fallback coupon codes shown if the database is unreachable.
 // The live source of truth is the `coupons` DB table, served via SiteDataContext.
 
-export const retailCoupons = [
-  { iconKey: 'percent', title: 'FLAT ₹50 OFF', description: 'On your first order above ₹399', code: 'WELCOME50', type: 'flat', value: 50, minOrder: 399 },
-  { iconKey: 'tag', title: 'Extra 10% OFF', description: 'On orders above ₹999', code: 'SIRI10', type: 'percent', value: 10, minOrder: 999, maxDiscount: 150 },
-];
-
-export const wholesaleCoupons = [
-  { iconKey: 'package', title: 'FLAT ₹200 OFF', description: 'On bulk orders above ₹2999', code: 'BULK200', type: 'flat', value: 200, minOrder: 2999 },
-  { iconKey: 'truck', title: 'FREE Delivery', description: 'On all wholesale orders', code: 'WSFREE', type: 'freeDelivery', value: 0, minOrder: 0 },
-  { iconKey: 'percent', title: 'Extra 15% OFF', description: 'On orders above ₹4999', code: 'WSBIG15', type: 'percent', value: 15, minOrder: 4999, maxDiscount: 750 },
-];
+export const retailCoupons = [];
+export const wholesaleCoupons = [];
 
 /**
  * Validate + compute a coupon's effect against a cart total.

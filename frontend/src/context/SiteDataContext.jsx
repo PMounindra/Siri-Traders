@@ -40,12 +40,9 @@ const normalizeCoupon = (dbCoupon) => {
 };
 
 export const SiteDataProvider = ({ children }) => {
-  const [categories, setCategories] = useState(staticCategories);
-  const [offers, setOffers] = useState([...fallbackDailyOffers, ...fallbackFestivalOffers]);
-  const [coupons, setCoupons] = useState([
-    ...fallbackRetailCoupons.map(c => ({ ...c, customerType: 'retail' })),
-    ...fallbackWholesaleCoupons.map(c => ({ ...c, customerType: 'wholesale' })),
-  ]);
+  const [categories, setCategories] = useState([]);
+  const [offers, setOffers] = useState([]);
+  const [coupons, setCoupons] = useState([]);
   const [deliveryZones, setDeliveryZones] = useState([]);
   const [deliverySettings, setDeliverySettings] = useState({ deliveryFee: 25, freeDeliveryThreshold: 500, handlingCharge: 5 });
   const [homeSections, setHomeSections] = useState({
@@ -84,9 +81,9 @@ export const SiteDataProvider = ({ children }) => {
         fetchJson('/api/settings?action=page'),
       ]);
 
-      if (catRes.ok) setCategories(catRes.data);
-      if (offerRes.ok) setOffers(offerRes.data.map(normalizeOffer));
-      if (couponRes.ok) setCoupons(couponRes.data.map(normalizeCoupon));
+      if (catRes.ok && Array.isArray(catRes.data)) setCategories(catRes.data);
+      if (offerRes.ok && Array.isArray(offerRes.data)) setOffers(offerRes.data.map(normalizeOffer));
+      if (couponRes.ok && Array.isArray(couponRes.data)) setCoupons(couponRes.data.map(normalizeCoupon));
       if (zoneRes.ok) setDeliveryZones(zoneRes.data);
       if (pageRes.ok) setCmsPages(pageRes.data);
       if (settingsRes.ok && settingsRes.data) {

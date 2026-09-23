@@ -24,10 +24,10 @@ export const ProductProvider = ({ children }) => {
       const res = await fetch('/api/products?limit=500');
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
-      setProducts(Array.isArray(data) ? data : baseProducts);
+      setProducts(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.warn("Could not fetch products from database. Falling back to local static catalog.", err);
-      setProducts(baseProducts);
+      console.warn("Could not fetch products from database.", err);
+      setProducts([]);
     } finally {
       if (showLoading) setLoading(false);
     }
