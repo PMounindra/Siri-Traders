@@ -67,6 +67,44 @@ async function handleMe(req, res) {
   return res.status(200).json({ name: session.name, email: session.email, role: session.role });
 }
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8)
+});
+
+// Self-service password change — requires a real session cookie (not the
+// x-admin-secret header, since this must be the account's own owner) and
+// proof of the current password, unlike the Owner-only admin-users PATCH
+// which resets someone else's password without knowing the old one.
+async function handleChangePassword(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const session = getSessionFromRequest(req);
+  if (!session) return res.status(401).json({ error: 'Not signed in' });
+
+  const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+  const validation = changePasswordSchema.safeParse(body);
+  if (!validation.success) {
+    return res.status(400).json({ error: 'Validation failed', details: validation.error.errors });
+  }
+  const { currentPassword, newPassword } = validation.data;
+
+  const rows = await db.select().from(adminUsers).where(eq(adminUsers.id, session.sub));
+  const admin = rows[0];
+  if (!admin) return res.status(404).json({ error: 'Admin account not found' });
+
+  const passwordMatches = await bcrypt.compare(currentPassword, admin.passwordHash);
+  if (!passwordMatches) {
+    return res.status(401).json({ error: 'Current password is incorrect' });
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await db.update(adminUsers).set({ passwordHash }).where(eq(adminUsers.id, session.sub));
+
+  const emailSent = await sendAdminPasswordChangedEmail(admin, newPassword);
+  return res.status(200).json({ success: true, emailSent });
+}
+
 async function handleAdminUsers(req, res) {
   const adminOk = await isAdminRequest(req);
   if (!adminOk) return res.status(403).json({ error: 'Forbidden: admin access required' });
@@ -257,6 +295,7 @@ export default async function handler(req, res) {
   try {
     if (action === 'login') return await handleLogin(req, res);
     if (action === 'logout') return await handleLogout(req, res);
+    if (action === 'change-password') return await handleChangePassword(req, res);
     if (action === 'me') return await handleMe(req, res);
     if (action === 'admin-users') return await handleAdminUsers(req, res);
     if (action === 'reviews') return await handleReviews(req, res);

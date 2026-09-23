@@ -48,32 +48,56 @@ export const SiteDataProvider = ({ children }) => {
   ]);
   const [deliveryZones, setDeliveryZones] = useState([]);
   const [deliverySettings, setDeliverySettings] = useState({ deliveryFee: 25, freeDeliveryThreshold: 500, handlingCharge: 5 });
+  const [homeSections, setHomeSections] = useState({
+    todaysDeals: true,
+    bestsellers: true,
+    dailyOffers: true,
+    festiveOffers: true,
+    shopByCategory: true,
+    categories: {}
+  });
   const [cmsPages, setCmsPages] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // ok:false means the request itself failed (network/5xx) — keep whatever's
+  // on screen (static fallback or last good fetch). ok:true with an empty
+  // array is a legitimate "nothing here" and must replace the fallback.
+  const fetchJson = async (url) => {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) return { ok: false, data: null };
+      return { ok: true, data: await r.json() };
+    } catch {
+      return { ok: false, data: null };
+    }
+  };
 
   const fetchSiteData = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
-      const [catRows, offerRows, couponRows, zoneRows, settingsRow, pageRows] = await Promise.all([
-        fetch('/api/categories').then(r => (r.ok ? r.json() : [])).catch(() => []),
-        fetch('/api/offers').then(r => (r.ok ? r.json() : [])).catch(() => []),
-        fetch('/api/coupons').then(r => (r.ok ? r.json() : [])).catch(() => []),
-        fetch('/api/delivery_zones').then(r => (r.ok ? r.json() : [])).catch(() => []),
-        fetch('/api/settings').then(r => (r.ok ? r.json() : null)).catch(() => null),
-        fetch('/api/settings?action=page').then(r => (r.ok ? r.json() : [])).catch(() => []),
+      const [catRes, offerRes, couponRes, zoneRes, settingsRes, pageRes] = await Promise.all([
+        fetchJson('/api/categories'),
+        fetchJson('/api/offers'),
+        fetchJson('/api/coupons'),
+        fetchJson('/api/delivery_zones'),
+        fetchJson('/api/settings'),
+        fetchJson('/api/settings?action=page'),
       ]);
 
-      if (catRows && catRows.length > 0) setCategories(catRows);
-      if (offerRows && offerRows.length > 0) setOffers(offerRows.map(normalizeOffer));
-      if (couponRows && couponRows.length > 0) setCoupons(couponRows.map(normalizeCoupon));
-      if (zoneRows && zoneRows.length > 0) setDeliveryZones(zoneRows);
-      if (Array.isArray(pageRows)) setCmsPages(pageRows);
-      if (settingsRow) {
+      if (catRes.ok) setCategories(catRes.data);
+      if (offerRes.ok) setOffers(offerRes.data.map(normalizeOffer));
+      if (couponRes.ok) setCoupons(couponRes.data.map(normalizeCoupon));
+      if (zoneRes.ok) setDeliveryZones(zoneRes.data);
+      if (pageRes.ok) setCmsPages(pageRes.data);
+      if (settingsRes.ok && settingsRes.data) {
         setDeliverySettings({
-          deliveryFee: settingsRow.deliveryFee ?? 25,
-          freeDeliveryThreshold: settingsRow.freeDeliveryThreshold ?? 500,
-          handlingCharge: settingsRow.handlingCharge ?? 5,
+          deliveryFee: settingsRes.data.deliveryFee ?? 25,
+          freeDeliveryThreshold: settingsRes.data.freeDeliveryThreshold ?? 500,
+          handlingCharge: settingsRes.data.handlingCharge ?? 5,
         });
+        if (settingsRes.data.homeSections) {
+          setHomeSections(settingsRes.data.homeSections);
+        }
       }
     } catch (err) {
       console.warn('Could not load live site data from database. Falling back to static defaults.', err);
@@ -132,6 +156,8 @@ export const SiteDataProvider = ({ children }) => {
     wholesaleCoupons,
     deliveryZones,
     deliverySettings,
+    homeSections,
+    setHomeSections,
     cmsPages,
     getCmsPage,
     loading,

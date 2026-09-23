@@ -22,5 +22,7 @@ export const settings = pgTable('settings', {
   sitemapEnabled: boolean('sitemap_enabled').default(true),
   // Navigation Menus
   headerMenu: jsonb('header_menu'),
-  footerMenu: jsonb('footer_menu')
+  footerMenu: jsonb('footer_menu'),
+  // Home Page Section Controls
+  homeSections: jsonb('home_sections')
 });

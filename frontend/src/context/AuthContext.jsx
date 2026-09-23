@@ -59,6 +59,24 @@ const ClerkAuthProvider = ({ children }) => {
     localStorage.setItem('siri-traders-customer-type', customerType);
   }, [customerType]);
 
+  // Sync the signed-in user into our own DB right after login/signup —
+  // otherwise a customer only ever showed up in the admin panel once they'd
+  // placed their first order (that was the only other place this ran).
+  useEffect(() => {
+    if (!clerkUser) return;
+    (async () => {
+      try {
+        const token = await getToken();
+        await fetch('/api/users?action=sync', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } catch {
+        // Non-critical — the order-placement sync still covers this user.
+      }
+    })();
+  }, [clerkUser?.id, getToken]);
+
   // Memoized so `user` keeps a stable reference across re-renders whenever
   // the underlying Clerk data hasn't actually changed — every consumer that
   // depends on `user` in a useEffect/useMemo array (order fetching, review

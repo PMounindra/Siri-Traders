@@ -278,20 +278,21 @@ const WelcomeBanner = ({ customerType }) => {
 
 const OffersSection = ({ customerType }) => {
   const { addToCart, removeFromCart, updateQuantity, getItemQuantity } = useCart();
-  const { dailyOffers, festivalOffers } = useSiteData();
+  const { dailyOffers, festivalOffers, homeSections } = useSiteData();
   const adminFestival = festivalOffers.find(offer => offer.source === 'admin');
   const activeFestival = adminFestival ? {
     label: 'Festive Offers',
     title: adminFestival.title,
     text: adminFestival.subtitle || 'Fresh festive savings selected by Siri Traders.',
-    tiles: Array.from({ length: 6 }, (_, index) => ({
-      title: index === 0 ? adminFestival.title : adminFestival.subtitle || 'Festival Essentials',
-      image: adminFestival.image,
-      link: adminFestival.link || '/categories'
-    }))
-  } : festiveOffers[0];
+  } : null;
   const dailySpotlights = dailyOffers.slice(0, 6);
   const festivalSpotlights = festivalOffers.slice(0, 14);
+
+  const showDaily = dailySpotlights.length > 0 && homeSections?.dailyOffers !== false;
+  const showFestive = festivalSpotlights.length > 0 && homeSections?.festiveOffers !== false;
+
+  if (!showDaily && !showFestive) return null;
+
   const getOfferCartId = (offer) => `offer-${offer.id || offer.title}`;
   const handleOfferAdd = (event, offer) => {
     event.preventDefault();
@@ -299,9 +300,6 @@ const OffersSection = ({ customerType }) => {
     const price = offer.price || 0;
     addToCart({
       id: getOfferCartId(offer),
-      // Only a real product id (when the offer targets one) belongs here —
-      // the cart-only id above isn't a product and breaks order placement
-      // if sent to the backend as productId.
       productId: offer.targetProductId || null,
       name: offer.title,
       brand: offer.badge || 'Siri Traders Offer',
@@ -347,61 +345,65 @@ const OffersSection = ({ customerType }) => {
   return (
     <section className="home-offers" aria-label="Daily and festive offers">
       {/* Daily Offers panel */}
-      <div className="home-hero__panel" id="section-daily-offers">
-        <div className="home-hero__panel-head">
-          <div>
-            <span>Curated savings</span>
-            <Link to="/todays-deals">
-              <h2 className="home__section-title-link">Daily Offers</h2>
-            </Link>
+      {showDaily && (
+        <div className="home-hero__panel" id="section-daily-offers">
+          <div className="home-hero__panel-head">
+            <div>
+              <span>Curated savings</span>
+              <Link to="/todays-deals">
+                <h2 className="home__section-title-link">Daily Offers</h2>
+              </Link>
+            </div>
+            <Link to="/todays-deals" className="section-link">View all <FiArrowRight /></Link>
           </div>
-          <Link to="/todays-deals" className="section-link">View all <FiArrowRight /></Link>
-        </div>
-        <ScrollRow className="home-hero__offers-scroll">
-          {dailySpotlights.map(offer => (
-            <Link to={offer.link} className="home-hero__offer-card" key={offer.id}>
-              <img src={toWebpImage(offer.image)} alt={offer.title} />
-              <div className="home-hero__offer-card-body">
-                <span className="home-hero__offer-badge">{offer.badge}</span>
-                <h3>{offer.title}</h3>
-                <div className="home-hero__offer-bottom">
-                  <strong>{formatPrice(offer.price)}</strong>
-                  {renderOfferAction(offer)}
+          <ScrollRow className="home-hero__offers-scroll">
+            {dailySpotlights.map(offer => (
+              <Link to={offer.link} className="home-hero__offer-card" key={offer.id}>
+                <img src={toWebpImage(offer.image)} alt={offer.title} />
+                <div className="home-hero__offer-card-body">
+                  <span className="home-hero__offer-badge">{offer.badge}</span>
+                  <h3>{offer.title}</h3>
+                  <div className="home-hero__offer-bottom">
+                    <strong>{formatPrice(offer.price)}</strong>
+                    {renderOfferAction(offer)}
+                  </div>
                 </div>
-              </div>
-            </Link>
-          ))}
-        </ScrollRow>
-      </div>
+              </Link>
+            ))}
+          </ScrollRow>
+        </div>
+      )}
 
-      {/* Festive Offers panel — now matching daily offers style */}
-      <div className="home-hero__panel home-hero__panel--festival" id="section-festive-offers">
-        <div className="home-hero__panel-head">
-          <div>
-            <span>Seasonal savings</span>
-            <Link to="/festive-offers">
-              <h2 className="home__section-title-link">Festive Offers</h2>
-            </Link>
+      {/* Festive Offers panel */}
+      {showFestive && (
+        <div className="home-hero__panel home-hero__panel--festival" id="section-festive-offers">
+          <div className="home-hero__panel-head">
+            <div>
+              <span>Seasonal savings</span>
+              <Link to="/festive-offers">
+                <h2 className="home__section-title-link">Festive Offers</h2>
+              </Link>
+            </div>
+            <Link to="/festive-offers" className="section-link">View all <FiArrowRight /></Link>
           </div>
-          <Link to="/festive-offers" className="section-link">View all <FiArrowRight /></Link>
-        </div>
-        <p className="home-hero__festival-desc">{activeFestival.text}</p>
-        <ScrollRow className="home-hero__offers-scroll">
-          {(festivalSpotlights.length > 0 ? festivalSpotlights : activeFestival.tiles).map((item, i) => (
-            <Link to={item.link} className="home-hero__offer-card home-hero__offer-card--festive" key={item.id || item.title + i}>
-              <img src={toWebpImage(item.image)} alt={item.title} />
-              <div className="home-hero__offer-card-body">
-                <span className="home-hero__offer-badge home-hero__offer-badge--festive">{item.badge || activeFestival.label}</span>
-                <h3>{item.title}</h3>
-                <div className="home-hero__offer-bottom">
-                  {item.price ? <strong>{formatPrice(item.price)}</strong> : <strong>Deal</strong>}
-                  {renderOfferAction(item)}
+          <p className="home-hero__festival-desc">{activeFestival?.text || 'Seasonal deals, curated by Siri Traders.'}</p>
+          <ScrollRow className="home-hero__offers-scroll">
+            {festivalSpotlights.map((item, i) => (
+              <Link to={item.link} className="home-hero__offer-card home-hero__offer-card--festive" key={item.id || item.title + i}>
+                <img src={toWebpImage(item.image)} alt={item.title} />
+                <div className="home-hero__offer-card-body">
+                  <span className="home-hero__offer-badge home-hero__offer-badge--festive">{item.badge || 'Festive Offers'}</span>
+                  <h3>{item.title}</h3>
+                  <div className="home-hero__offer-bottom">
+                    {item.price ? <strong>{formatPrice(item.price)}</strong> : <strong>Deal</strong>}
+                    {renderOfferAction(item)}
+                  </div>
                 </div>
-              </div>
-            </Link>
-          ))}
-        </ScrollRow>
-      </div>
+              </Link>
+            ))}
+          </ScrollRow>
+        </div>
+      )}
     </section>
   );
 };
@@ -409,7 +411,7 @@ const OffersSection = ({ customerType }) => {
 const Home = () => {
   const { customerType } = useAuth();
   const { getProductsForType, loading } = useProducts();
-  const { categories, deliveryZones } = useSiteData();
+  const { categories, deliveryZones, homeSections } = useSiteData();
   const isWholesale = customerType === 'wholesale';
   const stapleIds = ['pulses', 'rice', 'atta', 'oils', 'masala', 'ravva-poha', 'millets', 'grocery-essentials', 'nuts-dry-fruits'];
   const staplePriority = ['pulses', 'rice', 'oils', 'atta', 'masala'];
@@ -447,6 +449,18 @@ const Home = () => {
     const bRank = categoryOrder.indexOf(b.id);
     return (aRank === -1 ? 50 : aRank) - (bRank === -1 ? 50 : bRank);
   });
+
+  const isSectionVisible = (key, count) => {
+    if (!count || count <= 0) return false;
+    if (homeSections && homeSections[key] === false) return false;
+    return true;
+  };
+
+  const isCatVisible = (catId, count) => {
+    if (!count || count <= 0) return false;
+    if (homeSections?.categories && homeSections.categories[catId] === false) return false;
+    return true;
+  };
 
   return (
     <div className="page-wrapper">
@@ -495,119 +509,131 @@ const Home = () => {
           <OffersSection customerType={customerType} />
 
           {/* Shop by Category */}
-          <section className="home__section home__section--categories">
-            <div className="section-header">
-              <Link to="/categories">
-                <h2 className="section-title home__section-title-link">Shop by Category</h2>
-              </Link>
-              <Link to="/categories" className="section-link">
-                See All <FiChevronRight />
-              </Link>
-            </div>
-            <ScrollRow className="home__category-scroll">
-              {homeCategories.map(cat => (
-                <CategoryCard key={cat.id} category={cat} size="large" />
-              ))}
-            </ScrollRow>
-          </section>
+          {isSectionVisible('shopByCategory', homeCategories.length) && (
+            <section className="home__section home__section--categories">
+              <div className="section-header">
+                <Link to="/categories">
+                  <h2 className="section-title home__section-title-link">Shop by Category</h2>
+                </Link>
+                <Link to="/categories" className="section-link">
+                  See All <FiChevronRight />
+                </Link>
+              </div>
+              <ScrollRow className="home__category-scroll">
+                {homeCategories.map(cat => (
+                  <CategoryCard key={cat.id} category={cat} size="large" />
+                ))}
+              </ScrollRow>
+            </section>
+          )}
 
           {/* Today's Deals */}
-          <section className="home__section" id="section-todays-deals">
-            <div className="section-header">
-              <Link to="/todays-deals">
-                <h2 className="section-title home__section-title-link"><FiTag /> Today's Deals</h2>
-              </Link>
-              <Link to="/todays-deals" className="section-link">
-                See All <FiChevronRight />
-              </Link>
-            </div>
-            <ScrollRow className="home__deals-scroll">
-              {deals.map(product => (
-                <div key={product.id} className="home__deals-item">
-                  <ProductCard key={`${customerType}-${product.id}`} product={product} />
-                </div>
-              ))}
-            </ScrollRow>
-          </section>
+          {isSectionVisible('todaysDeals', deals.length) && (
+            <section className="home__section" id="section-todays-deals">
+              <div className="section-header">
+                <Link to="/todays-deals">
+                  <h2 className="section-title home__section-title-link"><FiTag /> Today's Deals</h2>
+                </Link>
+                <Link to="/todays-deals" className="section-link">
+                  See All <FiChevronRight />
+                </Link>
+              </div>
+              <ScrollRow className="home__deals-scroll">
+                {deals.map(product => (
+                  <div key={product.id} className="home__deals-item">
+                    <ProductCard key={`${customerType}-${product.id}`} product={product} />
+                  </div>
+                ))}
+              </ScrollRow>
+            </section>
+          )}
 
           {/* Bestsellers */}
-          <section className="home__section" id="section-bestsellers">
-            <div className="section-header">
-              <Link to="/bestsellers">
-                <h2 className="section-title home__section-title-link"><FiStar /> Bestsellers</h2>
-              </Link>
-              <Link to="/bestsellers" className="section-link">
-                See All <FiChevronRight />
-              </Link>
-            </div>
-            <ScrollRow className="home__deals-scroll">
-              {bestsellers.map(product => (
-                <div key={product.id} className="home__deals-item">
-                  <ProductCard key={`${customerType}-${product.id}`} product={product} />
-                </div>
-              ))}
-            </ScrollRow>
-          </section>
+          {isSectionVisible('bestsellers', bestsellers.length) && (
+            <section className="home__section" id="section-bestsellers">
+              <div className="section-header">
+                <Link to="/bestsellers">
+                  <h2 className="section-title home__section-title-link"><FiStar /> Bestsellers</h2>
+                </Link>
+                <Link to="/bestsellers" className="section-link">
+                  See All <FiChevronRight />
+                </Link>
+              </div>
+              <ScrollRow className="home__deals-scroll">
+                {bestsellers.map(product => (
+                  <div key={product.id} className="home__deals-item">
+                    <ProductCard key={`${customerType}-${product.id}`} product={product} />
+                  </div>
+                ))}
+              </ScrollRow>
+            </section>
+          )}
 
           {/* Pulses */}
-          <section className="home__section" id="section-pulses">
-            <div className="section-header">
-              <Link to="/categories?cat=pulses">
-                <h2 className="section-title home__section-title-link">Pulses</h2>
-              </Link>
-              <Link to="/categories?cat=pulses" className="section-link">
-                See All <FiChevronRight />
-              </Link>
-            </div>
-            <ScrollRow className="home__deals-scroll">
-              {pulses.map(product => (
-                <div key={product.id} className="home__deals-item">
-                  <ProductCard key={`${customerType}-${product.id}`} product={product} />
-                </div>
-              ))}
-            </ScrollRow>
-          </section>
+          {isCatVisible('pulses', pulses.length) && (
+            <section className="home__section" id="section-pulses">
+              <div className="section-header">
+                <Link to="/categories?cat=pulses">
+                  <h2 className="section-title home__section-title-link">Pulses</h2>
+                </Link>
+                <Link to="/categories?cat=pulses" className="section-link">
+                  See All <FiChevronRight />
+                </Link>
+              </div>
+              <ScrollRow className="home__deals-scroll">
+                {pulses.map(product => (
+                  <div key={product.id} className="home__deals-item">
+                    <ProductCard key={`${customerType}-${product.id}`} product={product} />
+                  </div>
+                ))}
+              </ScrollRow>
+            </section>
+          )}
 
           {/* Rice & Atta */}
-          <section className="home__section" id="section-rice-atta">
-            <div className="section-header">
-              <Link to="/categories?cat=rice">
-                <h2 className="section-title home__section-title-link">Rice & Atta</h2>
-              </Link>
-              <Link to="/categories?cat=rice" className="section-link">
-                See All <FiChevronRight />
-              </Link>
-            </div>
-            <ScrollRow className="home__deals-scroll">
-              {[...rice, ...atta].map(product => (
-                <div key={product.id} className="home__deals-item">
-                  <ProductCard key={`${customerType}-${product.id}`} product={product} />
-                </div>
-              ))}
-            </ScrollRow>
-          </section>
+          {(isCatVisible('rice', rice.length) || isCatVisible('atta', atta.length)) && (
+            <section className="home__section" id="section-rice-atta">
+              <div className="section-header">
+                <Link to="/categories?cat=rice">
+                  <h2 className="section-title home__section-title-link">Rice & Atta</h2>
+                </Link>
+                <Link to="/categories?cat=rice" className="section-link">
+                  See All <FiChevronRight />
+                </Link>
+              </div>
+              <ScrollRow className="home__deals-scroll">
+                {[...rice, ...atta].map(product => (
+                  <div key={product.id} className="home__deals-item">
+                    <ProductCard key={`${customerType}-${product.id}`} product={product} />
+                  </div>
+                ))}
+              </ScrollRow>
+            </section>
+          )}
 
           {/* Oils & Masala */}
-          <section className="home__section" id="section-oils-masala">
-            <div className="section-header">
-              <Link to="/categories?cat=oils">
-                <h2 className="section-title home__section-title-link">Oils & Masala</h2>
-              </Link>
-              <Link to="/categories?cat=oils" className="section-link">
-                See All <FiChevronRight />
-              </Link>
-            </div>
-            <ScrollRow className="home__deals-scroll">
-              {[...oils, ...masala].map(product => (
-                <div key={product.id} className="home__deals-item">
-                  <ProductCard key={`${customerType}-${product.id}`} product={product} />
-                </div>
-              ))}
-            </ScrollRow>
-          </section>
+          {(isCatVisible('oils', oils.length) || isCatVisible('masala', masala.length)) && (
+            <section className="home__section" id="section-oils-masala">
+              <div className="section-header">
+                <Link to="/categories?cat=oils">
+                  <h2 className="section-title home__section-title-link">Oils & Masala</h2>
+                </Link>
+                <Link to="/categories?cat=oils" className="section-link">
+                  See All <FiChevronRight />
+                </Link>
+              </div>
+              <ScrollRow className="home__deals-scroll">
+                {[...oils, ...masala].map(product => (
+                  <div key={product.id} className="home__deals-item">
+                    <ProductCard key={`${customerType}-${product.id}`} product={product} />
+                  </div>
+                ))}
+              </ScrollRow>
+            </section>
+          )}
 
           {/* Ravva & Poha */}
-          {ravvaPoha.length > 0 && (
+          {isCatVisible('ravva-poha', ravvaPoha.length) && (
             <section className="home__section" id="section-ravva-poha">
               <div className="section-header">
                 <Link to="/categories?cat=ravva-poha">
@@ -628,7 +654,7 @@ const Home = () => {
           )}
 
           {/* Nuts & Dry Fruits */}
-          {nuts.length > 0 && (
+          {isCatVisible('nuts-dry-fruits', nuts.length) && (
             <section className="home__section" id="section-nuts">
               <div className="section-header">
                 <Link to="/categories?cat=nuts-dry-fruits">
@@ -649,7 +675,7 @@ const Home = () => {
           )}
 
           {/* Millets & Grains */}
-          {millets.length > 0 && (
+          {isCatVisible('millets', millets.length) && (
             <section className="home__section" id="section-millets">
               <div className="section-header">
                 <Link to="/categories?cat=millets">
@@ -670,7 +696,7 @@ const Home = () => {
           )}
 
           {/* Grocery Essentials */}
-          {grocery.length > 0 && (
+          {isCatVisible('grocery-essentials', grocery.length) && (
             <section className="home__section" id="section-grocery">
               <div className="section-header">
                 <Link to="/categories?cat=grocery-essentials">
@@ -691,7 +717,7 @@ const Home = () => {
           )}
 
           {/* Fruits */}
-          {fruits.length > 0 && (
+          {isCatVisible('fruits', fruits.length) && (
             <section className="home__section" id="section-fruits">
               <div className="section-header">
                 <Link to="/categories?cat=fruits">
@@ -712,7 +738,7 @@ const Home = () => {
           )}
 
           {/* Vegetables */}
-          {vegetables.length > 0 && (
+          {isCatVisible('vegetables', vegetables.length) && (
             <section className="home__section" id="section-vegetables">
               <div className="section-header">
                 <Link to="/categories?cat=vegetables">
@@ -733,7 +759,7 @@ const Home = () => {
           )}
 
           {/* Dairy & Breakfast */}
-          {dairy.length > 0 && (
+          {isCatVisible('dairy-breakfast', dairy.length) && (
             <section className="home__section" id="section-dairy-breakfast">
               <div className="section-header">
                 <Link to="/categories?cat=dairy-breakfast">

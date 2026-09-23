@@ -49,13 +49,16 @@ const normalizeAreaName = (name) =>
  * (broader than just "suburb", since Nominatim's field choice varies a lot
  * for smaller Indian towns/villages).
  *
- * Returns { zone: { name, pincode } | null, error: string | null }. Never
- * throws — every failure mode (no geolocation support, permission denied,
- * geocoding failure, no matching zone) comes back as a friendly `error`.
+ * Returns { zone: { name, pincode } | null, landmark: string, coords: {lat,lng} | null, error: string | null }.
+ * `landmark` is the reverse-geocoded road/locality text (e.g. "Main Road,
+ * Isnapur") — house/flat number is never in it, since GPS can't know that;
+ * the customer still has to type that in themselves. Never throws — every
+ * failure mode (no geolocation support, permission denied, geocoding
+ * failure, no matching zone) comes back as a friendly `error`.
  */
 export const detectCurrentDeliveryZone = async (zones = []) => {
   if (!navigator.geolocation) {
-    return { zone: null, error: "Your browser doesn't support location detection. Please select your area manually." };
+    return { zone: null, landmark: '', coords: null, error: "Your browser doesn't support location detection. Please select your area manually." };
   }
 
   const position = await new Promise((resolve) => {
@@ -67,13 +70,15 @@ export const detectCurrentDeliveryZone = async (zones = []) => {
   });
 
   if (!position) {
-    return { zone: null, error: "Couldn't access your location. Please allow location access or select your area manually." };
+    return { zone: null, landmark: '', coords: null, error: "Couldn't access your location. Please allow location access or select your area manually." };
   }
 
+  const { latitude, longitude } = position.coords;
+  const coords = { lat: latitude, lng: longitude };
+
   try {
-    const { latitude, longitude } = position.coords;
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=16&addressdetails=1`,
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
       { headers: { Accept: 'application/json' } }
     );
     if (!res.ok) throw new Error('geocode failed');
@@ -86,6 +91,13 @@ export const detectCurrentDeliveryZone = async (zones = []) => {
       addr.city, addr.county,
     ].filter(Boolean).map(normalizeAreaName);
 
+    // Precise, street-level text for the address field — road/building name
+    // plus the immediate locality, never the house number (GPS doesn't know
+    // that; the customer types it into flatNo).
+    const landmark = [addr.road || addr.pedestrian || addr.residential, addr.suburb || addr.neighbourhood || addr.village]
+      .filter(Boolean)
+      .join(', ');
+
     let zone = postcode ? zones.find((z) => z.pincode === postcode) : null;
 
     if (!zone) {
@@ -96,10 +108,10 @@ export const detectCurrentDeliveryZone = async (zones = []) => {
     }
 
     if (zone) {
-      return { zone: { name: zone.area, pincode: zone.pincode }, error: null };
+      return { zone: { name: zone.area, pincode: zone.pincode }, landmark, coords, error: null };
     }
-    return { zone: null, error: "We don't deliver to your current location yet. Please select a serviceable area manually." };
+    return { zone: null, landmark, coords, error: "We don't deliver to your current location yet. Please select a serviceable area manually." };
   } catch {
-    return { zone: null, error: "Couldn't detect your area right now. Please select it manually." };
+    return { zone: null, landmark: '', coords, error: "Couldn't detect your area right now. Please select it manually." };
   }
 };

@@ -162,9 +162,15 @@ const Checkout = () => {
   const useCurrentLocationCheckout = async () => {
     setAddressError('');
     setLocatingArea(true);
-    const { zone, error } = await detectCurrentDeliveryZone(deliveryZones);
+    const { zone, landmark, error } = await detectCurrentDeliveryZone(deliveryZones);
     if (zone) {
       updateAddressArea(zone.name);
+      // Precise street-level text from GPS — house/flat number still has to
+      // come from the customer, so only fill landmark if they haven't typed
+      // one already.
+      if (landmark) {
+        setAddressForm(prev => (prev.landmark ? prev : { ...prev, landmark }));
+      }
     } else {
       setAddressError(error);
     }

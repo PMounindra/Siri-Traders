@@ -38,6 +38,16 @@ export async function apiAdminMe() {
   return res.json();
 }
 
+export async function apiChangeOwnPassword(currentPassword, newPassword) {
+  const res = await fetch('/api/admin/auth?action=change-password', {
+    method: 'POST',
+    headers: jsonHeaders,
+    ...withCreds,
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  return asJson(res, 'Failed to change password');
+}
+
 export async function apiFetchAdminUsers() {
   const res = await fetch('/api/admin/auth?action=admin-users', withCreds);
   if (!res.ok) throw new Error('Failed to load admins');
@@ -350,7 +360,7 @@ export async function apiDeleteCategory(id) {
 // ── Settings ─────────────────────────────────────────────────────────────
 
 export async function apiFetchSettings() {
-  const res = await fetch('/api/settings');
+  const res = await fetch('/api/settings', withCreds);
   if (!res.ok) throw new Error('Failed to load settings');
   return res.json();
 }
@@ -530,6 +540,7 @@ export function useAdminApi() {
   return {
     me: apiAdminMe,
     logout: apiAdminLogout,
+    changeOwnPassword: apiChangeOwnPassword,
     fetchAdminUsers: apiFetchAdminUsers,
     createAdminUser: apiCreateAdminUser,
     updateAdminUser: apiUpdateAdminUser,

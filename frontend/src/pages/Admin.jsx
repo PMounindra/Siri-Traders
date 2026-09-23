@@ -54,11 +54,11 @@ import {
   FiVolume2,
   FiImage,
   FiHelpCircle,
-  FiBookOpen
+  FiBookOpen,
+  FiShield
 } from 'react-icons/fi';
 import { useAdminApi } from '../hooks/useAdminApi';
-import { products as baseProducts, getProducts as getAllProducts } from '../data/products';
-import { categories } from '../data/categories';
+import { useSiteData } from '../context/SiteDataContext';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
 import { broadcastSync, SYNC_EVENTS } from '../utils/syncChannel';
@@ -97,7 +97,7 @@ const genBarcode = () => `890${Math.floor(100000000 + Math.random() * 900000000)
 const blankProduct = {
   id: '',
   name: '',
-  category: 'pulses',
+  category: '',
   subcategory: '',
   brand: '',
   sku: '',
@@ -129,7 +129,7 @@ const blankProduct = {
 const blankWholesaleProduct = {
   id: '',
   name: '',
-  category: 'pulses',
+  category: '',
   subcategory: '',
   brand: '',
   sku: '',
@@ -228,12 +228,12 @@ const downloadCsv = (filename, rows) => {
 };
 
 const ADMIN_ROLE_PERMISSIONS = {
-  Owner: ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','retail-products','wholesale-products','offers','festive-offers','bestsellers','delivery-zones','broadcast','admins'],
-  'Super Admin': ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','retail-products','wholesale-products','offers','festive-offers','bestsellers','delivery-zones','broadcast'],
-  'Product Manager': ['dashboard','inventory','retail-products','wholesale-products','festive-offers','reviews','bestsellers'],
+  Owner: ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','home-sections','retail-products','wholesale-products','offers','festive-offers','bestsellers','delivery-zones','broadcast','admins'],
+  'Super Admin': ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','home-sections','retail-products','wholesale-products','offers','festive-offers','bestsellers','delivery-zones','broadcast'],
+  'Product Manager': ['dashboard','inventory','retail-products','wholesale-products','festive-offers','reviews','bestsellers','home-sections'],
   'Order Manager': ['dashboard','inventory','orders','customers','delivery-zones'],
-  'Marketing Manager': ['dashboard','offers','festive-offers','cms','bestsellers','broadcast','reviews'],
-  'Content Manager': ['dashboard','cms','reviews'],
+  'Marketing Manager': ['dashboard','offers','festive-offers','cms','bestsellers','broadcast','reviews','home-sections'],
+  'Content Manager': ['dashboard','cms','reviews','home-sections'],
   'Customer Support': ['dashboard','inventory','customers','orders','reviews','delivery-zones'],
   Viewer: ['dashboard','inventory','sales-stats']
 };
@@ -259,6 +259,7 @@ const ADMIN_NAV_SECTIONS = [
   {
     title: 'WEBSITE CONTENT',
     items: [
+      ['home-sections', 'Home Page Layout', FiGrid],
       ['cms', 'Terms & Policy', FiEdit2]
     ]
   },
@@ -296,22 +297,10 @@ const Admin = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // ── Products state ──
-  const [retailProducts, setRetailProducts] = useState(() =>
-    readStorage(ADMIN_PRODUCTS_RETAIL_KEY, baseProducts.map(product => ({
-      ...product,
-      stockNote: product.inStock ? 'In stock' : 'Out of stock',
-      isPublished: product.isPublished ?? true,
-      isArchived: product.isArchived ?? false
-    })))
-  );
-  const [wholesaleProducts, setWholesaleProducts] = useState(() =>
-    readStorage(ADMIN_PRODUCTS_WHOLESALE_KEY, getAllProducts('wholesale').map(product => ({
-      ...product,
-      stockNote: product.inStock ? 'In stock' : 'Out of stock',
-      isPublished: product.isPublished ?? true,
-      isArchived: product.isArchived ?? false
-    })))
-  );
+  // Real source of truth is the DB (fetched below); localStorage is only a
+  // paint-before-fetch cache, never the static sample catalog.
+  const [retailProducts, setRetailProducts] = useState(() => readStorage(ADMIN_PRODUCTS_RETAIL_KEY, []));
+  const [wholesaleProducts, setWholesaleProducts] = useState(() => readStorage(ADMIN_PRODUCTS_WHOLESALE_KEY, []));
 
   // Status & Brand filters for products
   const [productStatusFilter, setProductStatusFilter] = useState('all');
@@ -336,13 +325,65 @@ const Admin = () => {
   const [liveOrders, setLiveOrders] = useState(null);
   const [liveCustomers, setLiveCustomers] = useState(null);
   const adminApi = useAdminApi();
+  const { homeSections, setHomeSections, categories: siteCategories } = useSiteData();
+  const [localHomeSections, setLocalHomeSections] = useState({
+    todaysDeals: true,
+    bestsellers: true,
+    dailyOffers: true,
+    festiveOffers: true,
+    shopByCategory: true,
+    categories: {}
+  });
+
+  useEffect(() => {
+    if (homeSections) {
+      setLocalHomeSections(homeSections);
+    }
+  }, [homeSections]);
+
+  const saveHomeSectionSettings = async () => {
+    setApiLoading(true);
+    try {
+      const updated = await adminApi.updateSettings({ homeSections: localHomeSections });
+      if (updated && updated.homeSections) {
+        setHomeSections(updated.homeSections);
+      }
+      broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
+      setSaveToast({ type: 'success', msg: 'Home page layout settings updated successfully!' });
+      setTimeout(() => setSaveToast(null), 4000);
+    } catch (err) {
+      alert('Failed to save settings: ' + err.message);
+    } finally {
+      setApiLoading(false);
+    }
+  };
+
+  const toggleSectionKey = (key, enabled) => {
+    setLocalHomeSections(prev => ({
+      ...prev,
+      [key]: enabled
+    }));
+  };
+
+  const toggleCategoryKey = (catId, enabled) => {
+    setLocalHomeSections(prev => ({
+      ...prev,
+      categories: {
+        ...(prev?.categories || {}),
+        [catId]: enabled
+      }
+    }));
+  };
+
   const [newOrderToast, setNewOrderToast] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [broadcastSubject, setBroadcastSubject] = useState('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [broadcastStatus, setBroadcastStatus] = useState(null);
+  const [broadcastChannel, setBroadcastChannel] = useState('email');
   const [selectedBroadcastEmails, setSelectedBroadcastEmails] = useState([]);
+  const [broadcastSegment, setBroadcastSegment] = useState('all');
 
   // ── CMS State ──
   const [cmsData, setCmsData] = useState({
@@ -431,6 +472,12 @@ const Admin = () => {
   const [adminAccounts, setAdminAccounts] = useState([]);
   const [adminDraft, setAdminDraft] = useState(blankAdmin);
   const [adminError, setAdminError] = useState('');
+
+  // ── Security tab: self-service password change ──
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [showPasswordFields, setShowPasswordFields] = useState(false);
+  const [passwordChangeStatus, setPasswordChangeStatus] = useState(null);
+  const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
   const [promoTagSearch, setPromoTagSearch] = useState('');
   const [dbCategories, setDbCategories] = useState([]);
   const [newCat, setNewCat] = useState({ name: '', image: '', color: '#F7F4EE' });
@@ -533,6 +580,14 @@ const Admin = () => {
 
   const clearCustomerSelection = () => setSelectedBroadcastEmails([]);
 
+  // ── Broadcast page's own quick segment picker (All / VIP / Returning / New / Inactive) ──
+  const selectBroadcastSegment = (segment) => {
+    setBroadcastSegment(segment);
+    const pool = liveCustomers || [];
+    const matched = segment === 'all' ? pool : pool.filter(c => c.segment === segment);
+    setSelectedBroadcastEmails(matched.map(c => c.email).filter(Boolean));
+  };
+
   // ── Load Reviews ──
   const loadReviews = async () => {
     setReviewsLoading(true);
@@ -575,21 +630,17 @@ const Admin = () => {
   // ── Load initial data ──
   useEffect(() => {
     adminApi.fetchProducts(true).then(dbProducts => {
-      if (!dbProducts || dbProducts.length === 0) return;
-      const retail = dbProducts.filter(p => !p.wholesalePrice);
-      const ws = dbProducts.filter(p => p.wholesalePrice);
-      if (retail.length > 0) persistRetailProducts(retail.map(p => ({
+      const list = Array.isArray(dbProducts) ? dbProducts : [];
+      const retail = list.filter(p => !p.wholesalePrice);
+      const ws = list.filter(p => p.wholesalePrice);
+      const normalize = p => ({
         ...p,
         stockNote: p.inStock ? 'In stock' : 'Out of stock',
         isPublished: p.isPublished ?? true,
         isArchived: p.isArchived ?? false
-      })));
-      if (ws.length > 0) persistWholesaleProducts(ws.map(p => ({
-        ...p,
-        stockNote: p.inStock ? 'In stock' : 'Out of stock',
-        isPublished: p.isPublished ?? true,
-        isArchived: p.isArchived ?? false
-      })));
+      });
+      persistRetailProducts(retail.map(normalize));
+      persistWholesaleProducts(ws.map(normalize));
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -614,7 +665,8 @@ const Admin = () => {
   }, [adminSession]);
 
   useEffect(() => {
-    if (!allowedAdminTabs.includes(activeTab)) {
+    // 'security' is every admin's own account panel, not a role-gated resource.
+    if (activeTab !== 'security' && !allowedAdminTabs.includes(activeTab)) {
       setActiveTab(allowedAdminTabs[0] || 'dashboard');
     }
   }, [selectedAdminRole, activeTab, allowedAdminTabs]);
@@ -1197,6 +1249,17 @@ const Admin = () => {
     event.preventDefault();
     const isWholesale = productModalMode === 'wholesale';
 
+    if (!productDraft.category || !dbCategories.some(c => c.id === productDraft.category)) {
+      setSaveToast({
+        type: 'error',
+        msg: dbCategories.length
+          ? '⚠️ Please select a category before saving.'
+          : '⚠️ No categories exist yet — add one first (Add New Category), then try again.'
+      });
+      setTimeout(() => setSaveToast(null), 6000);
+      return;
+    }
+
     const validVariants = detailedVariants.filter(v => v.label && (v.price || v.price === 0)).map(v => ({
       id: v.id || `var-${Date.now()}-${Math.random()}`,
       label: v.label,
@@ -1573,6 +1636,31 @@ const Admin = () => {
     }
   };
 
+  const changeOwnPassword = async (event) => {
+    event.preventDefault();
+    setPasswordChangeStatus(null);
+
+    if (passwordForm.newPassword.length < 8) {
+      setPasswordChangeStatus({ type: 'error', msg: 'New password must be at least 8 characters.' });
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordChangeStatus({ type: 'error', msg: "New password and confirmation don't match." });
+      return;
+    }
+
+    setPasswordChangeLoading(true);
+    try {
+      await adminApi.changeOwnPassword(passwordForm.currentPassword, passwordForm.newPassword);
+      setPasswordChangeStatus({ type: 'success', msg: '✅ Password changed successfully.' });
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      setPasswordChangeStatus({ type: 'error', msg: err.message || 'Failed to change password.' });
+    } finally {
+      setPasswordChangeLoading(false);
+    }
+  };
+
   const updateProductField = (productId, field, value, isWholesale) => {
     const updater = (p) =>
       p.id === productId
@@ -1737,6 +1825,25 @@ const Admin = () => {
                 </div>
               );
             })}
+
+            {/* Always visible regardless of role — every admin manages their
+                own account security, not gated by ADMIN_ROLE_PERMISSIONS. */}
+            <div className="admin-sidebar__section">
+              <div className="admin-sidebar__section-title">
+                <span>ACCOUNT</span>
+              </div>
+              <button
+                type="button"
+                className={activeTab === 'security' ? 'admin-sidebar__nav-item admin-sidebar__nav-item--active' : 'admin-sidebar__nav-item'}
+                onClick={() => {
+                  setActiveTab('security');
+                  setMobileMenuOpen(false);
+                }}
+              >
+                <FiShield />
+                <span>Security</span>
+              </button>
+            </div>
           </nav>
 
           <div className="admin-sidebar__footer">
@@ -2458,7 +2565,7 @@ const Admin = () => {
                       <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Select Category</label>
                       <select value={couponDraft.targetCategory} onChange={(e) => setCouponDraft(prev => ({ ...prev, targetCategory: e.target.value }))}>
                         <option value="">Choose category...</option>
-                        {(dbCategories.length ? dbCategories : categories).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        {dbCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
                     </div>
                   )}
@@ -4256,7 +4363,7 @@ const Admin = () => {
                           onChange={(e) => setInventoryCategory(e.target.value)}
                         >
                           <option value="all">All Categories</option>
-                          {(dbCategories.length ? dbCategories : categories).map(c => (
+                          {dbCategories.map(c => (
                             <option key={c.id} value={c.id}>{c.name}</option>
                           ))}
                         </select>
@@ -4639,7 +4746,7 @@ const Admin = () => {
                     onChange={(e) => setProductCategoryFilter(e.target.value)}
                   >
                     <option value="all">All Categories</option>
-                    {(dbCategories.length ? dbCategories : categories).map(c => (
+                    {dbCategories.map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
@@ -4725,10 +4832,10 @@ const Admin = () => {
 
                       <div style={{ marginTop: '18px', borderTop: '1px solid #E1E6DC', paddingTop: '12px' }}>
                         <span style={{ fontSize: '11px', fontWeight: 800, color: '#687466', textTransform: 'uppercase' }}>
-                          Existing Categories ({(dbCategories.length ? dbCategories : categories).length})
+                          Existing Categories ({dbCategories.length})
                         </span>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px', maxHeight: '220px', overflowY: 'auto' }}>
-                          {(dbCategories.length ? dbCategories : categories).map(cat => (
+                          {dbCategories.map(cat => (
                             <div key={cat.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: '#FAF9F5', borderRadius: '8px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 {cat.image && <img src={toWebpImage(cat.image)} alt={cat.name} style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover' }} />}
@@ -4783,8 +4890,11 @@ const Admin = () => {
 
                         <div>
                           <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Category *</label>
-                          <select className="admin-input-box" value={productDraft.category} onChange={(e) => setProductDraft(prev => ({ ...prev, category: e.target.value }))}>
-                            {(dbCategories.length ? dbCategories : categories).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                          <select className="admin-input-box" value={productDraft.category} onChange={(e) => setProductDraft(prev => ({ ...prev, category: e.target.value }))} required>
+                            <option value="" disabled>
+                              {dbCategories.length ? 'Select a category…' : 'No categories yet — add one first'}
+                            </option>
+                            {dbCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
                           </select>
                         </div>
 
@@ -4909,6 +5019,149 @@ const Admin = () => {
             </div>
           )}
 
+          {/* HOME PAGE LAYOUT & SECTION VISIBILITY */}
+          {activeTab === 'home-sections' && (
+            <section className="admin-card admin-card--wide" style={{ padding: '24px' }}>
+              <div className="admin-card__toolbar" style={{ borderBottom: '1px solid #E1E6DC', paddingBottom: '16px', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: '#1C4B12', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FiGrid /> Home Page Section Controls
+                  </h2>
+                  <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#687466' }}>
+                    Control which featured sections and category rows appear on the website homepage. Sections with 0 products auto-hide automatically.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="admin__primary"
+                  style={{ padding: '8px 20px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  disabled={apiLoading}
+                  onClick={saveHomeSectionSettings}
+                >
+                  <FiSave /> {apiLoading ? 'Saving...' : 'Save Settings'}
+                </button>
+              </div>
+
+              {/* Featured Home Sections */}
+              <div style={{ marginBottom: '32px' }}>
+                <h3 style={{ fontSize: '13px', fontWeight: 800, margin: '0 0 14px', color: '#2D5016', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Featured Homepage Sections
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
+                  {[
+                    { key: 'todaysDeals', title: "Today's Deals", desc: 'Shows products marked as Today\'s Deal', icon: '🏷️' },
+                    { key: 'bestsellers', title: 'Bestsellers', desc: 'Shows products marked as Bestseller', icon: '⭐' },
+                    { key: 'dailyOffers', title: 'Daily Offers', desc: 'Curated savings spotlight banner', icon: '⚡' },
+                    { key: 'festiveOffers', title: 'Festive Offers', desc: 'Seasonal festive deals spotlight banner', icon: '🎉' },
+                    { key: 'shopByCategory', title: 'Shop by Category Grid', desc: 'Top category icon scroll row', icon: '📦' }
+                  ].map(item => {
+                    const isEnabled = localHomeSections[item.key] !== false;
+                    return (
+                      <div
+                        key={item.key}
+                        style={{
+                          border: isEnabled ? '1.5px solid #BBF7D0' : '1.5px solid #E5E7EB',
+                          background: isEnabled ? '#F0FDF4' : '#F9FAFB',
+                          borderRadius: '10px',
+                          padding: '14px 16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                        }}
+                      >
+                        <div style={{ flex: 1, paddingRight: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                            <span style={{ fontSize: '16px' }}>{item.icon}</span>
+                            <strong style={{ fontSize: '14px', color: isEnabled ? '#166534' : '#374151' }}>{item.title}</strong>
+                          </div>
+                          <p style={{ margin: 0, fontSize: '11.5px', color: '#6B7280' }}>{item.desc}</p>
+                        </div>
+                        <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', flexShrink: 0, cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={isEnabled}
+                            onChange={(e) => toggleSectionKey(item.key, e.target.checked)}
+                            style={{ opacity: 0, width: 0, height: 0 }}
+                          />
+                          <span style={{
+                            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                            backgroundColor: isEnabled ? '#2D5016' : '#D1D5DB',
+                            transition: '.2s', borderRadius: '24px',
+                            display: 'flex', alignItems: 'center', padding: '2px'
+                          }}>
+                            <span style={{
+                              height: '20px', width: '20px', borderRadius: '50%', backgroundColor: 'white',
+                              transition: '.2s', transform: isEnabled ? 'translateX(20px)' : 'translateX(0px)',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                            }} />
+                          </span>
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Category Sections */}
+              <div>
+                <h3 style={{ fontSize: '13px', fontWeight: 800, margin: '0 0 14px', color: '#2D5016', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Homepage Category Rows
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
+                  {(siteCategories || []).map(cat => {
+                    const isEnabled = localHomeSections.categories?.[cat.id] !== false;
+                    const count = allProducts.filter(p => p.category === cat.id).length;
+                    const isAutoHidden = count === 0;
+
+                    return (
+                      <div
+                        key={cat.id}
+                        style={{
+                          border: isEnabled ? (isAutoHidden ? '1.5px solid #FDE68A' : '1.5px solid #BBF7D0') : '1.5px solid #E5E7EB',
+                          background: isEnabled ? (isAutoHidden ? '#FEFCE8' : '#F0FDF4') : '#F9FAFB',
+                          borderRadius: '10px',
+                          padding: '14px 16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                        }}
+                      >
+                        <div style={{ flex: 1, paddingRight: '12px' }}>
+                          <strong style={{ fontSize: '14px', display: 'block', color: isEnabled ? '#166534' : '#374151' }}>{cat.name}</strong>
+                          <span style={{ fontSize: '11.5px', color: count > 0 ? '#059669' : '#D97706', fontWeight: 600 }}>
+                            {count > 0 ? `✓ ${count} product${count > 1 ? 's' : ''} available` : '⚠️ 0 products (Auto-hidden on site)'}
+                          </span>
+                        </div>
+                        <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', flexShrink: 0, cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={isEnabled}
+                            onChange={(e) => toggleCategoryKey(cat.id, e.target.checked)}
+                            style={{ opacity: 0, width: 0, height: 0 }}
+                          />
+                          <span style={{
+                            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                            backgroundColor: isEnabled ? '#2D5016' : '#D1D5DB',
+                            transition: '.2s', borderRadius: '24px',
+                            display: 'flex', alignItems: 'center', padding: '2px'
+                          }}>
+                            <span style={{
+                              height: '20px', width: '20px', borderRadius: '50%', backgroundColor: 'white',
+                              transition: '.2s', transform: isEnabled ? 'translateX(20px)' : 'translateX(0px)',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                            }} />
+                          </span>
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* BESTSELLERS & TODAY'S DEALS */}
           {activeTab === 'bestsellers' && (
             <section className="admin-card admin-card--wide">
@@ -4963,15 +5216,33 @@ const Admin = () => {
           {activeTab === 'broadcast' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="admin-card admin-card--wide">
-              <div className="admin-card__toolbar" style={{ borderBottom: '1px solid #E1E6DC', paddingBottom: '12px', marginBottom: '20px' }}>
+              <div className="admin-card__toolbar" style={{ borderBottom: '1px solid #E1E6DC', paddingBottom: '12px', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <FiMail size={24} style={{ color: '#2D5016' }} />
                   <div>
-                    <h2 style={{ margin: 0 }}>Mail Broadcast Campaign</h2>
+                    <h2 style={{ margin: 0 }}>{broadcastChannel === 'sms' ? 'SMS Broadcast Campaign' : 'Mail Broadcast Campaign'}</h2>
                     <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#687466' }}>
-                      Send promotions, festive offers, or updates to registered customers.
+                      Send promotions, festive offers, coupon codes, or updates to registered customers.
                     </p>
                   </div>
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    className={broadcastChannel === 'email' ? 'admin__primary' : 'admin__ghost'}
+                    style={{ fontSize: '11.5px', padding: '6px 12px' }}
+                    onClick={() => { setBroadcastChannel('email'); setBroadcastStatus(null); }}
+                  >
+                    <FiMail size={12} /> Email
+                  </button>
+                  <button
+                    type="button"
+                    className={broadcastChannel === 'sms' ? 'admin__primary' : 'admin__ghost'}
+                    style={{ fontSize: '11.5px', padding: '6px 12px' }}
+                    onClick={() => { setBroadcastChannel('sms'); setBroadcastStatus(null); }}
+                  >
+                    <FiPhone size={12} /> SMS
+                  </button>
                 </div>
               </div>
 
@@ -4989,6 +5260,41 @@ const Admin = () => {
                 </div>
               )}
 
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px' }}>Recipients</label>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {[
+                    { id: 'all', label: 'All Customers', icon: '👥' },
+                    { id: 'VIP', label: 'VIP / High-Value', icon: '🌟' },
+                    { id: 'Returning', label: 'Returning', icon: '🔁' },
+                    { id: 'New', label: 'New', icon: '🌱' },
+                    { id: 'Inactive', label: 'Inactive (30d+)', icon: '💤' }
+                  ].map(seg => {
+                    const count = seg.id === 'all'
+                      ? (liveCustomers || []).length
+                      : (liveCustomers || []).filter(c => c.segment === seg.id).length;
+                    return (
+                      <button
+                        key={seg.id}
+                        type="button"
+                        className={`inventory-filter-btn ${broadcastSegment === seg.id ? 'inventory-filter-btn--active' : ''}`}
+                        onClick={() => selectBroadcastSegment(seg.id)}
+                      >
+                        {seg.icon} {seg.label} <span className="inventory-badge-count">{count}</span>
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    className="admin__ghost"
+                    style={{ fontSize: '11.5px', padding: '6px 12px' }}
+                    onClick={() => setActiveTab('customers')}
+                  >
+                    Choose individual customers →
+                  </button>
+                </div>
+              </div>
+
               {selectedBroadcastEmails.length > 0 && (
                 <p style={{ fontSize: '11.5px', color: '#687466', margin: '0 0 12px' }}>
                   Sending to: <strong>{selectedBroadcastEmails.length === 1 ? selectedBroadcastEmails[0] : `${selectedBroadcastEmails.length} customers`}</strong>
@@ -4997,8 +5303,9 @@ const Admin = () => {
 
               <form onSubmit={async (e) => {
                 e.preventDefault();
-                if (!broadcastSubject.trim() || !broadcastMessage.trim()) {
-                  setBroadcastStatus({ type: 'error', msg: 'Please fill in both the subject and message body before sending.' });
+                const isSms = broadcastChannel === 'sms';
+                if (!broadcastMessage.trim() || (!isSms && !broadcastSubject.trim())) {
+                  setBroadcastStatus({ type: 'error', msg: isSms ? 'Please write a message before sending.' : 'Please fill in both the subject and message body before sending.' });
                   return;
                 }
                 if (selectedBroadcastEmails.length === 0) {
@@ -5009,43 +5316,65 @@ const Admin = () => {
                 setBroadcastStatus(null);
                 try {
                   const res = await adminApi.sendBroadcast({
+                    channel: broadcastChannel,
                     subject: broadcastSubject,
                     messageText: broadcastMessage,
                     recipients: selectedBroadcastEmails
                   });
-                  setBroadcastStatus({ type: 'success', msg: `Campaign sent successfully to ${res.count} customer(s). Ask them to check their spam/promotions folder if it doesn't show up in the inbox.` });
+                  setBroadcastStatus({
+                    type: 'success',
+                    msg: isSms
+                      ? `SMS sent successfully to ${res.count} customer(s) with a phone number on file.`
+                      : `Campaign sent successfully to ${res.count} customer(s). Ask them to check their spam/promotions folder if it doesn't show up in the inbox.`
+                  });
                   setBroadcastSubject('');
                   setBroadcastMessage('');
                 } catch (err) {
-                  setBroadcastStatus({ type: 'error', msg: err.message || 'Failed to send mail broadcast.' });
+                  setBroadcastStatus({ type: 'error', msg: err.message || `Failed to send ${isSms ? 'SMS' : 'mail'} broadcast.` });
                 } finally {
                   setBroadcastSending(false);
                 }
               }}>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '6px' }}>Email Subject</label>
-                  <input
-                    type="text"
-                    required
-                    className="admin-input-box"
-                    placeholder="e.g. Special Offer: 10% Off on All Grocery Items!"
-                    value={broadcastSubject}
-                    onChange={(e) => setBroadcastSubject(e.target.value)}
-                  />
-                </div>
-                <div style={{ marginBottom: '20px' }}>
+                {broadcastChannel !== 'sms' && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '6px' }}>Email Subject</label>
+                    <input
+                      type="text"
+                      required
+                      className="admin-input-box"
+                      placeholder="e.g. Special Offer: 10% Off on All Grocery Items!"
+                      value={broadcastSubject}
+                      onChange={(e) => setBroadcastSubject(e.target.value)}
+                    />
+                  </div>
+                )}
+                <div style={{ marginBottom: '8px' }}>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '6px' }}>Message Body</label>
                   <textarea
                     required
                     rows={6}
                     className="admin-input-box"
                     style={{ height: 'auto', padding: '10px 12px' }}
+                    placeholder={broadcastChannel === 'sms' ? 'e.g. Use code FEST20 for 20% off till Sunday' : ''}
                     value={broadcastMessage}
                     onChange={(e) => setBroadcastMessage(e.target.value)}
                   />
                 </div>
-                <button type="submit" disabled={broadcastSending} className="admin__primary" style={{ width: '100%' }}>
-                  {broadcastSending ? 'Sending Campaign...' : '🚀 Send Broadcast Email'}
+                {broadcastChannel === 'sms' && (() => {
+                  const wrapped = `Dear Customer, ${broadcastMessage}. Shop now: siritrader.com. T&C apply.`;
+                  return (
+                    <div style={{ margin: '0 0 16px' }}>
+                      <p style={{ fontSize: '11px', color: '#687466', margin: '0 0 4px' }}>
+                        Sent as: <em>"{wrapped}"</em>
+                      </p>
+                      <p style={{ fontSize: '11px', color: wrapped.length > 160 ? '#B45309' : '#687466', margin: 0 }}>
+                        {wrapped.length} characters {wrapped.length > 160 ? `(sent as ${Math.ceil(wrapped.length / 153)} SMS segments)` : '(fits in 1 SMS segment)'}
+                      </p>
+                    </div>
+                  );
+                })()}
+                <button type="submit" disabled={broadcastSending} className="admin__primary" style={{ width: '100%', marginTop: broadcastChannel === 'sms' ? 0 : '12px' }}>
+                  {broadcastSending ? 'Sending Campaign...' : broadcastChannel === 'sms' ? '🚀 Send Broadcast SMS' : '🚀 Send Broadcast Email'}
                 </button>
               </form>
               </div>
@@ -5130,6 +5459,63 @@ const Admin = () => {
                   );
                 })}
               </div>
+            </section>
+          )}
+
+          {activeTab === 'security' && (
+            <section className="admin-grid">
+              <div className="admin-card">
+                <h2><FiShield style={{ verticalAlign: 'middle', marginRight: '6px' }} />Account</h2>
+                <div className="admin-row admin-row--plain">
+                  <FiUsers />
+                  <span>{adminSession?.name}<small>{adminSession?.email}</small></span>
+                  <span className="admin-segment-pill">{adminSession?.role}</span>
+                </div>
+              </div>
+
+              <form className="admin-form" onSubmit={changeOwnPassword}>
+                <h2><FiLock style={{ verticalAlign: 'middle', marginRight: '6px' }} />Change Password</h2>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                    placeholder="Current password"
+                    type={showPasswordFields ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    required
+                  />
+                </div>
+                <input
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                  placeholder="New password (min 8 chars)"
+                  type={showPasswordFields ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                />
+                <input
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                  placeholder="Confirm new password"
+                  type={showPasswordFields ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                />
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: '#687466', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={showPasswordFields} onChange={(e) => setShowPasswordFields(e.target.checked)} />
+                  {showPasswordFields ? <FiEyeOff size={13} /> : <FiEye size={13} />} Show passwords
+                </label>
+                {passwordChangeStatus && (
+                  <p style={{ color: passwordChangeStatus.type === 'success' ? '#2D5016' : '#FF6B35', fontSize: 13, fontWeight: 700 }}>
+                    {passwordChangeStatus.msg}
+                  </p>
+                )}
+                <button type="submit" className="admin__primary" disabled={passwordChangeLoading}>
+                  <FiSave /> {passwordChangeLoading ? 'Saving…' : 'Update Password'}
+                </button>
+              </form>
             </section>
           )}
         </main>

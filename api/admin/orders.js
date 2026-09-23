@@ -3,7 +3,7 @@ import { eq, desc } from 'drizzle-orm';
 import { setCorsHeaders } from '../_cors.js';
 import { isAdminRequest } from '../_adminAuth.js';
 import { sendCustomerOrderStatusUpdateEmail } from '../_email.js';
-import { sendCustomerOrderStatusWhatsApp } from '../_whatsapp.js';
+import { sendCustomerOrderStatusSMS, sendBulkPromotionalSMS } from '../_sms.js';
 import nodemailer from 'nodemailer';
 
 const VALID_STATUSES = ['Pending', 'Preparing', 'In Transit', 'Delivered', 'Paid', 'Cancelled'];
@@ -111,15 +111,46 @@ export default async function handler(req, res) {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // ── 2. Promotional Email Broadcast: ?resource=broadcast or ?action=broadcast ──
+    // ── 2. Promotional Broadcast (Email or SMS): ?resource=broadcast or ?action=broadcast ──
     if (resource === 'broadcast' || action === 'broadcast') {
       if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-      const { subject, messageText, recipients: bodyRecipients } = body;
+      const { subject, messageText, recipients: bodyRecipients, channel } = body;
 
-      if (!subject || !messageText) {
-        return res.status(400).json({ error: 'Subject and message text are required' });
+      if (!messageText || (channel !== 'sms' && !subject)) {
+        return res.status(400).json({ error: channel === 'sms' ? 'Message text is required' : 'Subject and message text are required' });
+      }
+
+      // ── SMS channel: recipients are resolved to phone numbers ────────────
+      if (channel === 'sms') {
+        let phones = [];
+        if (Array.isArray(bodyRecipients) && bodyRecipients.length > 0) {
+          // bodyRecipients may already be phone numbers, or emails selected
+          // from the customer picker — resolve emails to phone numbers.
+          const looksLikeEmail = bodyRecipients.some(r => String(r).includes('@'));
+          if (looksLikeEmail) {
+            const allUsers = await db.select().from(users);
+            const emailToPhone = new Map(allUsers.map(u => [u.email, u.phone]));
+            phones = bodyRecipients.map(r => emailToPhone.get(r)).filter(Boolean);
+          } else {
+            phones = bodyRecipients.filter(Boolean);
+          }
+        } else {
+          const allUsers = await db.select().from(users);
+          phones = allUsers.map(u => u.phone).filter(Boolean);
+        }
+
+        if (phones.length === 0) {
+          return res.status(200).json({ success: true, count: 0, message: 'No recipients with a phone number available.' });
+        }
+
+        const smsResult = await sendBulkPromotionalSMS(phones, messageText);
+        if (!smsResult.success) {
+          return res.status(500).json({ error: 'Failed to send SMS broadcast. Check MSG91 credentials.' });
+        }
+
+        return res.status(200).json({ success: true, count: smsResult.count });
       }
 
       let recipients = [];
@@ -336,8 +367,8 @@ export default async function handler(req, res) {
               });
             }
             if (customer.phone) {
-              sendCustomerOrderStatusWhatsApp(customer.phone, customer.name, updated[0], body.status).catch(err => {
-                console.error("[WHATSAPP ERROR] Customer status WhatsApp failed:", err.message);
+              sendCustomerOrderStatusSMS(customer.phone, customer.name, updated[0], body.status).catch(err => {
+                console.error("[SMS ERROR] Customer status SMS failed:", err.message);
               });
             }
           }

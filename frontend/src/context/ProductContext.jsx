@@ -14,7 +14,7 @@ export const useProducts = () => {
 };
 
 export const ProductProvider = ({ children }) => {
-  const [products, setProducts] = useState(baseProducts);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const { getToken } = useAuth();
 
@@ -24,11 +24,7 @@ export const ProductProvider = ({ children }) => {
       const res = await fetch('/api/products?limit=500');
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
-      if (data && data.length > 0) {
-        setProducts(data);
-      } else {
-        setProducts(baseProducts);
-      }
+      setProducts(Array.isArray(data) ? data : baseProducts);
     } catch (err) {
       console.warn("Could not fetch products from database. Falling back to local static catalog.", err);
       setProducts(baseProducts);

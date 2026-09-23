@@ -5,7 +5,7 @@ import { Redis } from '@upstash/redis';
 import { setCorsHeaders } from './_cors.js';
 import { clerk, getAuthenticatedUserId } from './_clerkAuth.js';
 import { sendOrderNotificationEmail, sendCustomerOrderConfirmationEmail } from './_email.js';
-import { sendOrderNotificationWhatsApp } from './_whatsapp.js';
+import { sendOrderNotificationSMS } from './_sms.js';
 
 // Setup Upstash Redis rate limiting: 10 requests per 30 seconds for orders endpoint
 const redis = new Redis({
@@ -234,9 +234,9 @@ export default async function handler(req, res) {
         });
       }
 
-      // Fire WhatsApp notification asynchronously (don't block HTTP response)
-      sendOrderNotificationWhatsApp(insertedOrder, items).catch(err => {
-        console.error("[WHATSAPP ERROR] Async WhatsApp send failed:", err.message);
+      // Fire SMS notification asynchronously (don't block HTTP response)
+      sendOrderNotificationSMS(insertedOrder, items).catch(err => {
+        console.error("[SMS ERROR] Async SMS send failed:", err.message);
       });
 
       return res.status(201).json(insertedOrder);

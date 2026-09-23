@@ -20,7 +20,15 @@ const DEFAULTS = {
   robotsIndex: true,
   googleSiteVerification: 'google-site-verification-siri-traders-2026',
   schemaJson: '{"@context":"https://schema.org","@type":"GroceryStore","name":"Siri Traders","image":"https://www.siritrader.com/logo-mark.webp","telephone":"+919849012345","priceRange":"₹₹","address":{"@type":"PostalAddress","streetAddress":"Kukatpally Main Road","addressLocality":"Hyderabad","addressRegion":"Telangana","postalCode":"500072","addressCountry":"IN"}}',
-  sitemapEnabled: true
+  sitemapEnabled: true,
+  homeSections: {
+    todaysDeals: true,
+    bestsellers: true,
+    dailyOffers: true,
+    festiveOffers: true,
+    shopByCategory: true,
+    categories: {}
+  }
 };
 
 export default async function handler(req, res) {
@@ -379,7 +387,8 @@ export default async function handler(req, res) {
         schemaJson: body.schemaJson || DEFAULTS.schemaJson,
         sitemapEnabled: body.sitemapEnabled !== undefined ? Boolean(body.sitemapEnabled) : true,
         headerMenu: body.headerMenu || null,
-        footerMenu: body.footerMenu || null
+        footerMenu: body.footerMenu || null,
+        homeSections: body.homeSections !== undefined ? body.homeSections : DEFAULTS.homeSections
       };
 
       const saved = await db.insert(settings).values(values).onConflictDoUpdate({
