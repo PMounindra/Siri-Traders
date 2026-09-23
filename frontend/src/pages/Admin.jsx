@@ -1225,11 +1225,19 @@ const Admin = () => {
   };
 
   const deleteCategoryHandler = async (cat) => {
+    if (!cat || !cat.id) return;
     if (!window.confirm(`Delete category "${cat.name}"? This also deletes all products in this category.`)) return;
     try {
       await adminApi.deleteCategory(cat.id);
       setDbCategories(prev => prev.filter(c => c.id !== cat.id));
-    } catch (err) { alert(err.message); }
+      loadInventory();
+      broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
+      broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED);
+      setSaveToast({ type: 'success', msg: `🗑️ Deleted category "${cat.name}"` });
+      setTimeout(() => setSaveToast(null), 4000);
+    } catch (err) {
+      alert(`Failed to delete category: ${err.message}`);
+    }
   };
 
   const handleImageUpload = (event) => {

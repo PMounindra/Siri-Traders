@@ -2326,7 +2326,7 @@ export const toWholesaleProduct = (product) => {
   return {
     ...product,
     deliveryTime: product.deliveryTime === '10 mins' ? 'Same day' : product.deliveryTime,
-    name: product.name.includes('Bulk') ? product.name : `${product.name} Bulk`,
+    name: product.name,
     variants,
     wholesalePrice: product.wholesalePrice || bulkPrice,
     isBestseller: product.isBestseller || product.discount >= 10

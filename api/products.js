@@ -1,5 +1,5 @@
 import { db, products, categories } from '../db/index.js';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, or } from 'drizzle-orm';
 import { z } from 'zod';
 import { setCorsHeaders } from './_cors.js';
 import { isAdminRequest } from './_adminAuth.js';
@@ -108,9 +108,17 @@ export default async function handler(req, res) {
           const adminOk = await isAdminRequest(req);
           if (!adminOk) return res.status(403).json({ error: 'Forbidden: admin access required' });
 
-          await db.delete(products).where(eq(products.category, id));
-          await db.delete(categories).where(eq(categories.id, id));
-          return res.status(200).json({ success: true, id });
+          const catId = String(id).trim();
+          const targetCat = await db.select().from(categories).where(eq(categories.id, catId));
+          const catName = targetCat[0]?.name;
+
+          await db.delete(products).where(
+            catName
+              ? or(eq(products.category, catId), eq(products.category, catName))
+              : eq(products.category, catId)
+          );
+          await db.delete(categories).where(eq(categories.id, catId));
+          return res.status(200).json({ success: true, id: catId });
         }
       }
       return res.status(405).json({ error: 'Method not allowed' });
