@@ -6,10 +6,11 @@ import './CartSummaryBar.css';
 const CartSummaryBar = () => {
   const { cartCount } = useCart();
   const location = useLocation();
-  const visibleRoutes = ['/home', '/categories', '/orders'];
-  const isVisibleRoute = visibleRoutes.includes(location.pathname);
 
-  if (!isVisibleRoute || cartCount === 0) return null;
+  const hiddenRoutes = ['/cart', '/checkout', '/admin', '/login', '/admin-login'];
+  const isHiddenRoute = hiddenRoutes.some((path) => location.pathname.startsWith(path));
+
+  if (isHiddenRoute || cartCount === 0) return null;
 
   return (
     <Link to="/cart" className="cart-summary-bar">
