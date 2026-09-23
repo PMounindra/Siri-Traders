@@ -428,27 +428,45 @@ const Home = () => {
   const bestsellers = catalog
     .filter(product => product.isBestseller)
     .sort((a, b) => categoryRank(a.category) - categoryRank(b.category));
-  const pulses = byCategory('pulses');
-  const oils = byCategory('oils');
-  const atta = byCategory('atta');
-  const rice = byCategory('rice');
-  const masala = byCategory('masala');
-  const fruits = byCategory('fruits');
-  const vegetables = byCategory('vegetables');
-  const dairy = byCategory('dairy-breakfast');
-  const ravvaPoha = byCategory('ravva-poha');
-  const millets = byCategory('millets');
-  const nuts = byCategory('nuts-dry-fruits');
-  const grocery = byCategory('grocery-essentials');
-  const snacks = byCategory('snacks-munchies');
-  const categoryOrder = ['pulses', 'rice', 'atta', 'oils', 'masala', 'ravva-poha', 'millets', 'nuts-dry-fruits', 'grocery-essentials', 'snacks-munchies'];
-  const homeCategories = [...categories].sort((a, b) => {
-    if (['fruits', 'vegetables', 'dairy-breakfast', 'beverages', 'bakery-biscuits', 'personal-care', 'cleaning-household', 'instant-frozen'].includes(a.id)) return 1;
-    if (['fruits', 'vegetables', 'dairy-breakfast', 'beverages', 'bakery-biscuits', 'personal-care', 'cleaning-household', 'instant-frozen'].includes(b.id)) return -1;
-    const aRank = categoryOrder.indexOf(a.id);
-    const bRank = categoryOrder.indexOf(b.id);
-    return (aRank === -1 ? 50 : aRank) - (bRank === -1 ? 50 : bRank);
+  // Combine DB categories + any custom category strings from active products
+  const categoryMap = new Map();
+  (categories || []).forEach(cat => {
+    if (cat?.id) {
+      categoryMap.set(String(cat.id).toLowerCase(), cat);
+    }
   });
+
+  catalog.forEach(p => {
+    if (p.category) {
+      const key = String(p.category).toLowerCase();
+      if (!categoryMap.has(key)) {
+        categoryMap.set(key, {
+          id: p.category,
+          name: String(p.category).replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+        });
+      }
+    }
+  });
+
+  const categoryOrder = ['pulses', 'rice', 'atta', 'oils', 'masala', 'ravva-poha', 'millets', 'nuts-dry-fruits', 'grocery-essentials', 'snacks-munchies'];
+  const allDisplayCategories = Array.from(categoryMap.values()).sort((a, b) => {
+    const aRank = categoryOrder.indexOf(String(a.id).toLowerCase());
+    const bRank = categoryOrder.indexOf(String(b.id).toLowerCase());
+    if (aRank !== -1 && bRank !== -1) return aRank - bRank;
+    if (aRank !== -1) return -1;
+    if (bRank !== -1) return 1;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
+  const getProductsForCategory = (cat) => {
+    const catIdLower = String(cat.id).toLowerCase();
+    const catNameLower = String(cat.name).toLowerCase();
+    return catalog.filter(p => {
+      if (!p.category) return false;
+      const pCatLower = String(p.category).toLowerCase();
+      return pCatLower === catIdLower || pCatLower === catNameLower;
+    });
+  };
 
   const isSectionVisible = (key, count) => {
     if (!count || count <= 0) return false;
@@ -509,7 +527,7 @@ const Home = () => {
           <OffersSection customerType={customerType} />
 
           {/* Shop by Category */}
-          {isSectionVisible('shopByCategory', homeCategories.length) && (
+          {isSectionVisible('shopByCategory', allDisplayCategories.length) && (
             <section className="home__section home__section--categories">
               <div className="section-header">
                 <Link to="/categories">
@@ -520,7 +538,7 @@ const Home = () => {
                 </Link>
               </div>
               <ScrollRow className="home__category-scroll">
-                {homeCategories.map(cat => (
+                {allDisplayCategories.map(cat => (
                   <CategoryCard key={cat.id} category={cat} size="large" />
                 ))}
               </ScrollRow>
@@ -569,215 +587,31 @@ const Home = () => {
             </section>
           )}
 
-          {/* Pulses */}
-          {isCatVisible('pulses', pulses.length) && (
-            <section className="home__section" id="section-pulses">
-              <div className="section-header">
-                <Link to="/categories?cat=pulses">
-                  <h2 className="section-title home__section-title-link">Pulses</h2>
-                </Link>
-                <Link to="/categories?cat=pulses" className="section-link">
-                  See All <FiChevronRight />
-                </Link>
-              </div>
-              <ScrollRow className="home__deals-scroll">
-                {pulses.map(product => (
-                  <div key={product.id} className="home__deals-item">
-                    <ProductCard key={`${customerType}-${product.id}`} product={product} />
-                  </div>
-                ))}
-              </ScrollRow>
-            </section>
-          )}
+          {/* Dynamic Homepage Category Rows */}
+          {allDisplayCategories.map(cat => {
+            const catProducts = getProductsForCategory(cat);
+            if (!isCatVisible(cat.id, catProducts.length)) return null;
 
-          {/* Rice & Atta */}
-          {(isCatVisible('rice', rice.length) || isCatVisible('atta', atta.length)) && (
-            <section className="home__section" id="section-rice-atta">
-              <div className="section-header">
-                <Link to="/categories?cat=rice">
-                  <h2 className="section-title home__section-title-link">Rice & Atta</h2>
-                </Link>
-                <Link to="/categories?cat=rice" className="section-link">
-                  See All <FiChevronRight />
-                </Link>
-              </div>
-              <ScrollRow className="home__deals-scroll">
-                {[...rice, ...atta].map(product => (
-                  <div key={product.id} className="home__deals-item">
-                    <ProductCard key={`${customerType}-${product.id}`} product={product} />
-                  </div>
-                ))}
-              </ScrollRow>
-            </section>
-          )}
-
-          {/* Oils & Masala */}
-          {(isCatVisible('oils', oils.length) || isCatVisible('masala', masala.length)) && (
-            <section className="home__section" id="section-oils-masala">
-              <div className="section-header">
-                <Link to="/categories?cat=oils">
-                  <h2 className="section-title home__section-title-link">Oils & Masala</h2>
-                </Link>
-                <Link to="/categories?cat=oils" className="section-link">
-                  See All <FiChevronRight />
-                </Link>
-              </div>
-              <ScrollRow className="home__deals-scroll">
-                {[...oils, ...masala].map(product => (
-                  <div key={product.id} className="home__deals-item">
-                    <ProductCard key={`${customerType}-${product.id}`} product={product} />
-                  </div>
-                ))}
-              </ScrollRow>
-            </section>
-          )}
-
-          {/* Ravva & Poha */}
-          {isCatVisible('ravva-poha', ravvaPoha.length) && (
-            <section className="home__section" id="section-ravva-poha">
-              <div className="section-header">
-                <Link to="/categories?cat=ravva-poha">
-                  <h2 className="section-title home__section-title-link">Ravva & Poha</h2>
-                </Link>
-                <Link to="/categories?cat=ravva-poha" className="section-link">
-                  See All <FiChevronRight />
-                </Link>
-              </div>
-              <ScrollRow className="home__deals-scroll">
-                {ravvaPoha.map(product => (
-                  <div key={product.id} className="home__deals-item">
-                    <ProductCard key={`${customerType}-${product.id}`} product={product} />
-                  </div>
-                ))}
-              </ScrollRow>
-            </section>
-          )}
-
-          {/* Nuts & Dry Fruits */}
-          {isCatVisible('nuts-dry-fruits', nuts.length) && (
-            <section className="home__section" id="section-nuts">
-              <div className="section-header">
-                <Link to="/categories?cat=nuts-dry-fruits">
-                  <h2 className="section-title home__section-title-link">Nuts & Dry Fruits</h2>
-                </Link>
-                <Link to="/categories?cat=nuts-dry-fruits" className="section-link">
-                  See All <FiChevronRight />
-                </Link>
-              </div>
-              <ScrollRow className="home__deals-scroll">
-                {nuts.map(product => (
-                  <div key={product.id} className="home__deals-item">
-                    <ProductCard key={`${customerType}-${product.id}`} product={product} />
-                  </div>
-                ))}
-              </ScrollRow>
-            </section>
-          )}
-
-          {/* Millets & Grains */}
-          {isCatVisible('millets', millets.length) && (
-            <section className="home__section" id="section-millets">
-              <div className="section-header">
-                <Link to="/categories?cat=millets">
-                  <h2 className="section-title home__section-title-link">Millets & Grains</h2>
-                </Link>
-                <Link to="/categories?cat=millets" className="section-link">
-                  See All <FiChevronRight />
-                </Link>
-              </div>
-              <ScrollRow className="home__deals-scroll">
-                {millets.map(product => (
-                  <div key={product.id} className="home__deals-item">
-                    <ProductCard key={`${customerType}-${product.id}`} product={product} />
-                  </div>
-                ))}
-              </ScrollRow>
-            </section>
-          )}
-
-          {/* Grocery Essentials */}
-          {isCatVisible('grocery-essentials', grocery.length) && (
-            <section className="home__section" id="section-grocery">
-              <div className="section-header">
-                <Link to="/categories?cat=grocery-essentials">
-                  <h2 className="section-title home__section-title-link">Grocery Essentials</h2>
-                </Link>
-                <Link to="/categories?cat=grocery-essentials" className="section-link">
-                  See All <FiChevronRight />
-                </Link>
-              </div>
-              <ScrollRow className="home__deals-scroll">
-                {grocery.map(product => (
-                  <div key={product.id} className="home__deals-item">
-                    <ProductCard key={`${customerType}-${product.id}`} product={product} />
-                  </div>
-                ))}
-              </ScrollRow>
-            </section>
-          )}
-
-          {/* Fruits */}
-          {isCatVisible('fruits', fruits.length) && (
-            <section className="home__section" id="section-fruits">
-              <div className="section-header">
-                <Link to="/categories?cat=fruits">
-                  <h2 className="section-title home__section-title-link">Fruits</h2>
-                </Link>
-                <Link to="/categories?cat=fruits" className="section-link">
-                  See All <FiChevronRight />
-                </Link>
-              </div>
-              <ScrollRow className="home__deals-scroll">
-                {fruits.map(product => (
-                  <div key={product.id} className="home__deals-item">
-                    <ProductCard key={`${customerType}-${product.id}`} product={product} />
-                  </div>
-                ))}
-              </ScrollRow>
-            </section>
-          )}
-
-          {/* Vegetables */}
-          {isCatVisible('vegetables', vegetables.length) && (
-            <section className="home__section" id="section-vegetables">
-              <div className="section-header">
-                <Link to="/categories?cat=vegetables">
-                  <h2 className="section-title home__section-title-link">Vegetables</h2>
-                </Link>
-                <Link to="/categories?cat=vegetables" className="section-link">
-                  See All <FiChevronRight />
-                </Link>
-              </div>
-              <ScrollRow className="home__deals-scroll">
-                {vegetables.map(product => (
-                  <div key={product.id} className="home__deals-item">
-                    <ProductCard key={`${customerType}-${product.id}`} product={product} />
-                  </div>
-                ))}
-              </ScrollRow>
-            </section>
-          )}
-
-          {/* Dairy & Breakfast */}
-          {isCatVisible('dairy-breakfast', dairy.length) && (
-            <section className="home__section" id="section-dairy-breakfast">
-              <div className="section-header">
-                <Link to="/categories?cat=dairy-breakfast">
-                  <h2 className="section-title home__section-title-link">Dairy & Breakfast</h2>
-                </Link>
-                <Link to="/categories?cat=dairy-breakfast" className="section-link">
-                  See All <FiChevronRight />
-                </Link>
-              </div>
-              <ScrollRow className="home__deals-scroll">
-                {dairy.map(product => (
-                  <div key={product.id} className="home__deals-item">
-                    <ProductCard key={`${customerType}-${product.id}`} product={product} />
-                  </div>
-                ))}
-              </ScrollRow>
-            </section>
-          )}
+            return (
+              <section className="home__section" id={`section-${cat.id}`} key={cat.id}>
+                <div className="section-header">
+                  <Link to={`/categories?cat=${encodeURIComponent(cat.id)}`}>
+                    <h2 className="section-title home__section-title-link">{cat.name}</h2>
+                  </Link>
+                  <Link to={`/categories?cat=${encodeURIComponent(cat.id)}`} className="section-link">
+                    See All <FiChevronRight />
+                  </Link>
+                </div>
+                <ScrollRow className="home__deals-scroll">
+                  {catProducts.map(product => (
+                    <div key={product.id} className="home__deals-item">
+                      <ProductCard key={`${customerType}-${product.id}`} product={product} />
+                    </div>
+                  ))}
+                </ScrollRow>
+              </section>
+            );
+          })}
         </div>
 
         {/* Footer — 3 column horizontal */}

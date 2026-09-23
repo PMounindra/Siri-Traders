@@ -5109,54 +5109,80 @@ const Admin = () => {
                   Homepage Category Rows
                 </h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
-                  {(siteCategories || []).map(cat => {
-                    const isEnabled = localHomeSections.categories?.[cat.id] !== false;
-                    const count = allProducts.filter(p => p.category === cat.id).length;
-                    const isAutoHidden = count === 0;
+                  {(() => {
+                    const adminCatMap = new Map();
+                    (siteCategories || []).forEach(cat => {
+                      if (cat?.id) adminCatMap.set(String(cat.id).toLowerCase(), cat);
+                    });
+                    (allProducts || []).forEach(p => {
+                      if (p.category) {
+                        const key = String(p.category).toLowerCase();
+                        if (!adminCatMap.has(key)) {
+                          adminCatMap.set(key, {
+                            id: p.category,
+                            name: String(p.category).replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                          });
+                        }
+                      }
+                    });
+                    const allAdminCats = Array.from(adminCatMap.values());
 
-                    return (
-                      <div
-                        key={cat.id}
-                        style={{
-                          border: isEnabled ? (isAutoHidden ? '1.5px solid #FDE68A' : '1.5px solid #BBF7D0') : '1.5px solid #E5E7EB',
-                          background: isEnabled ? (isAutoHidden ? '#FEFCE8' : '#F0FDF4') : '#F9FAFB',
-                          borderRadius: '10px',
-                          padding: '14px 16px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-                        }}
-                      >
-                        <div style={{ flex: 1, paddingRight: '12px' }}>
-                          <strong style={{ fontSize: '14px', display: 'block', color: isEnabled ? '#166534' : '#374151' }}>{cat.name}</strong>
-                          <span style={{ fontSize: '11.5px', color: count > 0 ? '#059669' : '#D97706', fontWeight: 600 }}>
-                            {count > 0 ? `✓ ${count} product${count > 1 ? 's' : ''} available` : '⚠️ 0 products (Auto-hidden on site)'}
-                          </span>
-                        </div>
-                        <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', flexShrink: 0, cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={isEnabled}
-                            onChange={(e) => toggleCategoryKey(cat.id, e.target.checked)}
-                            style={{ opacity: 0, width: 0, height: 0 }}
-                          />
-                          <span style={{
-                            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                            backgroundColor: isEnabled ? '#2D5016' : '#D1D5DB',
-                            transition: '.2s', borderRadius: '24px',
-                            display: 'flex', alignItems: 'center', padding: '2px'
-                          }}>
+                    return allAdminCats.map(cat => {
+                      const catIdLower = String(cat.id).toLowerCase();
+                      const catNameLower = String(cat.name || '').toLowerCase();
+                      const count = (allProducts || []).filter(p => {
+                        if (!p.category) return false;
+                        const pCatLower = String(p.category).toLowerCase();
+                        return pCatLower === catIdLower || pCatLower === catNameLower;
+                      }).length;
+
+                      const isEnabled = localHomeSections.categories?.[cat.id] !== false && localHomeSections.categories?.[catIdLower] !== false;
+                      const isAutoHidden = count === 0;
+
+                      return (
+                        <div
+                          key={cat.id}
+                          style={{
+                            border: isEnabled ? (isAutoHidden ? '1.5px solid #FDE68A' : '1.5px solid #BBF7D0') : '1.5px solid #E5E7EB',
+                            background: isEnabled ? (isAutoHidden ? '#FEFCE8' : '#F0FDF4') : '#F9FAFB',
+                            borderRadius: '10px',
+                            padding: '14px 16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                          }}
+                        >
+                          <div style={{ flex: 1, paddingRight: '12px' }}>
+                            <strong style={{ fontSize: '14px', display: 'block', color: isEnabled ? '#166534' : '#374151' }}>{cat.name}</strong>
+                            <span style={{ fontSize: '11.5px', color: count > 0 ? '#059669' : '#D97706', fontWeight: 600 }}>
+                              {count > 0 ? `✓ ${count} product${count > 1 ? 's' : ''} available` : '⚠️ 0 products (Auto-hidden on site)'}
+                            </span>
+                          </div>
+                          <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', flexShrink: 0, cursor: 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={isEnabled}
+                              onChange={(e) => toggleCategoryKey(cat.id, e.target.checked)}
+                              style={{ opacity: 0, width: 0, height: 0 }}
+                            />
                             <span style={{
-                              height: '20px', width: '20px', borderRadius: '50%', backgroundColor: 'white',
-                              transition: '.2s', transform: isEnabled ? 'translateX(20px)' : 'translateX(0px)',
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
-                            }} />
-                          </span>
-                        </label>
-                      </div>
-                    );
-                  })}
+                              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                              backgroundColor: isEnabled ? '#2D5016' : '#D1D5DB',
+                              transition: '.2s', borderRadius: '24px',
+                              display: 'flex', alignItems: 'center', padding: '2px'
+                            }}>
+                              <span style={{
+                                height: '20px', width: '20px', borderRadius: '50%', backgroundColor: 'white',
+                                transition: '.2s', transform: isEnabled ? 'translateX(20px)' : 'translateX(0px)',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                              }} />
+                            </span>
+                          </label>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             </section>
