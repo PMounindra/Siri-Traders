@@ -89,26 +89,20 @@ const extractBaseName = (name = "") => {
     .trim();
 };
 
-const extractVariantLabel = (p, baseNameStr) => {
-  if (p.weight && p.unit) {
-    return `${p.weight} ${p.unit}`;
+const extractVariantLabel = (p, currentBrandStr) => {
+  let label = p.name;
+  if (currentBrandStr && currentBrandStr.length > 1) {
+    const bRegex = new RegExp(`^${currentBrandStr}\\s*`, 'gi');
+    label = label.replace(bRegex, '').trim();
   }
-  const match = p.name.match(
-    /\b(\d+(\.\d+)?\s*(g|gm|grams|kg|ml|l|liter|litres|sachet|pkt|packet|pcs|piece|pieces|pads|oz)|(rs\.?\s*\d+|\d+\s*rs\.?)|pack of \d+)\b/i
-  );
-  if (match) {
-    return match[0].trim();
+  label = label.replace(/\b(bathing bar|bath soap|beauty bar)\b/gi, '').trim();
+  label = label.replace(/\s+/g, ' ').trim();
+
+  if (!label) {
+    if (p.weight && p.unit) label = `${p.weight} ${p.unit}`;
+    else label = p.name;
   }
-  if (baseNameStr) {
-    const baseWords = baseNameStr.split(" ").filter(Boolean);
-    let rem = p.name;
-    baseWords.forEach((w) => {
-      rem = rem.replace(new RegExp(w, "gi"), "");
-    });
-    rem = rem.trim();
-    if (rem.length > 0) return rem;
-  }
-  return p.name;
+  return label;
 };
 
 const ProductDetail = () => {
@@ -211,7 +205,11 @@ const ProductDetail = () => {
     if (!product) return [];
     const allProducts = getProductsForType(customerType) || [];
     const currentBase = extractBaseName(product.name);
-    const currentBrand = (product.brand || "").trim().toLowerCase();
+    const currentBrand = (
+      product.brand ||
+      product.name.split(" ")[0] ||
+      ""
+    ).trim().toLowerCase();
     const currentForm = getProductForm(product.name, product.category);
 
     // Match catalog siblings
@@ -233,26 +231,16 @@ const ProductDetail = () => {
         return false;
       }
 
-      // Match by exact base product name
+      // 1. Match by exact base product name
       const pBase = extractBaseName(p.name);
       if (currentBase && pBase && currentBase === pBase && currentBase.length > 2) {
         return true;
       }
 
-      // Match by brand, provided product sub-type words match
-      if (currentBrand && currentBrand.length > 1) {
-        const pBrand = (p.brand || "").trim().toLowerCase();
-        if (pBrand === currentBrand) {
-          const productWords = currentBase.split(" ").filter((w) => w.length > 2 && w !== currentBrand);
-          const pWords = pBase.split(" ").filter((w) => w.length > 2 && w !== pBrand);
-
-          if (productWords.length === 0 || pWords.length === 0) {
-            return true;
-          }
-
-          const hasCommonWord = productWords.some((w) => pWords.includes(w));
-          return hasCommonWord;
-        }
+      // 2. Match by brand within the same product form (e.g. Cinthol Lime, Cinthol Original, Cinthol Cool)
+      const pBrand = (p.brand || p.name.split(" ")[0] || "").trim().toLowerCase();
+      if (currentBrand && currentBrand.length > 1 && pBrand === currentBrand) {
+        return true;
       }
 
       return false;
@@ -260,7 +248,7 @@ const ProductDetail = () => {
 
     let cards = catalogMatches.map((p) => ({
       id: p.id,
-      label: extractVariantLabel(p, currentBase),
+      label: extractVariantLabel(p, currentBrand),
       fullName: p.name,
       price: Number(p.price) || 0,
       mrp: Number(p.mrp) || Number(p.price) || 0,
