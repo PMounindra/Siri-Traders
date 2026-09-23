@@ -42,12 +42,33 @@ const productSchema = z.object({
 
 const productUpdateSchema = productSchema.partial();
 
+let productsMigrated = false;
+
 async function autoMigrateProductsSchema() {
+  if (productsMigrated) return;
   try {
     await db.execute(sql`
       ALTER TABLE products
-      ADD COLUMN IF NOT EXISTS target_type VARCHAR(32) DEFAULT 'retail_and_wholesale';
+      ADD COLUMN IF NOT EXISTS target_type VARCHAR(32) DEFAULT 'retail_and_wholesale',
+      ADD COLUMN IF NOT EXISTS is_bestseller BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS is_todays_deal BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT TRUE,
+      ADD COLUMN IF NOT EXISTS delivery_time VARCHAR(64) DEFAULT '15 mins',
+      ADD COLUMN IF NOT EXISTS cost_price INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS gst_rate INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS sku TEXT,
+      ADD COLUMN IF NOT EXISTS barcode TEXT,
+      ADD COLUMN IF NOT EXISTS subcategory TEXT,
+      ADD COLUMN IF NOT EXISTS pack_size TEXT,
+      ADD COLUMN IF NOT EXISTS wholesale_price INTEGER,
+      ADD COLUMN IF NOT EXISTS bulk_pack_label TEXT,
+      ADD COLUMN IF NOT EXISTS bulk_pack_price INTEGER,
+      ADD COLUMN IF NOT EXISTS wholesale_case_label TEXT,
+      ADD COLUMN IF NOT EXISTS wholesale_case_price INTEGER,
+      ADD COLUMN IF NOT EXISTS variants JSONB;
     `);
+    productsMigrated = true;
   } catch (err) {
     console.warn("Auto-migration products schema failed:", err.message);
   }
@@ -184,11 +205,13 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: 'Validation failed', details: validationResult.error.errors });
         }
 
+        await autoMigrateProductsSchema();
         let newProduct;
         try {
           newProduct = await db.insert(products).values(validationResult.data).returning();
         } catch (insertErr) {
           console.warn("Retrying products insert after auto-migration...", insertErr.message);
+          productsMigrated = false;
           await autoMigrateProductsSchema();
           newProduct = await db.insert(products).values(validationResult.data).returning();
         }
@@ -224,6 +247,8 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Validation failed', details: validation.error.errors });
       }
 
+      await autoMigrateProductsSchema();
+
       const existing = await db.select().from(products).where(eq(products.id, parsedId));
       if (!existing.length) {
         return res.status(404).json({ error: 'Product not found' });
@@ -238,6 +263,7 @@ export default async function handler(req, res) {
           .returning();
       } catch (updateErr) {
         console.warn("Retrying products update after auto-migration...", updateErr.message);
+        productsMigrated = false;
         await autoMigrateProductsSchema();
         updated = await db
           .update(products)

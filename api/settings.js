@@ -357,14 +357,32 @@ export default async function handler(req, res) {
       }
     }
 
+let settingsMigrated = false;
+async function ensureSettingsSchema() {
+  if (settingsMigrated) return;
+  try {
+    await db.execute(sql`
+      ALTER TABLE settings
+      ADD COLUMN IF NOT EXISTS home_sections JSONB DEFAULT '{"todaysDeals":true,"bestsellers":true,"dailyOffers":true,"festiveOffers":true,"shopByCategory":true,"categories":{}}'::jsonb,
+      ADD COLUMN IF NOT EXISTS header_menu JSONB,
+      ADD COLUMN IF NOT EXISTS footer_menu JSONB;
+    `);
+    settingsMigrated = true;
+  } catch (err) {
+    console.warn("Auto-migration settings schema failed:", err.message);
+  }
+}
+
     // ── Global Settings & SEO: /api/settings ──────────────────────────
     if (req.method === 'GET') {
       try {
+        await ensureSettingsSchema();
         const rows = await db.select().from(settings).where(eq(settings.id, 'default'));
         return res.status(200).json(rows[0] || DEFAULTS);
       } catch (getErr) {
         if (String(getErr).includes('home_sections') || getErr?.code === '42703') {
-          await db.execute(sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS home_sections JSONB DEFAULT '{"todaysDeals":true,"bestsellers":true,"dailyOffers":true,"festiveOffers":true,"shopByCategory":true,"categories":{}}'::jsonb;`);
+          settingsMigrated = false;
+          await ensureSettingsSchema();
           const rows = await db.select().from(settings).where(eq(settings.id, 'default'));
           return res.status(200).json(rows[0] || DEFAULTS);
         }
@@ -376,28 +394,33 @@ export default async function handler(req, res) {
       const adminOk = await isAdminRequest(req);
       if (!adminOk) return res.status(403).json({ error: 'Forbidden: admin access required' });
 
+      await ensureSettingsSchema();
+
+      const existingRows = await db.select().from(settings).where(eq(settings.id, 'default'));
+      const existing = existingRows[0] || DEFAULTS;
+
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
       const values = {
         id: 'default',
-        deliveryFee: Number.isFinite(Number(body.deliveryFee)) ? Number(body.deliveryFee) : DEFAULTS.deliveryFee,
-        freeDeliveryThreshold: Number.isFinite(Number(body.freeDeliveryThreshold)) ? Number(body.freeDeliveryThreshold) : DEFAULTS.freeDeliveryThreshold,
-        handlingCharge: Number.isFinite(Number(body.handlingCharge)) ? Number(body.handlingCharge) : DEFAULTS.handlingCharge,
-        announcementText: body.announcementText !== undefined ? body.announcementText : DEFAULTS.announcementText,
-        announcementBg: body.announcementBg || DEFAULTS.announcementBg,
-        announcementColor: body.announcementColor || DEFAULTS.announcementColor,
-        announcementLink: body.announcementLink || DEFAULTS.announcementLink,
-        announcementActive: body.announcementActive !== undefined ? Boolean(body.announcementActive) : true,
-        metaTitle: body.metaTitle || DEFAULTS.metaTitle,
-        metaDescription: body.metaDescription || DEFAULTS.metaDescription,
-        canonicalUrl: body.canonicalUrl || DEFAULTS.canonicalUrl,
-        ogImage: body.ogImage || DEFAULTS.ogImage,
-        robotsIndex: body.robotsIndex !== undefined ? Boolean(body.robotsIndex) : true,
-        googleSiteVerification: body.googleSiteVerification || DEFAULTS.googleSiteVerification,
-        schemaJson: body.schemaJson || DEFAULTS.schemaJson,
-        sitemapEnabled: body.sitemapEnabled !== undefined ? Boolean(body.sitemapEnabled) : true,
-        headerMenu: body.headerMenu || null,
-        footerMenu: body.footerMenu || null,
-        homeSections: body.homeSections !== undefined ? body.homeSections : DEFAULTS.homeSections
+        deliveryFee: body.deliveryFee !== undefined && Number.isFinite(Number(body.deliveryFee)) ? Number(body.deliveryFee) : existing.deliveryFee,
+        freeDeliveryThreshold: body.freeDeliveryThreshold !== undefined && Number.isFinite(Number(body.freeDeliveryThreshold)) ? Number(body.freeDeliveryThreshold) : existing.freeDeliveryThreshold,
+        handlingCharge: body.handlingCharge !== undefined && Number.isFinite(Number(body.handlingCharge)) ? Number(body.handlingCharge) : existing.handlingCharge,
+        announcementText: body.announcementText !== undefined ? body.announcementText : existing.announcementText,
+        announcementBg: body.announcementBg !== undefined ? body.announcementBg : existing.announcementBg,
+        announcementColor: body.announcementColor !== undefined ? body.announcementColor : existing.announcementColor,
+        announcementLink: body.announcementLink !== undefined ? body.announcementLink : existing.announcementLink,
+        announcementActive: body.announcementActive !== undefined ? Boolean(body.announcementActive) : existing.announcementActive,
+        metaTitle: body.metaTitle !== undefined ? body.metaTitle : existing.metaTitle,
+        metaDescription: body.metaDescription !== undefined ? body.metaDescription : existing.metaDescription,
+        canonicalUrl: body.canonicalUrl !== undefined ? body.canonicalUrl : existing.canonicalUrl,
+        ogImage: body.ogImage !== undefined ? body.ogImage : existing.ogImage,
+        robotsIndex: body.robotsIndex !== undefined ? Boolean(body.robotsIndex) : existing.robotsIndex,
+        googleSiteVerification: body.googleSiteVerification !== undefined ? body.googleSiteVerification : existing.googleSiteVerification,
+        schemaJson: body.schemaJson !== undefined ? body.schemaJson : existing.schemaJson,
+        sitemapEnabled: body.sitemapEnabled !== undefined ? Boolean(body.sitemapEnabled) : existing.sitemapEnabled,
+        headerMenu: body.headerMenu !== undefined ? body.headerMenu : existing.headerMenu,
+        footerMenu: body.footerMenu !== undefined ? body.footerMenu : existing.footerMenu,
+        homeSections: body.homeSections !== undefined ? body.homeSections : existing.homeSections
       };
 
       try {
@@ -408,7 +431,8 @@ export default async function handler(req, res) {
         return res.status(200).json(saved[0]);
       } catch (saveErr) {
         console.warn('First save attempt in /api/settings failed, ensuring column exists:', saveErr?.message || saveErr);
-        await db.execute(sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS home_sections JSONB DEFAULT '{"todaysDeals":true,"bestsellers":true,"dailyOffers":true,"festiveOffers":true,"shopByCategory":true,"categories":{}}'::jsonb;`);
+        settingsMigrated = false;
+        await ensureSettingsSchema();
         const saved = await db.insert(settings).values(values).onConflictDoUpdate({
           target: settings.id,
           set: values
