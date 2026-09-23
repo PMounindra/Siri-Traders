@@ -1,7 +1,64 @@
 import { db, offers, coupons } from '../db/index.js';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { setCorsHeaders } from './_cors.js';
 import { isAdminRequest } from './_adminAuth.js';
+
+const MAX_PG_INT = 2147483647;
+
+const safeInt = (val, fallback = 0) => {
+  if (val == null || val === '') return fallback;
+  const num = Math.round(Number(val));
+  if (isNaN(num)) return fallback;
+  return Math.max(0, Math.min(MAX_PG_INT, num));
+};
+
+async function autoMigrateOffersSchema() {
+  try {
+    await db.execute(sql`
+      ALTER TABLE offers
+      ADD COLUMN IF NOT EXISTS subtitle TEXT,
+      ADD COLUMN IF NOT EXISTS badge TEXT,
+      ADD COLUMN IF NOT EXISTS image TEXT,
+      ADD COLUMN IF NOT EXISTS link TEXT,
+      ADD COLUMN IF NOT EXISTS group_type TEXT DEFAULT 'daily',
+      ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'Sale offer',
+      ADD COLUMN IF NOT EXISTS buy_qty INTEGER DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS get_qty INTEGER DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS target_category TEXT,
+      ADD COLUMN IF NOT EXISTS target_product_id INTEGER,
+      ADD COLUMN IF NOT EXISTS start_date TEXT,
+      ADD COLUMN IF NOT EXISTS end_date TEXT,
+      ADD COLUMN IF NOT EXISTS usage_limit INTEGER,
+      ADD COLUMN IF NOT EXISTS times_claimed INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
+    `);
+  } catch (err) {
+    console.warn("Auto-migration offers schema failed:", err.message);
+  }
+}
+
+async function autoMigrateCouponsSchema() {
+  try {
+    await db.execute(sql`
+      ALTER TABLE coupons
+      ADD COLUMN IF NOT EXISTS buy_quantity INTEGER DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS get_quantity INTEGER DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS target_type VARCHAR(32) DEFAULT 'all',
+      ADD COLUMN IF NOT EXISTS target_category VARCHAR(128),
+      ADD COLUMN IF NOT EXISTS target_product_id INTEGER,
+      ADD COLUMN IF NOT EXISTS target_customer_email VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS usage_limit INTEGER,
+      ADD COLUMN IF NOT EXISTS per_user_limit INTEGER DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS times_used INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS total_discount_given INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS start_date VARCHAR(32),
+      ADD COLUMN IF NOT EXISTS end_date VARCHAR(32),
+      ADD COLUMN IF NOT EXISTS customer_type VARCHAR(32) DEFAULT 'retail';
+    `);
+  } catch (err) {
+    console.warn("Auto-migration coupons schema failed:", err.message);
+  }
+}
 
 export default async function handler(req, res) {
   setCorsHeaders(req, res);
@@ -34,19 +91,19 @@ export default async function handler(req, res) {
             id: couponId,
             code,
             type: body.type || 'flat',
-            value: Number(body.value) || 0,
-            minOrder: Number(body.minOrder) || 0,
-            maxDiscount: body.maxDiscount ? Number(body.maxDiscount) : null,
-            buyQuantity: body.buyQuantity != null ? Number(body.buyQuantity) : 1,
-            getQuantity: body.getQuantity != null ? Number(body.getQuantity) : 1,
+            value: safeInt(body.value, 0),
+            minOrder: safeInt(body.minOrder, 0),
+            maxDiscount: body.maxDiscount ? safeInt(body.maxDiscount, null) : null,
+            buyQuantity: safeInt(body.buyQuantity, 1),
+            getQuantity: safeInt(body.getQuantity, 1),
             targetType: body.targetType || 'all',
             targetCategory: body.targetCategory || null,
-            targetProductId: body.targetProductId ? Number(body.targetProductId) : null,
+            targetProductId: body.targetProductId ? safeInt(body.targetProductId, null) : null,
             targetCustomerEmail: body.targetCustomerEmail || null,
-            usageLimit: body.usageLimit ? Number(body.usageLimit) : null,
-            perUserLimit: body.perUserLimit ? Number(body.perUserLimit) : 1,
-            timesUsed: body.timesUsed ? Number(body.timesUsed) : 0,
-            totalDiscountGiven: body.totalDiscountGiven ? Number(body.totalDiscountGiven) : 0,
+            usageLimit: body.usageLimit ? safeInt(body.usageLimit, null) : null,
+            perUserLimit: safeInt(body.perUserLimit, 1),
+            timesUsed: safeInt(body.timesUsed, 0),
+            totalDiscountGiven: safeInt(body.totalDiscountGiven, 0),
             startDate: body.startDate || null,
             endDate: body.endDate || null,
             title: body.title || '',
@@ -55,10 +112,20 @@ export default async function handler(req, res) {
             active: body.active !== false
           };
 
-          const saved = await db.insert(coupons).values(values).onConflictDoUpdate({
-            target: coupons.id,
-            set: values
-          }).returning();
+          let saved;
+          try {
+            saved = await db.insert(coupons).values(values).onConflictDoUpdate({
+              target: coupons.id,
+              set: values
+            }).returning();
+          } catch (insertErr) {
+            console.warn("Retrying coupon insert after schema migration...", insertErr.message);
+            await autoMigrateCouponsSchema();
+            saved = await db.insert(coupons).values(values).onConflictDoUpdate({
+              target: coupons.id,
+              set: values
+            }).returning();
+          }
 
           return res.status(201).json(saved[0]);
         }
@@ -71,19 +138,19 @@ export default async function handler(req, res) {
           const patch = {};
           if (body.code !== undefined) patch.code = String(body.code).trim().toUpperCase();
           if (body.type !== undefined) patch.type = body.type;
-          if (body.value !== undefined) patch.value = Number(body.value) || 0;
-          if (body.minOrder !== undefined) patch.minOrder = Number(body.minOrder) || 0;
-          if (body.maxDiscount !== undefined) patch.maxDiscount = body.maxDiscount ? Number(body.maxDiscount) : null;
-          if (body.buyQuantity !== undefined) patch.buyQuantity = Number(body.buyQuantity) || 1;
-          if (body.getQuantity !== undefined) patch.getQuantity = Number(body.getQuantity) || 1;
+          if (body.value !== undefined) patch.value = safeInt(body.value, 0);
+          if (body.minOrder !== undefined) patch.minOrder = safeInt(body.minOrder, 0);
+          if (body.maxDiscount !== undefined) patch.maxDiscount = body.maxDiscount ? safeInt(body.maxDiscount, null) : null;
+          if (body.buyQuantity !== undefined) patch.buyQuantity = safeInt(body.buyQuantity, 1);
+          if (body.getQuantity !== undefined) patch.getQuantity = safeInt(body.getQuantity, 1);
           if (body.targetType !== undefined) patch.targetType = body.targetType;
           if (body.targetCategory !== undefined) patch.targetCategory = body.targetCategory;
-          if (body.targetProductId !== undefined) patch.targetProductId = body.targetProductId ? Number(body.targetProductId) : null;
+          if (body.targetProductId !== undefined) patch.targetProductId = body.targetProductId ? safeInt(body.targetProductId, null) : null;
           if (body.targetCustomerEmail !== undefined) patch.targetCustomerEmail = body.targetCustomerEmail;
-          if (body.usageLimit !== undefined) patch.usageLimit = body.usageLimit ? Number(body.usageLimit) : null;
-          if (body.perUserLimit !== undefined) patch.perUserLimit = Number(body.perUserLimit) || 1;
-          if (body.timesUsed !== undefined) patch.timesUsed = Number(body.timesUsed) || 0;
-          if (body.totalDiscountGiven !== undefined) patch.totalDiscountGiven = Number(body.totalDiscountGiven) || 0;
+          if (body.usageLimit !== undefined) patch.usageLimit = body.usageLimit ? safeInt(body.usageLimit, null) : null;
+          if (body.perUserLimit !== undefined) patch.perUserLimit = safeInt(body.perUserLimit, 1);
+          if (body.timesUsed !== undefined) patch.timesUsed = safeInt(body.timesUsed, 0);
+          if (body.totalDiscountGiven !== undefined) patch.totalDiscountGiven = safeInt(body.totalDiscountGiven, 0);
           if (body.startDate !== undefined) patch.startDate = body.startDate;
           if (body.endDate !== undefined) patch.endDate = body.endDate;
           if (body.title !== undefined) patch.title = body.title;
@@ -91,7 +158,15 @@ export default async function handler(req, res) {
           if (body.customerType !== undefined) patch.customerType = body.customerType;
           if (body.active !== undefined) patch.active = Boolean(body.active);
 
-          const updated = await db.update(coupons).set(patch).where(eq(coupons.id, id)).returning();
+          let updated;
+          try {
+            updated = await db.update(coupons).set(patch).where(eq(coupons.id, id)).returning();
+          } catch (updateErr) {
+            console.warn("Retrying coupon update after schema migration...", updateErr.message);
+            await autoMigrateCouponsSchema();
+            updated = await db.update(coupons).set(patch).where(eq(coupons.id, id)).returning();
+          }
+
           return res.status(200).json(updated[0]);
         }
 
@@ -126,28 +201,38 @@ export default async function handler(req, res) {
           id: offerId,
           title,
           subtitle: body.subtitle || '',
-          price: Number(body.price) || 0,
-          mrp: Number(body.mrp) || Number(body.price) || 0,
+          price: safeInt(body.price, 0),
+          mrp: safeInt(body.mrp, safeInt(body.price, 0)),
           badge: body.badge || '',
           image: body.image || '',
           link: body.link || '/categories',
           groupType: body.group || body.groupType || 'daily',
           type: body.type || 'Sale offer',
-          buyQty: body.buyQty != null ? Number(body.buyQty) : 1,
-          getQty: body.getQty != null ? Number(body.getQty) : 1,
+          buyQty: safeInt(body.buyQty, 1),
+          getQty: safeInt(body.getQty, 1),
           targetCategory: body.targetCategory || null,
-          targetProductId: body.targetProductId ? Number(body.targetProductId) : null,
+          targetProductId: body.targetProductId ? safeInt(body.targetProductId, null) : null,
           startDate: body.startDate || null,
           endDate: body.endDate || null,
-          usageLimit: body.usageLimit ? Number(body.usageLimit) : null,
-          timesClaimed: body.timesClaimed ? Number(body.timesClaimed) : 0,
+          usageLimit: body.usageLimit ? safeInt(body.usageLimit, null) : null,
+          timesClaimed: safeInt(body.timesClaimed, 0),
           active: body.active !== false
         };
 
-        const saved = await db.insert(offers).values(values).onConflictDoUpdate({
-          target: offers.id,
-          set: values
-        }).returning();
+        let saved;
+        try {
+          saved = await db.insert(offers).values(values).onConflictDoUpdate({
+            target: offers.id,
+            set: values
+          }).returning();
+        } catch (insertErr) {
+          console.warn("Retrying offers insert after auto-migration...", insertErr.message);
+          await autoMigrateOffersSchema();
+          saved = await db.insert(offers).values(values).onConflictDoUpdate({
+            target: offers.id,
+            set: values
+          }).returning();
+        }
 
         return res.status(201).json(saved[0]);
       }
@@ -164,25 +249,33 @@ export default async function handler(req, res) {
       const patch = {};
       if (body.title !== undefined) patch.title = String(body.title).trim();
       if (body.subtitle !== undefined) patch.subtitle = body.subtitle;
-      if (body.price !== undefined) patch.price = Number(body.price) || 0;
-      if (body.mrp !== undefined) patch.mrp = Number(body.mrp) || 0;
+      if (body.price !== undefined) patch.price = safeInt(body.price, 0);
+      if (body.mrp !== undefined) patch.mrp = safeInt(body.mrp, 0);
       if (body.badge !== undefined) patch.badge = body.badge;
       if (body.image !== undefined) patch.image = body.image;
       if (body.link !== undefined) patch.link = body.link;
       if (body.group !== undefined) patch.groupType = body.group;
       if (body.groupType !== undefined) patch.groupType = body.groupType;
       if (body.type !== undefined) patch.type = body.type;
-      if (body.buyQty !== undefined) patch.buyQty = Number(body.buyQty) || 1;
-      if (body.getQty !== undefined) patch.getQty = Number(body.getQty) || 1;
+      if (body.buyQty !== undefined) patch.buyQty = safeInt(body.buyQty, 1);
+      if (body.getQty !== undefined) patch.getQty = safeInt(body.getQty, 1);
       if (body.targetCategory !== undefined) patch.targetCategory = body.targetCategory;
-      if (body.targetProductId !== undefined) patch.targetProductId = body.targetProductId ? Number(body.targetProductId) : null;
+      if (body.targetProductId !== undefined) patch.targetProductId = body.targetProductId ? safeInt(body.targetProductId, null) : null;
       if (body.startDate !== undefined) patch.startDate = body.startDate;
       if (body.endDate !== undefined) patch.endDate = body.endDate;
-      if (body.usageLimit !== undefined) patch.usageLimit = body.usageLimit ? Number(body.usageLimit) : null;
-      if (body.timesClaimed !== undefined) patch.timesClaimed = Number(body.timesClaimed) || 0;
+      if (body.usageLimit !== undefined) patch.usageLimit = body.usageLimit ? safeInt(body.usageLimit, null) : null;
+      if (body.timesClaimed !== undefined) patch.timesClaimed = safeInt(body.timesClaimed, 0);
       if (body.active !== undefined) patch.active = Boolean(body.active);
 
-      const updated = await db.update(offers).set(patch).where(eq(offers.id, id)).returning();
+      let updated;
+      try {
+        updated = await db.update(offers).set(patch).where(eq(offers.id, id)).returning();
+      } catch (updateErr) {
+        console.warn("Retrying offers update after auto-migration...", updateErr.message);
+        await autoMigrateOffersSchema();
+        updated = await db.update(offers).set(patch).where(eq(offers.id, id)).returning();
+      }
+
       return res.status(200).json(updated[0]);
     }
 
@@ -197,6 +290,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
     console.error("Error in /api/offers:", error);
-    return res.status(500).json({ error: 'Something went wrong. Please try again shortly.' });
+    const msg = error?.message || 'Failed to save offer';
+    return res.status(500).json({ error: msg });
   }
 }

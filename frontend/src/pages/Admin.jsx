@@ -1513,13 +1513,20 @@ const Admin = () => {
 
   const saveOffer = async (event, forceGroup) => {
     event.preventDefault();
+    const priceNum = Number(offerDraft.price) || 0;
+    const mrpNum = Number(offerDraft.mrp) || 0;
+    if (priceNum > 2147483647 || mrpNum > 2147483647) {
+      alert("Deal Price or MRP is too large. Maximum allowed value is ₹99,99,999.");
+      return;
+    }
+
     const festiveKeywords = /diwali|eid|holi|christmas|navratri|rakhi|onam|sankranti|ramzan|ugadi|ganesh|dussehra|festival|wedding|party/i;
     const group = forceGroup || (festiveKeywords.test(offerDraft.title + ' ' + offerDraft.badge) ? 'festival' : (offerDraft.group || 'daily'));
     const payload = {
       ...offerDraft,
       group,
-      price: Number(offerDraft.price) || 0,
-      mrp: Number(offerDraft.mrp) || 0,
+      price: Math.min(2147483647, Math.max(0, priceNum)),
+      mrp: Math.min(2147483647, Math.max(0, mrpNum)),
       buyQty: Number(offerDraft.buyQty) || 1,
       getQty: Number(offerDraft.getQty) || 1,
       targetCategory: offerDraft.targetCategory || null,
@@ -1538,7 +1545,7 @@ const Admin = () => {
       setTimeout(() => setSaveToast(null), 4000);
       broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
     } catch (err) {
-      alert(err.message);
+      alert(err.message || 'Failed to save offer');
     }
   };
 
@@ -2622,8 +2629,8 @@ const Admin = () => {
                   <input value={offerDraft.badge} onChange={(e) => setOfferDraft(prev => ({ ...prev, badge: e.target.value }))} placeholder="Badge e.g. Save ₹80 / BOGO" />
 
                   <div className="admin-form__grid admin-form__grid--two">
-                    <input value={offerDraft.price} onChange={(e) => setOfferDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="Deal Price (₹)" type="number" />
-                    <input value={offerDraft.mrp} onChange={(e) => setOfferDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="MRP (₹)" type="number" />
+                    <input value={offerDraft.price} onChange={(e) => setOfferDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="Deal Price (₹)" type="number" min="0" max="9999999" />
+                    <input value={offerDraft.mrp} onChange={(e) => setOfferDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="MRP (₹)" type="number" min="0" max="9999999" />
                   </div>
 
                   <div className="admin-offer-image">
@@ -2751,8 +2758,8 @@ const Admin = () => {
                   <input value={offerDraft.badge} onChange={(e) => setOfferDraft(prev => ({ ...prev, badge: e.target.value }))} placeholder="Badge e.g. Save ₹80 / BOGO" />
 
                   <div className="admin-form__grid admin-form__grid--two">
-                    <input value={offerDraft.price} onChange={(e) => setOfferDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="Deal Price (₹)" type="number" />
-                    <input value={offerDraft.mrp} onChange={(e) => setOfferDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="MRP (₹)" type="number" />
+                    <input value={offerDraft.price} onChange={(e) => setOfferDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="Deal Price (₹)" type="number" min="0" max="9999999" />
+                    <input value={offerDraft.mrp} onChange={(e) => setOfferDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="MRP (₹)" type="number" min="0" max="9999999" />
                   </div>
 
                   <div className="admin-offer-image">
