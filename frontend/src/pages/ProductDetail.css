@@ -682,3 +682,147 @@
     flex-direction: column;
   }
 }
+
+/* Amazon Style Variation Selector */
+.pd__amazon-variants {
+  margin: 18px 0 22px;
+  padding: 16px;
+  background: #fdfdfd;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+
+.pd__amazon-variants-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.pd__amazon-variants-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pd__amazon-variants-selected {
+  font-size: 14px;
+  font-weight: 800;
+  color: #2d5016;
+}
+
+.pd__amazon-variants-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pd__amazon-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  min-width: 120px;
+  background: #ffffff;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+}
+
+.pd__amazon-card:hover {
+  border-color: #8ab56c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(45, 80, 22, 0.08);
+}
+
+.pd__amazon-card--active {
+  border-color: #ff9900;
+  background: #fffdf9;
+  box-shadow: 0 0 0 1px #ff9900, 0 4px 14px rgba(255, 153, 0, 0.15);
+}
+
+.pd__amazon-card--out-of-stock {
+  opacity: 0.6;
+}
+
+.pd__amazon-card-check {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  background: #ff9900;
+  color: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 0 2px 6px rgba(255, 153, 0, 0.4);
+}
+
+.pd__amazon-card-media {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f9fafb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.pd__amazon-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pd__amazon-card-fallback {
+  font-size: 12px;
+  font-weight: 800;
+  color: #6b7280;
+}
+
+.pd__amazon-card-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pd__amazon-card-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1.2;
+}
+
+.pd__amazon-card-price {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.pd__amazon-card-discount {
+  font-size: 11px;
+  font-weight: 800;
+  color: #dc2626;
+  background: #fee2e2;
+  padding: 1px 6px;
+  border-radius: 4px;
+  width: fit-content;
+}
+
+.pd__amazon-card-mrp {
+  font-size: 11px;
+  color: #9ca3af;
+  text-decoration: line-through;
+}
+

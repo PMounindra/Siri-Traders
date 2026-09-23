@@ -20,6 +20,43 @@ import ProductCard from "../components/ProductCard";
 import Loading from "../components/Loading";
 import "./ProductDetail.css";
 
+const extractBaseName = (name = "") => {
+  return name
+    .toLowerCase()
+    .replace(/\b(rs\.?|\u20b9)\s*\d+\b/gi, "")
+    .replace(/\b\d+\s*(rs\.?|\u20b9)\b/gi, "")
+    .replace(
+      /\b\d+(\.\d+)?\s*(g|gm|grams|kg|ml|l|liter|litres|sachet|pkt|packet|pcs|piece|pieces|pads|oz)\b/gi,
+      ""
+    )
+    .replace(/\bpack of \d+\b/gi, "")
+    .replace(/[^a-z0-9\s]/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
+const extractVariantLabel = (p, baseNameStr) => {
+  if (p.weight && p.unit) {
+    return `${p.weight} ${p.unit}`;
+  }
+  const match = p.name.match(
+    /\b(\d+(\.\d+)?\s*(g|gm|grams|kg|ml|l|liter|litres|sachet|pkt|packet|pcs|piece|pieces|pads|oz)|(rs\.?\s*\d+|\d+\s*rs\.?)|pack of \d+)\b/i
+  );
+  if (match) {
+    return match[0].trim();
+  }
+  if (baseNameStr) {
+    const baseWords = baseNameStr.split(" ").filter(Boolean);
+    let rem = p.name;
+    baseWords.forEach((w) => {
+      rem = rem.replace(new RegExp(w, "gi"), "");
+    });
+    rem = rem.trim();
+    if (rem.length > 0) return rem;
+  }
+  return p.name;
+};
+
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -115,6 +152,95 @@ const ProductDetail = () => {
       isCancelled = true;
     };
   }, [id, productsLoading, customerType]);
+
+  const siblingVariants = useMemo(() => {
+    if (!product) return [];
+    const allProducts = getProductsForType(customerType) || [];
+    const currentBase = extractBaseName(product.name);
+    const currentBrand = (product.brand || "").trim().toLowerCase();
+
+    // Match catalog siblings
+    const catalogMatches = allProducts.filter((p) => {
+      if (String(p.id) === String(product.id)) return true;
+
+      // Match by brand if brand is explicit and meaningful
+      if (currentBrand && currentBrand.length > 1) {
+        const pBrand = (p.brand || "").trim().toLowerCase();
+        if (pBrand === currentBrand) return true;
+      }
+
+      // Match by base product name
+      const pBase = extractBaseName(p.name);
+      if (currentBase && pBase && currentBase === pBase && currentBase.length > 2) {
+        return true;
+      }
+
+      return false;
+    });
+
+    let cards = catalogMatches.map((p) => ({
+      id: p.id,
+      label: extractVariantLabel(p, currentBase),
+      fullName: p.name,
+      price: Number(p.price) || 0,
+      mrp: Number(p.mrp) || Number(p.price) || 0,
+      image: p.image,
+      inStock: p.inStock !== false,
+      isCatalogItem: true,
+      rawProduct: p,
+    }));
+
+    if (Array.isArray(product.variants) && product.variants.length > 0) {
+      const internalCards = product.variants.map((v, idx) => ({
+        id: `internal-${idx}-${v.label}`,
+        label: String(v.label || `${product.weight || ''} ${product.unit || ''}`).trim() || 'Standard Pack',
+        fullName: `${product.name} (${v.label})`,
+        price: Number(v.price) || Number(product.price) || 0,
+        mrp: Number(v.mrp) || Number(product.mrp) || Number(v.price) || Number(product.price) || 0,
+        image: product.image,
+        inStock: product.inStock !== false,
+        isCatalogItem: false,
+        rawVariant: v,
+      }));
+
+      if (cards.length <= 1) {
+        cards = internalCards;
+      }
+    }
+
+    const seen = new Set();
+    const uniqueCards = [];
+    for (const card of cards) {
+      const key = `${card.isCatalogItem ? 'cat' : 'int'}-${card.id || card.label}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueCards.push(card);
+      }
+    }
+
+    uniqueCards.sort((a, b) => a.price - b.price);
+
+    return uniqueCards;
+  }, [product, customerType, getProductsForType]);
+
+  const isCardActive = (card) => {
+    if (!card) return false;
+    if (card.isCatalogItem) {
+      return String(card.id) === String(product?.id);
+    }
+    return selectedVariant && String(selectedVariant.label) === String(card.label);
+  };
+
+  const handleSelectVariantCard = (card) => {
+    if (card.isCatalogItem) {
+      if (String(card.id) !== String(product.id)) {
+        navigate(`/product/${card.id}`);
+      }
+    } else {
+      setSelectedVariant(card.rawVariant);
+      setLocalQuantity(1);
+    }
+  };
 
   const variants = useMemo(() => {
     if (!product) return [];
@@ -308,23 +434,62 @@ const ProductDetail = () => {
                 <p className="pd__description">{product.description}</p>
               )}
 
-              {/* Variant chips */}
-              {variants.length > 1 && (
-                <div className="pd__variants">
-                  {variants.map((v) => (
-                    <button
-                      key={v.label}
-                      type="button"
-                      className={`pd__variant ${activeVariant?.label === v.label ? 'pd__variant--active' : ''}`}
-                      onClick={() => {
-                        setSelectedVariant(v);
-                        setLocalQuantity(1);
-                      }}
-                    >
-                      <span>{v.label}</span>
-                      <strong>{formatPrice(v.price)}</strong>
-                    </button>
-                  ))}
+              {/* Amazon-style Variation Selector */}
+              {siblingVariants.length > 1 && (
+                <div className="pd__amazon-variants">
+                  <div className="pd__amazon-variants-header">
+                    <span className="pd__amazon-variants-title">Size / Pack Options:</span>
+                    <span className="pd__amazon-variants-selected">
+                      {siblingVariants.find(isCardActive)?.label || activeVariant?.label || ''}
+                    </span>
+                  </div>
+                  <div className="pd__amazon-variants-grid">
+                    {siblingVariants.map((v) => {
+                      const active = isCardActive(v);
+                      const discount = v.mrp > v.price
+                        ? Math.round(((v.mrp - v.price) / v.mrp) * 100)
+                        : 0;
+
+                      return (
+                        <button
+                          key={v.id || v.label}
+                          type="button"
+                          className={`pd__amazon-card ${active ? 'pd__amazon-card--active' : ''} ${!v.inStock ? 'pd__amazon-card--out-of-stock' : ''}`}
+                          onClick={() => handleSelectVariantCard(v)}
+                        >
+                          {active && (
+                            <div className="pd__amazon-card-check" aria-hidden="true">
+                              ✓
+                            </div>
+                          )}
+                          <div className="pd__amazon-card-media">
+                            {v.image ? (
+                              <img
+                                src={toWebpImage(v.image)}
+                                alt={v.label}
+                                className="pd__amazon-card-img"
+                              />
+                            ) : (
+                              <div className="pd__amazon-card-fallback">
+                                {v.label.substring(0, 3)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="pd__amazon-card-details">
+                            <span className="pd__amazon-card-label">{v.label}</span>
+                            <span className="pd__amazon-card-price">{formatPrice(v.price)}</span>
+                            {discount > 0 ? (
+                              <span className="pd__amazon-card-discount">{discount}% OFF</span>
+                            ) : (
+                              v.mrp > v.price && (
+                                <span className="pd__amazon-card-mrp">{formatPrice(v.mrp)}</span>
+                              )
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
