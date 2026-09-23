@@ -303,6 +303,11 @@ const Checkout = () => {
         body: JSON.stringify({
           items: orderItemsList,
           total: grandTotal,
+          subtotal: cartTotal,
+          deliveryFee,
+          handlingCharge,
+          couponCode: appliedCoupon?.code || null,
+          discount: couponDiscount,
           deliveryAddress: `${addressLine}, ${addressForOrder.pincode}`,
           paymentMethod: 'cod'
         })

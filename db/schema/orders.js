@@ -4,6 +4,11 @@ export const orders = pgTable('orders', {
   id: serial('id').primaryKey(),
   userId: text('user_id').notNull(), // Clerk user ID
   total: integer('total').notNull(),
+  subtotal: integer('subtotal').default(0),
+  deliveryFee: integer('delivery_fee').default(0),
+  handlingCharge: integer('handling_charge').default(0),
+  couponCode: text('coupon_code'),
+  discount: integer('discount').default(0),
   status: text('status').default('Pending'), // 'Pending', 'Preparing', 'In Transit', 'Delivered', 'Paid', 'Cancelled'
   deliveryAddress: text('delivery_address'),
   paymentMethod: text('payment_method'),

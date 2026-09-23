@@ -1,11 +1,29 @@
 import { db, orders, orderItems, users, inventory, inventoryLogs, products } from '../db/index.js';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { setCorsHeaders } from './_cors.js';
 import { clerk, getAuthenticatedUserId } from './_clerkAuth.js';
 import { sendOrderNotificationEmail, sendCustomerOrderConfirmationEmail } from './_email.js';
 import { sendOrderNotificationSMS } from './_sms.js';
+
+let ordersMigrated = false;
+async function autoMigrateOrdersSchema() {
+  if (ordersMigrated) return;
+  try {
+    await db.execute(sql`
+      ALTER TABLE orders
+      ADD COLUMN IF NOT EXISTS subtotal INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS delivery_fee INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS handling_charge INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS coupon_code TEXT,
+      ADD COLUMN IF NOT EXISTS discount INTEGER DEFAULT 0;
+    `);
+    ordersMigrated = true;
+  } catch (err) {
+    console.warn("Auto-migration orders schema failed:", err.message);
+  }
+}
 
 // Setup Upstash Redis rate limiting: 10 requests per 30 seconds for orders endpoint
 const redis = new Redis({
@@ -24,6 +42,8 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
+
+  await autoMigrateOrdersSchema();
 
   const { id } = req.query;
 
@@ -144,6 +164,8 @@ export default async function handler(req, res) {
       const txnId = isCod ? `COD-SIRI-${Math.floor(100000 + Math.random() * 900000)}` : `TXN-SIRI-${Math.floor(200000 + Math.random() * 900000)}`;
       const trackingNumber = `TRK-SIRI-${Math.floor(500000 + Math.random() * 900000)}`;
 
+      const computedSubtotal = items.reduce((sum, i) => sum + (Number(i.price) || 0) * (Number(i.qty || i.quantity) || 1), 0);
+
       // Create order & its items in one transaction — if any item fails
       // (e.g. an unresolvable product id), the whole order rolls back instead
       // of leaving an orphaned order with no items sitting in the dashboard.
@@ -151,6 +173,11 @@ export default async function handler(req, res) {
         const orderResult = await tx.insert(orders).values({
           userId,
           total,
+          subtotal: body.subtotal !== undefined ? Number(body.subtotal) : (computedSubtotal || total),
+          deliveryFee: body.deliveryFee !== undefined ? Number(body.deliveryFee) : 0,
+          handlingCharge: body.handlingCharge !== undefined ? Number(body.handlingCharge) : 0,
+          couponCode: body.couponCode || null,
+          discount: body.discount !== undefined ? Number(body.discount) : 0,
           deliveryAddress: deliveryAddress || '',
           paymentMethod: paymentMethod || 'COD',
           status: isCod ? 'Preparing' : 'Paid',

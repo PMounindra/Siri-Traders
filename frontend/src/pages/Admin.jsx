@@ -3663,26 +3663,58 @@ const Admin = () => {
                         </tbody>
                       </table>
 
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
-                        <div style={{ width: '260px', fontSize: '12.5px', lineHeight: '1.6' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span>Subtotal:</span>
-                            <span>{formatPrice((invoiceModalOrder.items || []).reduce((s, i) => s + i.price * (i.quantity || 1), 0) || invoiceModalOrder.total)}</span>
+                      {(() => {
+                        const itemsTotal = (invoiceModalOrder.items || []).reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity || i.qty) || 1), 0);
+                        const subtotal = invoiceModalOrder.subtotal !== undefined && Number(invoiceModalOrder.subtotal) > 0
+                          ? Number(invoiceModalOrder.subtotal)
+                          : itemsTotal;
+                        const deliveryFee = invoiceModalOrder.deliveryFee !== undefined 
+                          ? Number(invoiceModalOrder.deliveryFee) 
+                          : (invoiceModalOrder.delivery_fee !== undefined ? Number(invoiceModalOrder.delivery_fee) : 0);
+                        const handlingCharge = invoiceModalOrder.handlingCharge !== undefined 
+                          ? Number(invoiceModalOrder.handlingCharge) 
+                          : (invoiceModalOrder.handling_charge !== undefined ? Number(invoiceModalOrder.handling_charge) : 0);
+                        const discount = invoiceModalOrder.discount !== undefined 
+                          ? Number(invoiceModalOrder.discount) 
+                          : 0;
+                        const couponCode = invoiceModalOrder.couponCode || invoiceModalOrder.coupon_code || '';
+                        const grandTotal = Number(invoiceModalOrder.total) || (subtotal + deliveryFee + handlingCharge - discount);
+
+                        return (
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                            <div style={{ width: '280px', fontSize: '12.5px', lineHeight: '1.6' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Subtotal:</span>
+                                <span>{formatPrice(subtotal)}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Delivery Fee:</span>
+                                <span>{deliveryFee > 0 ? formatPrice(deliveryFee) : <strong style={{ color: '#2D5016' }}>FREE</strong>}</span>
+                              </div>
+                              {handlingCharge > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <span>Handling Charge:</span>
+                                  <span>{formatPrice(handlingCharge)}</span>
+                                </div>
+                              )}
+                              {(discount > 0 || couponCode) && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#166534', fontWeight: 600 }}>
+                                  <span>Coupon ({couponCode || 'Applied'}):</span>
+                                  <span>-{formatPrice(discount)}</span>
+                                </div>
+                              )}
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>GST / Taxes:</span>
+                                <span>Included</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1.5px solid #2D5016', paddingTop: '4px', marginTop: '4px', fontWeight: 900, fontSize: '15px', color: '#1C4B12' }}>
+                                <span>Grand Total:</span>
+                                <span>{formatPrice(grandTotal)}</span>
+                              </div>
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span>GST / Taxes:</span>
-                            <span>Included</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span>Delivery Fee:</span>
-                            <span>₹0</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1.5px solid #2D5016', paddingTop: '4px', marginTop: '4px', fontWeight: 900, fontSize: '15px', color: '#1C4B12' }}>
-                            <span>Grand Total:</span>
-                            <span>{formatPrice(invoiceModalOrder.total)}</span>
-                          </div>
-                        </div>
-                      </div>
+                        );
+                      })()}
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '36px', paddingTop: '20px', borderTop: '1px solid #E2E8F0', fontSize: '11px', color: '#687466' }}>
                         <div>
