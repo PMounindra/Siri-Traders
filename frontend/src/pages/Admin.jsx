@@ -1268,7 +1268,10 @@ const Admin = () => {
     event.preventDefault();
     const isWholesale = productModalMode === 'wholesale';
 
-    if (!productDraft.category || !dbCategories.some(c => c.id === productDraft.category)) {
+    const matchedCategory = dbCategories.find(c => c.id === productDraft.category || c.name === productDraft.category);
+    const targetCatId = matchedCategory ? matchedCategory.id : (productDraft.category || dbCategories[0]?.id || '');
+
+    if (!targetCatId) {
       setSaveToast({
         type: 'error',
         msg: dbCategories.length
@@ -1299,9 +1302,10 @@ const Admin = () => {
 
     const baseNext = {
       ...productDraft,
+      category: targetCatId,
       targetType: productDraft.targetType || 'retail_and_wholesale',
       subcategory: productDraft.subcategory || '',
-      sku: productDraft.sku || genSku(productDraft.category),
+      sku: productDraft.sku || genSku(targetCatId),
       barcode: productDraft.barcode || genBarcode(),
       price: basePrice,
       mrp: baseMrp,
@@ -1311,7 +1315,6 @@ const Admin = () => {
       hsnCode: productDraft.hsnCode || '',
       batchNumber: productDraft.batchNumber || `BAT-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
       mfgDate: productDraft.mfgDate || '',
-      expiryDate: productDraft.expiryDate || '',
       expiryDate: productDraft.expiryDate || '',
       image: (productDraft.image || '').trim(),
       inStock: productDraft.stockNote !== 'Out of stock',
@@ -1337,15 +1340,16 @@ const Admin = () => {
     setApiLoading(true);
     setSaveToast(null);
     try {
-      const isEdit = Boolean(productDraft.id != null && String(productDraft.id).trim() !== '');
-      const targetId = Number(productDraft.id) || productDraft.id;
+      const numericId = Number(productDraft.id);
+      const isEdit = Boolean(productDraft.id != null && String(productDraft.id).trim() !== '' && !isNaN(numericId) && numericId > 0);
+      const targetId = isEdit ? numericId : null;
       const { stockNote, id: _id, ...apiPayload } = nextProduct;
       if (isEdit) {
         const saved = await adminApi.updateProduct(targetId, apiPayload);
-        nextProduct = { ...nextProduct, id: saved.id };
+        nextProduct = { ...nextProduct, ...saved };
       } else {
         const saved = await adminApi.createProduct(apiPayload);
-        nextProduct = { ...nextProduct, id: saved.id };
+        nextProduct = { ...nextProduct, ...saved };
       }
     } catch (err) {
       // Save actually failed — show the real error and leave the modal open

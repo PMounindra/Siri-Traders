@@ -14,8 +14,8 @@ const productSchema = z.object({
   weight: z.string().optional().nullable(),
   unit: z.string().optional().nullable().default('g'),
   packSize: z.string().optional().nullable(),
-  price: z.number().positive(),
-  mrp: z.number().positive().optional().nullable(),
+  price: z.number().nonnegative(),
+  mrp: z.number().nonnegative().optional().nullable(),
   costPrice: z.number().nonnegative().optional().nullable(),
   discount: z.number().nonnegative().optional().nullable(),
   gstRate: z.number().nonnegative().optional().nullable(),
@@ -88,7 +88,7 @@ function normalizeProductPayload(body) {
     if (payload[field] !== undefined && payload[field] !== null && payload[field] !== '') {
       const parsed = Number(payload[field]);
       if (!isNaN(parsed)) {
-        payload[field] = parsed;
+        payload[field] = Math.round(parsed);
       }
     } else if (payload[field] === '') {
       payload[field] = null;
