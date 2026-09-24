@@ -186,7 +186,7 @@ const ProductDetail = () => {
       setRelatedProducts(categoryProducts.slice(0, 8));
 
       const defaultWeightLabel = `${found.weight || ''} ${found.unit || ''}`.trim() || 'Standard Pack';
-      const defaultVars = (Array.isArray(found.variants) && found.variants.length > 0)
+      const defaultVars = (customerType === 'wholesale' && Array.isArray(found.variants) && found.variants.length > 0)
         ? found.variants
         : [{ label: defaultWeightLabel, price: Number(found.price) || 0, mrp: Number(found.mrp) || Number(found.price) || 0 }];
 
@@ -258,7 +258,7 @@ const ProductDetail = () => {
       rawProduct: p,
     }));
 
-    if (Array.isArray(product.variants) && product.variants.length > 0) {
+    if (customerType === 'wholesale' && Array.isArray(product.variants) && product.variants.length > 0) {
       const internalCards = product.variants.map((v, idx) => ({
         id: `internal-${idx}-${v.label}`,
         label: String(v.label || `${product.weight || ''} ${product.unit || ''}`).trim() || 'Standard Pack',
@@ -312,7 +312,7 @@ const ProductDetail = () => {
 
   const variants = useMemo(() => {
     if (!product) return [];
-    if (Array.isArray(product.variants) && product.variants.length > 0) {
+    if (customerType === 'wholesale' && Array.isArray(product.variants) && product.variants.length > 0) {
       return product.variants.map(v => ({
         label: String(v.label || `${product.weight || ''} ${product.unit || ''}`).trim() || 'Standard Pack',
         price: Number(v.price) || Number(product.price) || 0,
@@ -325,7 +325,7 @@ const ProductDetail = () => {
       price: Number(product.price) || 0,
       mrp: Number(product.mrp) || Number(product.price) || 0
     }];
-  }, [product]);
+  }, [product, customerType]);
 
   const activeVariant = selectedVariant || variants[0] || { label: 'Standard Pack', price: Number(product?.price) || 0, mrp: Number(product?.mrp) || Number(product?.price) || 0 };
   const activeCartId = product ? `${customerType}-${product.id}-${activeVariant?.label}` : null;

@@ -15,18 +15,19 @@ const ProductCard = ({ product, compact = false }) => {
   const isWholesale = customerType === 'wholesale';
   const isOutOfStock = product.stockNote === 'Out of stock' || product.inStock === false;
   const stockNote = product.stockNote && product.stockNote !== 'In stock' ? product.stockNote : '';
-  const priceVariants = product.variants || [
-    { label: `${product.weight} ${product.unit}`, price: product.price }
-  ];
+  const priceVariants = (isWholesale && Array.isArray(product.variants) && product.variants.length > 0)
+    ? product.variants
+    : [{ label: `${product.weight || ''} ${product.unit || ''}`.trim() || 'Standard Pack', price: Number(product.price) || 0, mrp: Number(product.mrp) || Number(product.price) || 0 }];
   const [selectedVariant, setSelectedVariant] = useState(() => {
     // Auto-select the variant that's already in cart (if any), scoped by customerType
     const inCart = priceVariants.find(v => getItemQuantity(`${customerType}-${product.id}-${v.label}`) > 0);
     return inCart || priceVariants[0];
   });
   const selectedProductId = `${customerType}-${product.id}-${selectedVariant.label}`;
-  const selectedPrice = selectedVariant.price;
-  const selectedMrp = selectedVariant.mrp || Math.round(selectedPrice * (product.mrp / product.price));
-  const selectedDiscount = Math.max(0, Math.round(((selectedMrp - selectedPrice) / selectedMrp) * 100));
+  const selectedPrice = Number(selectedVariant?.price) || Number(product.price) || 0;
+  const baseMrp = Number(selectedVariant?.mrp) || Number(product.mrp) || selectedPrice;
+  const selectedMrp = Math.max(selectedPrice, baseMrp);
+  const selectedDiscount = selectedMrp > selectedPrice ? Math.max(0, Math.round(((selectedMrp - selectedPrice) / selectedMrp) * 100)) : 0;
   const quantity = getItemQuantity(selectedProductId);
   const productInitials = product.name
     .split(' ')
@@ -117,19 +118,21 @@ const ProductCard = ({ product, compact = false }) => {
           <span className="product-card__ws-price">WS Price: {formatPrice(product.wholesalePrice)}</span>
         )}
         <p className="product-card__weight">{selectedVariant.label}</p>
-        <div className="product-card__variants">
-          {priceVariants.slice(0, isWholesale ? 4 : 3).map(variant => (
-            <button
-              key={`${product.id}-${variant.label}`}
-              type="button"
-              className={selectedVariant.label === variant.label ? 'product-card__variant product-card__variant--active' : 'product-card__variant'}
-              onClick={(e) => handleVariantSelect(e, variant)}
-            >
-              <span>{variant.label}</span>
-              <strong>{formatPrice(variant.price)}</strong>
-            </button>
-          ))}
-        </div>
+        {isWholesale && priceVariants.length > 1 && (
+          <div className="product-card__variants">
+            {priceVariants.slice(0, 4).map(variant => (
+              <button
+                key={`${product.id}-${variant.label}`}
+                type="button"
+                className={selectedVariant.label === variant.label ? 'product-card__variant product-card__variant--active' : 'product-card__variant'}
+                onClick={(e) => handleVariantSelect(e, variant)}
+              >
+                <span>{variant.label}</span>
+                <strong>{formatPrice(variant.price)}</strong>
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="product-card__bottom">
           <div className="product-card__price-group">

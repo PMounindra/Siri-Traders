@@ -1,17 +1,163 @@
 import { db, coupons } from '../db/index.js';
+import { eq, sql } from 'drizzle-orm';
 import { setCorsHeaders } from './_cors.js';
+import { isAdminRequest } from './_adminAuth.js';
+
+const MAX_PG_INT = 2147483647;
+
+const safeInt = (val, fallback = 0) => {
+  if (val == null || val === '') return fallback;
+  const num = Math.round(Number(val));
+  if (isNaN(num)) return fallback;
+  return Math.max(0, Math.min(MAX_PG_INT, num));
+};
+
+let couponsMigrated = false;
+
+async function autoMigrateCouponsSchema() {
+  if (couponsMigrated) return;
+  try {
+    await db.execute(sql`
+      ALTER TABLE coupons
+      ADD COLUMN IF NOT EXISTS buy_quantity INTEGER DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS get_quantity INTEGER DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS target_type VARCHAR(32) DEFAULT 'all',
+      ADD COLUMN IF NOT EXISTS target_category VARCHAR(128),
+      ADD COLUMN IF NOT EXISTS target_product_id INTEGER,
+      ADD COLUMN IF NOT EXISTS target_customer_email VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS usage_limit INTEGER,
+      ADD COLUMN IF NOT EXISTS per_user_limit INTEGER DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS times_used INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS total_discount_given INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS start_date VARCHAR(32),
+      ADD COLUMN IF NOT EXISTS end_date VARCHAR(32),
+      ADD COLUMN IF NOT EXISTS title VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS description TEXT,
+      ADD COLUMN IF NOT EXISTS customer_type VARCHAR(32) DEFAULT 'retail',
+      ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
+    `);
+    couponsMigrated = true;
+  } catch (err) {
+    console.warn("Auto-migration coupons schema failed:", err.message);
+  }
+}
 
 export default async function handler(req, res) {
   setCorsHeaders(req, res);
+
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
+
+  await autoMigrateCouponsSchema();
+  const targetId = req.query.id || (typeof req.body === 'object' ? req.body?.id : null);
 
   if (req.method === 'GET') {
     try {
       const allCoupons = await db.select().from(coupons);
       res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
       return res.status(200).json(allCoupons || []);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // Admin authentication check for POST, PUT, DELETE
+  const adminOk = await isAdminRequest(req);
+  if (!adminOk) {
+    return res.status(403).json({ error: 'Forbidden: admin access required' });
+  }
+
+  if (req.method === 'POST') {
+    try {
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+      const code = String(body.code || '').trim().toUpperCase();
+      if (!code) {
+        return res.status(400).json({ error: 'code is required' });
+      }
+
+      const couponId = body.id || `coupon-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const values = {
+        id: String(couponId),
+        code,
+        type: body.type || 'flat',
+        value: safeInt(body.value, 0),
+        minOrder: safeInt(body.minOrder, 0),
+        maxDiscount: body.maxDiscount ? safeInt(body.maxDiscount, null) : null,
+        buyQuantity: safeInt(body.buyQuantity, 1),
+        getQuantity: safeInt(body.getQuantity, 1),
+        targetType: body.targetType || 'all',
+        targetCategory: body.targetCategory || null,
+        targetProductId: body.targetProductId ? safeInt(body.targetProductId, null) : null,
+        targetCustomerEmail: body.targetCustomerEmail || null,
+        usageLimit: body.usageLimit ? safeInt(body.usageLimit, null) : null,
+        perUserLimit: safeInt(body.perUserLimit, 1),
+        timesUsed: safeInt(body.timesUsed, 0),
+        totalDiscountGiven: safeInt(body.totalDiscountGiven, 0),
+        startDate: body.startDate || null,
+        endDate: body.endDate || null,
+        title: body.title || '',
+        description: body.description || '',
+        customerType: body.customerType || 'retail',
+        active: body.active !== false
+      };
+
+      const [saved] = await db.insert(coupons).values(values).onConflictDoUpdate({
+        target: coupons.id,
+        set: values
+      }).returning();
+
+      return res.status(201).json(saved || values);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  if (req.method === 'PUT') {
+    try {
+      if (!targetId) {
+        return res.status(400).json({ error: 'Coupon ID is required' });
+      }
+
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+      const patch = {};
+      if (body.code !== undefined) patch.code = String(body.code).trim().toUpperCase();
+      if (body.type !== undefined) patch.type = body.type;
+      if (body.value !== undefined) patch.value = safeInt(body.value, 0);
+      if (body.minOrder !== undefined) patch.minOrder = safeInt(body.minOrder, 0);
+      if (body.maxDiscount !== undefined) patch.maxDiscount = body.maxDiscount ? safeInt(body.maxDiscount, null) : null;
+      if (body.buyQuantity !== undefined) patch.buyQuantity = safeInt(body.buyQuantity, 1);
+      if (body.getQuantity !== undefined) patch.getQuantity = safeInt(body.getQuantity, 1);
+      if (body.targetType !== undefined) patch.targetType = body.targetType;
+      if (body.targetCategory !== undefined) patch.targetCategory = body.targetCategory;
+      if (body.targetProductId !== undefined) patch.targetProductId = body.targetProductId ? safeInt(body.targetProductId, null) : null;
+      if (body.targetCustomerEmail !== undefined) patch.targetCustomerEmail = body.targetCustomerEmail;
+      if (body.usageLimit !== undefined) patch.usageLimit = body.usageLimit ? safeInt(body.usageLimit, null) : null;
+      if (body.perUserLimit !== undefined) patch.perUserLimit = safeInt(body.perUserLimit, 1);
+      if (body.timesUsed !== undefined) patch.timesUsed = safeInt(body.timesUsed, 0);
+      if (body.totalDiscountGiven !== undefined) patch.totalDiscountGiven = safeInt(body.totalDiscountGiven, 0);
+      if (body.startDate !== undefined) patch.startDate = body.startDate;
+      if (body.endDate !== undefined) patch.endDate = body.endDate;
+      if (body.title !== undefined) patch.title = body.title;
+      if (body.description !== undefined) patch.description = body.description;
+      if (body.customerType !== undefined) patch.customerType = body.customerType;
+      if (body.active !== undefined) patch.active = Boolean(body.active);
+
+      const [updated] = await db.update(coupons).set(patch).where(eq(coupons.id, String(targetId))).returning();
+      return res.status(200).json(updated || { id: targetId, ...patch });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  if (req.method === 'DELETE') {
+    try {
+      if (!targetId) {
+        return res.status(400).json({ error: 'Coupon ID is required' });
+      }
+
+      await db.delete(coupons).where(eq(coupons.id, String(targetId)));
+      return res.status(200).json({ success: true, id: targetId });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }

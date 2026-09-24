@@ -1319,7 +1319,7 @@ const Admin = () => {
       isArchived: Boolean(productDraft.isArchived),
       isBestseller: Boolean(productDraft.isBestseller),
       isTodaysDeal: Boolean(productDraft.isTodaysDeal),
-      variants: validVariants.length > 0 ? validVariants : undefined
+      variants: validVariants
     };
     
     let nextProduct = baseNext;
