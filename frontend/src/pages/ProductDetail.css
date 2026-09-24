@@ -826,3 +826,82 @@
   text-decoration: line-through;
 }
 
+.pd__pack-variants {
+  margin-bottom: 22px;
+  background: #fdfcf8;
+  border: 1px dashed rgba(45, 80, 22, 0.2);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.pd__pack-variants-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.pd__pack-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 16px;
+  min-width: 100px;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.pd__pack-card:hover {
+  border-color: #2d5016;
+  background: #f8faf6;
+}
+
+.pd__pack-card--active {
+  border-color: #2d5016;
+  background: #f0f7ec;
+  box-shadow: 0 0 0 1px #2d5016, 0 3px 10px rgba(45, 80, 22, 0.12);
+}
+
+.pd__pack-card-check {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 18px;
+  height: 18px;
+  background: #2d5016;
+  color: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.pd__pack-card-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.pd__pack-card-price {
+  font-size: 15px;
+  font-weight: 800;
+  color: #2d5016;
+}
+
+.pd__pack-card-discount {
+  font-size: 10px;
+  font-weight: 800;
+  color: #dc2626;
+  background: #fee2e2;
+  padding: 1px 5px;
+  border-radius: 4px;
+  width: fit-content;
+}
+

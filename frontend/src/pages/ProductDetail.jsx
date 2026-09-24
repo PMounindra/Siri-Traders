@@ -258,28 +258,10 @@ const ProductDetail = () => {
       rawProduct: p,
     }));
 
-    if (customerType === 'wholesale' && Array.isArray(product.variants) && product.variants.length > 0) {
-      const internalCards = product.variants.map((v, idx) => ({
-        id: `internal-${idx}-${v.label}`,
-        label: String(v.label || `${product.weight || ''} ${product.unit || ''}`).trim() || 'Standard Pack',
-        fullName: `${product.name} (${v.label})`,
-        price: Number(v.price) || Number(product.price) || 0,
-        mrp: Number(v.mrp) || Number(product.mrp) || Number(v.price) || Number(product.price) || 0,
-        image: product.image,
-        inStock: product.inStock !== false,
-        isCatalogItem: false,
-        rawVariant: v,
-      }));
-
-      if (cards.length <= 1) {
-        cards = internalCards;
-      }
-    }
-
     const seen = new Set();
     const uniqueCards = [];
     for (const card of cards) {
-      const key = `${card.isCatalogItem ? 'cat' : 'int'}-${card.id || card.label}`;
+      const key = `${card.id || card.label}`;
       if (!seen.has(key)) {
         seen.add(key);
         uniqueCards.push(card);
@@ -292,11 +274,8 @@ const ProductDetail = () => {
   }, [product, customerType, getProductsForType]);
 
   const isCardActive = (card) => {
-    if (!card) return false;
-    if (card.isCatalogItem) {
-      return String(card.id) === String(product?.id);
-    }
-    return selectedVariant && String(selectedVariant.label) === String(card.label);
+    if (!card || !product) return false;
+    return String(card.id) === String(product.id);
   };
 
   const handleSelectVariantCard = (card) => {
@@ -304,28 +283,31 @@ const ProductDetail = () => {
       if (String(card.id) !== String(product.id)) {
         navigate(`/product/${card.id}`);
       }
-    } else {
-      setSelectedVariant(card.rawVariant);
-      setLocalQuantity(1);
     }
   };
 
-  const variants = useMemo(() => {
+  const productPackVariants = useMemo(() => {
     if (!product) return [];
-    if (customerType === 'wholesale' && Array.isArray(product.variants) && product.variants.length > 0) {
-      return product.variants.map(v => ({
+    if (Array.isArray(product.variants) && product.variants.length > 0) {
+      return product.variants.map((v, idx) => ({
+        id: `pack-${idx}-${v.label}`,
         label: String(v.label || `${product.weight || ''} ${product.unit || ''}`).trim() || 'Standard Pack',
         price: Number(v.price) || Number(product.price) || 0,
-        mrp: Number(v.mrp) || Number(product.mrp) || Number(v.price) || Number(product.price) || 0
+        mrp: Number(v.mrp) || Number(product.mrp) || Number(v.price) || Number(product.price) || 0,
+        rawVariant: v
       }));
     }
     const labelStr = `${product.weight || ''} ${product.unit || ''}`.trim() || 'Standard Pack';
     return [{
+      id: `pack-0-${labelStr}`,
       label: labelStr,
       price: Number(product.price) || 0,
-      mrp: Number(product.mrp) || Number(product.price) || 0
+      mrp: Number(product.mrp) || Number(product.price) || 0,
+      rawVariant: { label: labelStr, price: Number(product.price) || 0, mrp: Number(product.mrp) || Number(product.price) || 0 }
     }];
-  }, [product, customerType]);
+  }, [product]);
+
+  const variants = productPackVariants;
 
   const activeVariant = selectedVariant || variants[0] || { label: 'Standard Pack', price: Number(product?.price) || 0, mrp: Number(product?.mrp) || Number(product?.price) || 0 };
   const activeCartId = product ? `${customerType}-${product.id}-${activeVariant?.label}` : null;
@@ -502,13 +484,50 @@ const ProductDetail = () => {
                 <p className="pd__description">{product.description}</p>
               )}
 
-              {/* Amazon-style Variation Selector */}
+              {/* Pack Size / Quantity Options */}
+              {productPackVariants.length > 1 && (
+                <div className="pd__pack-variants">
+                  <div className="pd__amazon-variants-header">
+                    <span className="pd__amazon-variants-title">Pack Size / Quantity Options:</span>
+                    <span className="pd__amazon-variants-selected">
+                      {activeVariant?.label || productPackVariants[0]?.label || ''}
+                    </span>
+                  </div>
+                  <div className="pd__pack-variants-grid">
+                    {productPackVariants.map((v) => {
+                      const active = activeVariant && String(activeVariant.label) === String(v.label);
+                      const discount = v.mrp > v.price
+                        ? Math.round(((v.mrp - v.price) / v.mrp) * 100)
+                        : 0;
+
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          className={`pd__pack-card ${active ? 'pd__pack-card--active' : ''}`}
+                          onClick={() => {
+                            setSelectedVariant(v.rawVariant);
+                            setLocalQuantity(1);
+                          }}
+                        >
+                          {active && <span className="pd__pack-card-check">✓</span>}
+                          <span className="pd__pack-card-label">{v.label}</span>
+                          <span className="pd__pack-card-price">{formatPrice(v.price)}</span>
+                          {discount > 0 && <span className="pd__pack-card-discount">{discount}% OFF</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Amazon-style Variety / Flavor Options */}
               {siblingVariants.length > 1 && (
                 <div className="pd__amazon-variants">
                   <div className="pd__amazon-variants-header">
-                    <span className="pd__amazon-variants-title">Size / Pack Options:</span>
+                    <span className="pd__amazon-variants-title">Variety / Flavor Options:</span>
                     <span className="pd__amazon-variants-selected">
-                      {siblingVariants.find(isCardActive)?.label || activeVariant?.label || ''}
+                      {siblingVariants.find(isCardActive)?.label || product.name}
                     </span>
                   </div>
                   <div className="pd__amazon-variants-grid">
