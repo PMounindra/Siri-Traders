@@ -905,3 +905,80 @@
   width: fit-content;
 }
 
+/* Mobile Responsiveness for Pack & Variety Selectors */
+@media (max-width: 640px) {
+  .pd__amazon-variants,
+  .pd__pack-variants {
+    padding: 12px;
+    margin: 12px 0 16px;
+    border-radius: 12px;
+  }
+
+  .pd__amazon-variants-header {
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .pd__amazon-variants-title {
+    font-size: 11px;
+  }
+
+  .pd__amazon-variants-selected {
+    font-size: 12px;
+  }
+
+  .pd__amazon-variants-grid,
+  .pd__pack-variants-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 6px;
+    gap: 8px;
+    scrollbar-width: none;
+  }
+
+  .pd__amazon-variants-grid::-webkit-scrollbar,
+  .pd__pack-variants-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pd__amazon-card {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    min-width: 115px;
+    padding: 6px 10px;
+    gap: 8px;
+  }
+
+  .pd__amazon-card-media {
+    width: 34px;
+    height: 34px;
+  }
+
+  .pd__amazon-card-label {
+    font-size: 12px;
+  }
+
+  .pd__amazon-card-price {
+    font-size: 13px;
+  }
+
+  .pd__pack-card {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    min-width: 95px;
+    padding: 8px 12px;
+  }
+
+  .pd__pack-card-label {
+    font-size: 12px;
+  }
+
+  .pd__pack-card-price {
+    font-size: 14px;
+  }
+}
+
