@@ -1312,7 +1312,8 @@ const Admin = () => {
       batchNumber: productDraft.batchNumber || `BAT-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
       mfgDate: productDraft.mfgDate || '',
       expiryDate: productDraft.expiryDate || '',
-      image: productDraft.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80',
+      expiryDate: productDraft.expiryDate || '',
+      image: (productDraft.image || '').trim(),
       inStock: productDraft.stockNote !== 'Out of stock',
       isPublished: productDraft.isPublished !== false,
       isArchived: Boolean(productDraft.isArchived),
@@ -1512,16 +1513,17 @@ const Admin = () => {
 
   const removeProduct = async (productId) => {
     if (!window.confirm('Delete this product? This cannot be undone.')) return;
-    if (activeTab === 'wholesale-products') {
-      persistWholesaleProducts(wholesaleProducts.filter(p => p.id !== productId));
-    } else {
-      persistRetailProducts(retailProducts.filter(p => p.id !== productId));
-    }
+    persistWholesaleProducts(wholesaleProducts.filter(p => String(p.id) !== String(productId)));
+    persistRetailProducts(retailProducts.filter(p => String(p.id) !== String(productId)));
     const targetId = Number(productId) || productId;
     if (targetId) {
-      adminApi.deleteProduct(targetId)
-        .then(() => broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED))
-        .catch(() => {});
+      try {
+        await adminApi.deleteProduct(targetId);
+        broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED);
+        loadInventory();
+      } catch (err) {
+        console.warn('Failed to delete product from database:', err);
+      }
     }
   };
 
@@ -4549,6 +4551,14 @@ const Admin = () => {
                                 }}
                               >
                                 Update Stock
+                              </button>
+                              <button
+                                className="admin-danger"
+                                style={{ height: '32px', padding: '0 10px', fontSize: '11px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                title="Delete Product"
+                                onClick={() => removeProduct(item.productId)}
+                              >
+                                <FiTrash2 size={12} /> Delete
                               </button>
                             </div>
                           </td>
