@@ -140,8 +140,8 @@ export const SiteDataProvider = ({ children }) => {
 
   const dailyOffers = offers.filter(o => o.active !== false && o.group === 'daily');
   const festivalOffers = offers.filter(o => o.active !== false && o.group === 'festival');
-  const retailCoupons = coupons.filter(c => c.active !== false && (c.customerType || 'retail') !== 'wholesale');
-  const wholesaleCoupons = coupons.filter(c => c.active !== false && (c.customerType === 'wholesale' || c.customerType === 'all'));
+  const retailCoupons = coupons.filter(c => c.active !== false && (c.customerType === 'retail' || c.customerType === 'all' || !c.customerType));
+  const wholesaleCoupons = coupons.filter(c => c.active !== false && (c.customerType === 'wholesale' || c.customerType === 'all' || !c.customerType));
 
   const getCmsPage = (slug) => cmsPages.find(p => p.slug === slug && p.isPublished !== false) || null;
 

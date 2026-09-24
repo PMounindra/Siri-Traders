@@ -2759,9 +2759,16 @@ const Admin = () => {
                           style={{ width: '28px', height: '28px', padding: 0, borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                           onClick={async () => {
                             if (window.confirm(`Delete coupon code ${coupon.code}?`)) {
-                              await adminApi.deleteCoupon(coupon.id);
-                              setCoupons(prev => prev.filter(c => c.id !== coupon.id));
-                              broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
+                              try {
+                                await adminApi.deleteCoupon(coupon.id);
+                                setCoupons(prev => prev.filter(c => c.id !== coupon.id));
+                                broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
+                                refreshSiteData();
+                                setSaveToast({ type: 'success', msg: `✅ Coupon ${coupon.code} deleted` });
+                                setTimeout(() => setSaveToast(null), 4000);
+                              } catch (err) {
+                                alert(`Failed to delete coupon: ${err.message}`);
+                              }
                             }
                           }}
                         >

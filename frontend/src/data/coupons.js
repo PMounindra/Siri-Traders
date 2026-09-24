@@ -12,11 +12,16 @@ export const wholesaleCoupons = [];
  * Returns { valid, error, discount, freeDelivery, coupon }.
  */
 export const applyCoupon = (code, cartTotal, couponList, options = {}) => {
-  const { cartItems = [], userEmail = '' } = options;
+  const { cartItems = [], userEmail = '', allCoupons = [] } = options;
   const normalized = String(code || '').trim().toUpperCase();
   if (!normalized) return { valid: false, error: 'Enter a coupon code.' };
 
-  const coupon = (couponList || []).find(c => c.code === normalized);
+  const searchPool = (couponList && couponList.length > 0) ? couponList : allCoupons;
+  let coupon = searchPool.find(c => String(c.code || '').trim().toUpperCase() === normalized);
+  if (!coupon && allCoupons.length > 0) {
+    coupon = allCoupons.find(c => String(c.code || '').trim().toUpperCase() === normalized);
+  }
+
   if (!coupon) return { valid: false, error: 'Invalid coupon code.' };
 
   if (coupon.active === false) return { valid: false, error: 'This coupon is no longer active.' };

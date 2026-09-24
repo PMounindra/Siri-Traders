@@ -1,4 +1,4 @@
-import { db, orders, orderItems, users, inventory, inventoryLogs, products } from '../db/index.js';
+import { db, orders, orderItems, users, inventory, inventoryLogs, products, coupons } from '../db/index.js';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
@@ -193,6 +193,23 @@ export default async function handler(req, res) {
         }).returning();
 
         const order = orderResult[0];
+
+        if (body.couponCode) {
+          try {
+            const codeClean = String(body.couponCode).trim().toUpperCase();
+            const discVal = Math.max(0, Number(body.discount) || 0);
+            const foundCoupons = await tx.select().from(coupons).where(eq(coupons.code, codeClean));
+            if (foundCoupons.length) {
+              const cRow = foundCoupons[0];
+              await tx.update(coupons).set({
+                timesUsed: (cRow.timesUsed || 0) + 1,
+                totalDiscountGiven: (cRow.totalDiscountGiven || 0) + discVal
+              }).where(eq(coupons.id, cRow.id));
+            }
+          } catch (couponStatsErr) {
+            console.warn("Failed to increment coupon stats:", couponStatsErr.message);
+          }
+        }
 
         for (const item of items) {
           // Promotional/combo offer items (added from Today's Deals / Festive

@@ -1,5 +1,5 @@
 import { db, coupons } from '../db/index.js';
-import { eq, sql } from 'drizzle-orm';
+import { eq, or, sql } from 'drizzle-orm';
 import { setCorsHeaders } from './_cors.js';
 import { isAdminRequest } from './_adminAuth.js';
 
@@ -143,7 +143,11 @@ export default async function handler(req, res) {
       if (body.customerType !== undefined) patch.customerType = body.customerType;
       if (body.active !== undefined) patch.active = Boolean(body.active);
 
-      const [updated] = await db.update(coupons).set(patch).where(eq(coupons.id, String(targetId))).returning();
+      const searchStr = String(targetId).trim();
+      const [updated] = await db.update(coupons).set(patch).where(
+        or(eq(coupons.id, searchStr), eq(coupons.code, searchStr.toUpperCase()))
+      ).returning();
+
       return res.status(200).json(updated || { id: targetId, ...patch });
     } catch (err) {
       return res.status(500).json({ error: err.message });
@@ -156,7 +160,10 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Coupon ID is required' });
       }
 
-      await db.delete(coupons).where(eq(coupons.id, String(targetId)));
+      const searchStr = String(targetId).trim();
+      await db.delete(coupons).where(
+        or(eq(coupons.id, searchStr), eq(coupons.code, searchStr.toUpperCase()))
+      );
       return res.status(200).json({ success: true, id: targetId });
     } catch (err) {
       return res.status(500).json({ error: err.message });
