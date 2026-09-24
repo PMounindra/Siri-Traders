@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { baseProducts, toWholesaleProduct } from '../data/products';
+import { groupProductsByBase } from '../utils/productGrouping';
 import { useAuth } from './AuthContext';
 import { subscribeSync, SYNC_EVENTS } from '../utils/syncChannel';
 
@@ -53,11 +54,6 @@ export const ProductProvider = ({ children }) => {
     };
     window.addEventListener('focus', onFocus);
 
-    // Periodic sync in background — long interval on purpose: this pulls every
-    // column (including base64-encoded product images) for up to 500 rows, and
-    // was previously firing every 25s per open tab, which is what blew through
-    // the Neon data-transfer quota. Focus-refetch + cross-tab sync above cover
-    // the common "someone just changed something" case; this is just a safety net.
     const interval = setInterval(() => {
       fetchProducts(false);
     }, 5 * 60 * 1000);
@@ -69,21 +65,24 @@ export const ProductProvider = ({ children }) => {
     };
   }, [fetchProducts]);
 
-  // Returns the live API products filtered by customerType / targetType
+  // Returns the live API products filtered by customerType / targetType & grouped by base product
   const getProductsForType = (customerType = 'retail') => {
     const list = Array.isArray(products) ? products : [];
+    let items;
     if (customerType === 'wholesale') {
       const wholesaleItems = list.filter(p => {
         if (!p.targetType) return true; // Default fallback for existing DB items
         return p.targetType === 'wholesale' || p.targetType === 'retail_and_wholesale' || p.targetType === 'both';
       });
-      return wholesaleItems.map(toWholesaleProduct);
+      items = wholesaleItems.map(toWholesaleProduct);
+    } else {
+      items = list.filter(p => {
+        if (!p.targetType) return true; // Default fallback for existing DB items
+        return p.targetType === 'retail' || p.targetType === 'retail_and_wholesale' || p.targetType === 'both';
+      });
     }
 
-    return list.filter(p => {
-      if (!p.targetType) return true; // Default fallback for existing DB items
-      return p.targetType === 'retail' || p.targetType === 'retail_and_wholesale' || p.targetType === 'both';
-    });
+    return groupProductsByBase(items);
   };
 
   const addProduct = async (productData) => {

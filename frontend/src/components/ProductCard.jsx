@@ -15,7 +15,7 @@ const ProductCard = ({ product, compact = false }) => {
   const isWholesale = customerType === 'wholesale';
   const isOutOfStock = product.stockNote === 'Out of stock' || product.inStock === false;
   const stockNote = product.stockNote && product.stockNote !== 'In stock' ? product.stockNote : '';
-  const priceVariants = (isWholesale && Array.isArray(product.variants) && product.variants.length > 0)
+  const priceVariants = (Array.isArray(product.variants) && product.variants.length > 0)
     ? product.variants
     : [{ label: `${product.weight || ''} ${product.unit || ''}`.trim() || 'Standard Pack', price: Number(product.price) || 0, mrp: Number(product.mrp) || Number(product.price) || 0 }];
   const [selectedVariant, setSelectedVariant] = useState(() => {
@@ -118,9 +118,9 @@ const ProductCard = ({ product, compact = false }) => {
           <span className="product-card__ws-price">WS Price: {formatPrice(product.wholesalePrice)}</span>
         )}
         <p className="product-card__weight">{selectedVariant.label}</p>
-        {isWholesale && priceVariants.length > 1 && (
+        {priceVariants.length > 1 && (
           <div className="product-card__variants">
-            {priceVariants.slice(0, 4).map(variant => (
+            {priceVariants.slice(0, 6).map(variant => (
               <button
                 key={`${product.id}-${variant.label}`}
                 type="button"
