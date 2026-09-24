@@ -1,4 +1,4 @@
-import { db, products, categories } from '../db/index.js';
+import { db, products, categories, inventory, orderItems } from '../db/index.js';
 import { eq, and, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { setCorsHeaders } from './_cors.js';
@@ -284,8 +284,15 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: 'Product not found' });
       }
 
-      await db.delete(products).where(eq(products.id, parsedId));
-      return res.status(200).json({ success: true, id: parsedId });
+      try {
+        await db.update(orderItems).set({ productId: null }).where(eq(orderItems.productId, parsedId)).catch(() => {});
+        await db.delete(inventory).where(eq(inventory.productId, parsedId)).catch(() => {});
+        await db.delete(products).where(eq(products.id, parsedId));
+        return res.status(200).json({ success: true, id: parsedId });
+      } catch (delErr) {
+        console.error('Error deleting product from database:', delErr);
+        return res.status(500).json({ error: `Failed to delete product: ${delErr.message}` });
+      }
     }
 
     return res.status(405).json({ error: 'Method not allowed' });

@@ -1519,15 +1519,21 @@ const Admin = () => {
     if (!window.confirm('Delete this product? This cannot be undone.')) return;
     persistWholesaleProducts(wholesaleProducts.filter(p => String(p.id) !== String(productId)));
     persistRetailProducts(retailProducts.filter(p => String(p.id) !== String(productId)));
-    const targetId = Number(productId) || productId;
-    if (targetId) {
+    const numericId = Number(productId);
+    const isDbProduct = !isNaN(numericId) && numericId > 0;
+    if (isDbProduct) {
       try {
-        await adminApi.deleteProduct(targetId);
+        await adminApi.deleteProduct(numericId);
         broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED);
         loadInventory();
       } catch (err) {
-        console.warn('Failed to delete product from database:', err);
+        console.error('Failed to delete product from database:', err);
+        setSaveToast({ type: 'error', msg: `⚠️ DB deletion error: ${err.message}` });
+        setTimeout(() => setSaveToast(null), 8000);
       }
+    } else {
+      broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED);
+      loadInventory();
     }
   };
 
