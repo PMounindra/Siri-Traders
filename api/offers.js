@@ -27,6 +27,7 @@ async function autoMigrateOffersSchema() {
       ADD COLUMN IF NOT EXISTS target_category TEXT,
       ADD COLUMN IF NOT EXISTS target_product_id INTEGER,
       ADD COLUMN IF NOT EXISTS items_included TEXT,
+      ADD COLUMN IF NOT EXISTS combo_items TEXT,
       ADD COLUMN IF NOT EXISTS start_date TEXT,
 
       ADD COLUMN IF NOT EXISTS end_date TEXT,
@@ -187,7 +188,14 @@ export default async function handler(req, res) {
     if (!id) {
       if (req.method === 'GET') {
         const allOffers = await db.select().from(offers);
-        return res.status(200).json(allOffers);
+        const parsed = (allOffers || []).map(o => {
+          let comboItems = [];
+          if (o.comboItems) {
+            try { comboItems = typeof o.comboItems === 'string' ? JSON.parse(o.comboItems) : o.comboItems; } catch { comboItems = []; }
+          }
+          return { ...o, comboItems: Array.isArray(comboItems) ? comboItems : [] };
+        });
+        return res.status(200).json(parsed);
       }
 
       if (req.method === 'POST') {
@@ -199,6 +207,11 @@ export default async function handler(req, res) {
         if (!title) return res.status(400).json({ error: 'title is required' });
 
         const offerId = body.id || `offer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const rawCombo = body.comboItems || body.combo_items;
+        const comboItemsStr = Array.isArray(rawCombo) || (rawCombo && typeof rawCombo === 'object')
+          ? JSON.stringify(rawCombo)
+          : (typeof rawCombo === 'string' ? rawCombo : '[]');
+
         const values = {
           id: offerId,
           title,
@@ -215,8 +228,8 @@ export default async function handler(req, res) {
           targetCategory: body.targetCategory || null,
           targetProductId: body.targetProductId ? safeInt(body.targetProductId, null) : null,
           itemsIncluded: body.itemsIncluded || body.items_included || '',
+          comboItems: comboItemsStr,
           startDate: body.startDate || null,
-
           endDate: body.endDate || null,
           usageLimit: body.usageLimit ? safeInt(body.usageLimit, null) : null,
           timesClaimed: safeInt(body.timesClaimed, 0),
@@ -238,7 +251,9 @@ export default async function handler(req, res) {
           }).returning();
         }
 
-        return res.status(201).json(saved[0]);
+        const resObj = saved[0] ? { ...saved[0] } : { ...values };
+        try { resObj.comboItems = JSON.parse(resObj.comboItems || '[]'); } catch { resObj.comboItems = []; }
+        return res.status(201).json(resObj);
       }
 
       return res.status(405).json({ error: 'Method not allowed' });
@@ -266,8 +281,13 @@ export default async function handler(req, res) {
       if (body.targetCategory !== undefined) patch.targetCategory = body.targetCategory;
       if (body.targetProductId !== undefined) patch.targetProductId = body.targetProductId ? safeInt(body.targetProductId, null) : null;
       if (body.itemsIncluded !== undefined) patch.itemsIncluded = body.itemsIncluded;
+      if (body.comboItems !== undefined || body.combo_items !== undefined) {
+        const rawCombo = body.comboItems || body.combo_items;
+        patch.comboItems = Array.isArray(rawCombo) || typeof rawCombo === 'object'
+          ? JSON.stringify(rawCombo)
+          : String(rawCombo || '[]');
+      }
       if (body.startDate !== undefined) patch.startDate = body.startDate;
-
       if (body.endDate !== undefined) patch.endDate = body.endDate;
       if (body.usageLimit !== undefined) patch.usageLimit = body.usageLimit ? safeInt(body.usageLimit, null) : null;
       if (body.timesClaimed !== undefined) patch.timesClaimed = safeInt(body.timesClaimed, 0);

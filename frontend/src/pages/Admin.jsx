@@ -1633,8 +1633,8 @@ const Admin = () => {
       targetCategory: offerDraft.targetCategory || null,
       targetProductId: offerDraft.targetProductId ? Number(offerDraft.targetProductId) : null,
       itemsIncluded: offerDraft.itemsIncluded || offerDraft.subtitle || '',
+      comboItems: Array.isArray(offerDraft.comboItems) ? offerDraft.comboItems : [],
       startDate: offerDraft.startDate || null,
-
       endDate: offerDraft.endDate || null,
       usageLimit: offerDraft.usageLimit ? Number(offerDraft.usageLimit) : null,
       active: offerDraft.active !== false,
@@ -1652,8 +1652,106 @@ const Admin = () => {
     }
   };
 
+  const addComboItemToOffer = (prodId) => {
+    if (!prodId) return;
+    const prod = dbProductsList.find(p => String(p.id) === String(prodId));
+    if (!prod) return;
+
+    setOfferDraft(prev => {
+      const existingList = Array.isArray(prev.comboItems) ? prev.comboItems : [];
+      const existingIndex = existingList.findIndex(item => String(item.productId) === String(prod.id));
+
+      let updatedList;
+      if (existingIndex >= 0) {
+        updatedList = existingList.map((item, idx) =>
+          idx === existingIndex ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      } else {
+        updatedList = [
+          ...existingList,
+          {
+            productId: prod.id,
+            name: prod.name,
+            price: prod.price,
+            mrp: prod.mrp || prod.price,
+            weight: `${prod.weight || ''}${prod.unit || ''}`,
+            image: prod.image,
+            quantity: 1
+          }
+        ];
+      }
+
+      const totalMrp = updatedList.reduce((sum, i) => sum + ((i.mrp || i.price) * i.quantity), 0);
+      const totalPriceSum = updatedList.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+      const defaultDiscountPrice = Math.round(totalPriceSum * 0.85);
+
+      const autoItemsText = updatedList.map(i => `${i.quantity}x ${i.name} (${i.weight})`).join(', ');
+
+      return {
+        ...prev,
+        comboItems: updatedList,
+        mrp: totalMrp || prev.mrp,
+        price: prev.price || defaultDiscountPrice,
+        title: prev.title || `Festive Combo Pack (${updatedList.length} Items)`,
+        badge: prev.badge || 'FESTIVE COMBO DEAL',
+        itemsIncluded: autoItemsText,
+        image: prev.image || prod.image
+      };
+    });
+  };
+
+  const removeComboItemFromOffer = (prodId) => {
+    setOfferDraft(prev => {
+      const existingList = Array.isArray(prev.comboItems) ? prev.comboItems : [];
+      const updatedList = existingList.filter(i => String(i.productId) !== String(prodId));
+      const totalMrp = updatedList.reduce((sum, i) => sum + ((i.mrp || i.price) * i.quantity), 0);
+      const autoItemsText = updatedList.map(i => `${i.quantity}x ${i.name} (${i.weight})`).join(', ');
+
+      return {
+        ...prev,
+        comboItems: updatedList,
+        mrp: totalMrp || prev.mrp,
+        itemsIncluded: autoItemsText
+      };
+    });
+  };
+
+  const updateComboItemQty = (prodId, newQty) => {
+    if (newQty <= 0) {
+      removeComboItemFromOffer(prodId);
+      return;
+    }
+    setOfferDraft(prev => {
+      const existingList = Array.isArray(prev.comboItems) ? prev.comboItems : [];
+      const updatedList = existingList.map(i =>
+        String(i.productId) === String(prodId) ? { ...i, quantity: newQty } : i
+      );
+      const totalMrp = updatedList.reduce((sum, i) => sum + ((i.mrp || i.price) * i.quantity), 0);
+      const autoItemsText = updatedList.map(i => `${i.quantity}x ${i.name} (${i.weight})`).join(', ');
+
+      return {
+        ...prev,
+        comboItems: updatedList,
+        mrp: totalMrp || prev.mrp,
+        itemsIncluded: autoItemsText
+      };
+    });
+  };
+
   const editFestiveOffer = (offer) => {
-    setOfferDraft({ ...blankOffer, ...offer });
+    let parsedCombo = [];
+    if (offer.comboItems) {
+      try {
+        parsedCombo = typeof offer.comboItems === 'string' ? JSON.parse(offer.comboItems) : offer.comboItems;
+      } catch {
+        parsedCombo = [];
+      }
+    }
+    setOfferDraft({
+      ...blankOffer,
+      ...offer,
+      comboItems: Array.isArray(parsedCombo) ? parsedCombo : []
+    });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -2949,7 +3047,7 @@ const Admin = () => {
                   <input value={offerDraft.title} onChange={(e) => setOfferDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Deal Title e.g. Diwali Mega Rice Fest" required />
 
                   <div>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Link to Catalog Product (Optional)</label>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Link to Single Catalog Product (Optional)</label>
                     <select
                       className="admin-input-box"
                       value={offerDraft.targetProductId || ''}
@@ -2974,6 +3072,100 @@ const Admin = () => {
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  {/* Multi-Product Combo Pack Builder */}
+                  <div style={{ background: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)', border: '1.5px solid #86EFAC', borderRadius: '12px', padding: '14px', margin: '4px 0 10px 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <strong style={{ fontSize: '13px', color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        🎁 Build Festive Combo Pack (Multiple Products)
+                      </strong>
+                      <span style={{ fontSize: '11px', color: '#15803D', fontWeight: 700, background: '#FFFFFF', padding: '2px 8px', borderRadius: '12px', border: '1px solid #86EFAC' }}>
+                        {Array.isArray(offerDraft.comboItems) ? offerDraft.comboItems.length : 0} Products Selected
+                      </span>
+                    </div>
+
+                    <p style={{ fontSize: '11.5px', color: '#166534', margin: '0 0 10px 0', lineHeight: 1.4 }}>
+                      Select multiple products from your catalog to build a festive combo package. Customers will see all included products on the offer page and get the entire bundle at your discounted deal price!
+                    </p>
+
+                    {/* Add Product Dropdown */}
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                      <select
+                        id="combo-product-select"
+                        className="admin-input-box"
+                        style={{ flex: 1, background: '#FFFFFF' }}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            addComboItemToOffer(e.target.value);
+                            e.target.value = '';
+                          }
+                        }}
+                      >
+                        <option value="">➕ Choose catalog product to add to combo...</option>
+                        {dbProductsList.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} ({p.weight}{p.unit}) — MRP ₹{p.mrp || p.price} | Price ₹{p.price}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* List of Added Combo Items */}
+                    {Array.isArray(offerDraft.comboItems) && offerDraft.comboItems.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {offerDraft.comboItems.map((item) => (
+                          <div key={item.productId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#FFFFFF', border: '1px solid #BBF7D0', borderRadius: '8px', padding: '8px 12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <img src={toWebpImage(item.image)} alt={item.name} style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '4px', background: '#F9FAFB' }} />
+                              <div>
+                                <strong style={{ fontSize: '12.5px', color: '#111827', display: 'block' }}>{item.name}</strong>
+                                <span style={{ fontSize: '11px', color: '#6B7280' }}>{item.weight} • MRP ₹{item.mrp || item.price} (Regular ₹{item.price})</span>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', background: '#F3F4F6', borderRadius: '6px', padding: '2px 6px' }}>
+                                <button type="button" style={{ border: 'none', background: 'none', fontWeight: 'bold', cursor: 'pointer', padding: '0 4px' }} onClick={() => updateComboItemQty(item.productId, item.quantity - 1)}>-</button>
+                                <span style={{ fontSize: '12px', fontWeight: 'bold', padding: '0 6px' }}>{item.quantity}</span>
+                                <button type="button" style={{ border: 'none', background: 'none', fontWeight: 'bold', cursor: 'pointer', padding: '0 4px' }} onClick={() => updateComboItemQty(item.productId, item.quantity + 1)}>+</button>
+                              </div>
+                              <span style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#166534', minWidth: '55px', textAlign: 'right' }}>₹{item.price * item.quantity}</span>
+                              <button type="button" style={{ border: 'none', background: 'none', color: '#DC2626', cursor: 'pointer', padding: '2px' }} onClick={() => removeComboItemFromOffer(item.productId)} title="Remove item from combo">
+                                <FiTrash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Combo Price Calculations Summary */}
+                        <div style={{ background: '#FFFFFF', border: '1.5px dashed #86EFAC', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                          <div>
+                            <span style={{ color: '#166534', fontWeight: 600 }}>Total Value of Combo: </span>
+                            <strong style={{ color: '#111827', fontSize: '13px' }}>
+                              MRP ₹{offerDraft.comboItems.reduce((sum, i) => sum + ((i.mrp || i.price) * i.quantity), 0)} (Regular ₹{offerDraft.comboItems.reduce((sum, i) => sum + (i.price * i.quantity), 0)})
+                            </strong>
+                          </div>
+                          <button
+                            type="button"
+                            style={{ background: '#166534', color: '#FFFFFF', border: 'none', borderRadius: '6px', padding: '5px 12px', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer' }}
+                            onClick={() => {
+                              const totalMrp = offerDraft.comboItems.reduce((sum, i) => sum + ((i.mrp || i.price) * i.quantity), 0);
+                              const totalPrice = offerDraft.comboItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+                              const discountedPrice = Math.round(totalPrice * 0.85); // 15% discount off sum of regular prices
+                              setOfferDraft(prev => ({
+                                ...prev,
+                                mrp: totalMrp,
+                                price: discountedPrice,
+                                badge: prev.badge || `SAVE ₹${totalMrp - discountedPrice} ON COMBO`
+                              }));
+                            }}
+                          >
+                            ⚡ Auto-Apply Combo MRP & Discount
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div>

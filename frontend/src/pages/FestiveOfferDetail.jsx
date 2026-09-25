@@ -12,6 +12,7 @@ import {
   FiZap,
   FiChevronRight,
   FiPackage,
+  FiExternalLink,
 } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -50,6 +51,29 @@ const FestiveOfferDetail = () => {
     return allProducts.find((p) => String(p.id) === String(offer.targetProductId)) || null;
   }, [offer, allProducts]);
 
+  // Parse multi-product combo items
+  const comboItems = useMemo(() => {
+    if (!offer || !offer.comboItems) return [];
+    try {
+      const parsed = typeof offer.comboItems === 'string' ? JSON.parse(offer.comboItems) : offer.comboItems;
+      if (!Array.isArray(parsed)) return [];
+      // Enrich combo items with current catalog details if available
+      return parsed.map((ci) => {
+        const catProd = allProducts.find((p) => String(p.id) === String(ci.productId));
+        return {
+          ...ci,
+          name: catProd?.name || ci.name || 'Catalog Item',
+          image: catProd?.image || ci.image || '',
+          price: catProd?.price || ci.price || 0,
+          mrp: catProd?.mrp || ci.mrp || catProd?.price || ci.price || 0,
+          weight: catProd ? `${catProd.weight}${catProd.unit}` : ci.weight || '',
+        };
+      });
+    } catch {
+      return [];
+    }
+  }, [offer, allProducts]);
+
   const [quantity, setQuantity] = useState(1);
 
   if (!offer) {
@@ -73,22 +97,33 @@ const FestiveOfferDetail = () => {
     );
   }
 
-  const price = offer.price || (linkedProduct ? linkedProduct.price : 0);
-  const mrp = offer.mrp || (linkedProduct ? linkedProduct.mrp : price);
-  const discount =
-    mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
+  // Price calculations
+  const isCombo = comboItems.length > 0;
+  const comboRegularSum = isCombo
+    ? comboItems.reduce((sum, item) => sum + (item.mrp || item.price) * (item.quantity || 1), 0)
+    : 0;
+
+  const price = offer.price || (isCombo ? comboItems.reduce((sum, item) => sum + item.price * (item.quantity || 1), 0) : (linkedProduct ? linkedProduct.price : 0));
+  const mrp = offer.mrp || (isCombo ? comboRegularSum : (linkedProduct ? linkedProduct.mrp : price));
+  const discount = mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
   const savings = mrp > price ? mrp - price : 0;
 
   const itemsIncludedRaw =
     offer.itemsIncluded ||
     offer.items_included ||
     offer.subtitle ||
-    (linkedProduct ? `${linkedProduct.weight} ${linkedProduct.unit}` : 'Special Festive Package');
+    (isCombo
+      ? comboItems.map((i) => `${i.quantity || 1}x ${i.name}`).join(', ')
+      : linkedProduct
+      ? `${linkedProduct.weight} ${linkedProduct.unit}`
+      : 'Special Festive Package');
 
-  const includedItemsList = itemsIncludedRaw
-    .split(/[,;\n]+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
+  const includedItemsList = isCombo
+    ? comboItems.map((i) => `${i.quantity || 1}x ${i.name} (${i.weight})`)
+    : itemsIncludedRaw
+        .split(/[,;\n]+/)
+        .map((item) => item.trim())
+        .filter(Boolean);
 
   const cartItemId = `offer-${offer.id || offer.title}`;
   const existingCartQty = getItemQuantity(cartItemId);
@@ -98,16 +133,17 @@ const FestiveOfferDetail = () => {
       id: cartItemId,
       productId: offer.targetProductId || null,
       name: offer.title,
-      brand: offer.badge || 'FESTIVE DEAL',
+      brand: offer.badge || (isCombo ? 'FESTIVE COMBO DEAL' : 'FESTIVE DEAL'),
       price,
       mrp,
       discount,
-      image: offer.image || (linkedProduct ? linkedProduct.image : ''),
+      image: offer.image || (isCombo ? comboItems[0]?.image : (linkedProduct ? linkedProduct.image : '')),
       weight: itemsIncludedRaw,
       itemsIncluded: itemsIncludedRaw,
+      comboItems: isCombo ? comboItems : null,
       unit: '',
       isOffer: true,
-      badge: offer.badge || 'FESTIVE DEAL',
+      badge: offer.badge || (isCombo ? 'FESTIVE COMBO DEAL' : 'FESTIVE DEAL'),
       category: 'offers',
       deliveryTime: isWholesale ? 'Same day' : '10 mins',
     });
@@ -142,11 +178,14 @@ const FestiveOfferDetail = () => {
         {/* WOW Hero Header Banner */}
         <div className="fodetail__hero-banner">
           <span className="fodetail__hero-badge">
-            <FiGift /> {offer.badge || 'FESTIVE SPECIAL DEAL'}
+            <FiGift /> {offer.badge || (isCombo ? '🎁 FESTIVE COMBO PACK' : 'FESTIVE SPECIAL DEAL')}
           </span>
           <h1 className="fodetail__hero-title">{offer.title}</h1>
           <p className="fodetail__hero-sub">
-            {offer.subtitle || 'Exclusive festive bundle with maximum savings & premium quality.'}
+            {offer.subtitle ||
+              (isCombo
+                ? `Get all ${comboItems.length} products bundled together for a massive festive discount!`
+                : 'Exclusive festive bundle with maximum savings & premium quality.')}
           </p>
         </div>
 
@@ -159,7 +198,9 @@ const FestiveOfferDetail = () => {
                 <span className="fodetail__discount-tag">{discount}% OFF</span>
               )}
               <img
-                src={toWebpImage(offer.image || (linkedProduct ? linkedProduct.image : ''))}
+                src={toWebpImage(
+                  offer.image || (isCombo ? comboItems[0]?.image : (linkedProduct ? linkedProduct.image : ''))
+                )}
                 alt={offer.title}
                 className="fodetail__image"
               />
@@ -208,38 +249,95 @@ const FestiveOfferDetail = () => {
               <span className="fodetail__tax-note">Inclusive of all taxes</span>
             </div>
 
-            {/* Package Contents Breakdown (Key feature for Festive Offers!) */}
-            <div className="fodetail__included-box">
-              <div className="fodetail__included-header">
-                <FiPackage /> What's Included in this Festive Offer
-              </div>
-              <div className="fodetail__included-content">
-                {includedItemsList.length > 1 ? (
-                  <ul style={{ margin: 0, paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {includedItemsList.map((item, idx) => (
-                      <li key={idx} style={{ listStyleType: 'disc' }}>
-                        <strong>{item}</strong>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="fodetail__included-text">
-                    <FiCheckCircle style={{ color: '#166534', marginRight: '6px' }} />
-                    {itemsIncludedRaw}
-                  </p>
-                )}
-              </div>
-
-              {linkedProduct && (
-                <div className="fodetail__linked-product">
-                  <img src={toWebpImage(linkedProduct.image)} alt={linkedProduct.name} />
+            {/* Multi-Product Combo Pack Grid Section (NEW!) */}
+            {isCombo ? (
+              <div className="fodetail__combo-box">
+                <div className="fodetail__combo-header">
+                  <FiPackage />
                   <div>
-                    <strong>Fulfilling Item: {linkedProduct.name}</strong>
-                    <span>Category: {linkedProduct.category || 'Grocery'}</span>
+                    <h3 style={{ margin: 0, fontSize: '15px', color: '#166534', fontWeight: 800 }}>
+                      🎁 Festive Combo Pack ({comboItems.length} Items Included)
+                    </h3>
+                    <span style={{ fontSize: '12px', color: '#15803D' }}>
+                      Get all these catalog products together at a discounted combo price!
+                    </span>
                   </div>
                 </div>
-              )}
-            </div>
+
+                <div className="fodetail__combo-grid">
+                  {comboItems.map((item, idx) => (
+                    <div className="fodetail__combo-item-card" key={idx}>
+                      <div className="fodetail__combo-item-left">
+                        <img src={toWebpImage(item.image)} alt={item.name} />
+                        <div>
+                          <Link to={`/product/${item.productId}`} className="fodetail__combo-item-name">
+                            {item.name} <FiExternalLink size={11} />
+                          </Link>
+                          <span className="fodetail__combo-item-weight">{item.weight}</span>
+                        </div>
+                      </div>
+
+                      <div className="fodetail__combo-item-right">
+                        <span className="fodetail__combo-item-qty">{item.quantity || 1}x Included</span>
+                        <div className="fodetail__combo-item-prices">
+                          <strong>{formatPrice(item.price)}</strong>
+                          {item.mrp > item.price && <span>{formatPrice(item.mrp)}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="fodetail__combo-summary">
+                  <div>
+                    <span>Individual Catalog Total: </span>
+                    <strong style={{ textDecoration: 'line-through', color: '#6B7280' }}>
+                      {formatPrice(mrp)}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Combo Special Deal: </span>
+                    <strong style={{ color: '#1C4D12', fontSize: '16px' }}>{formatPrice(price)}</strong>
+                  </div>
+                  <div className="fodetail__combo-savings-pill">
+                    🎉 Save {formatPrice(savings)} ({discount}% OFF)
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Package Contents Breakdown for Single / Standard Festive Offers */
+              <div className="fodetail__included-box">
+                <div className="fodetail__included-header">
+                  <FiPackage /> What's Included in this Festive Offer
+                </div>
+                <div className="fodetail__included-content">
+                  {includedItemsList.length > 1 ? (
+                    <ul style={{ margin: 0, paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {includedItemsList.map((item, idx) => (
+                        <li key={idx} style={{ listStyleType: 'disc' }}>
+                          <strong>{item}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="fodetail__included-text">
+                      <FiCheckCircle style={{ color: '#166534', marginRight: '6px' }} />
+                      {itemsIncludedRaw}
+                    </p>
+                  )}
+                </div>
+
+                {linkedProduct && (
+                  <div className="fodetail__linked-product">
+                    <img src={toWebpImage(linkedProduct.image)} alt={linkedProduct.name} />
+                    <div>
+                      <strong>Fulfilling Item: {linkedProduct.name}</strong>
+                      <span>Category: {linkedProduct.category || 'Grocery'}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Urgency & Stock Bar */}
             <div className="fodetail__urgency-card">
