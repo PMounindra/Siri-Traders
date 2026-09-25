@@ -304,7 +304,8 @@ const Admin = () => {
   const [dbProductsList, setDbProductsList] = useState([]);
 
   // Status, Category & Target Availability filters for products
-  const [productStatusFilter, setProductStatusFilter] = useState('all');
+  const [productStatusFilter, setProductStatusFilter] = useState('published');
+
   const [productCategoryFilter, setProductCategoryFilter] = useState('all');
   const [productTargetFilter, setProductTargetFilter] = useState('all');
   const [expandedVariantId, setExpandedVariantId] = useState(null);
@@ -786,9 +787,10 @@ const Admin = () => {
   // ── Product filtering ──
   const filterProductList = (productsList) => {
     return productsList.filter(p => {
-      if (productStatusFilter === 'published' && (p.isPublished === false || p.isArchived)) return false;
+      if ((productStatusFilter === 'published' || productStatusFilter === 'all') && (p.isPublished === false || p.isArchived)) return false;
       if (productStatusFilter === 'draft' && (p.isPublished !== false || p.isArchived)) return false;
       if (productStatusFilter === 'archived' && !p.isArchived) return false;
+
       if (productCategoryFilter !== 'all' && p.category !== productCategoryFilter) return false;
       if (productTargetFilter !== 'all') {
         const pTarget = p.targetType || (p.wholesalePrice ? 'wholesale' : 'retail_and_wholesale');
@@ -4944,11 +4946,12 @@ const Admin = () => {
                     value={productStatusFilter}
                     onChange={(e) => setProductStatusFilter(e.target.value)}
                   >
-                    <option value="all">All Status</option>
-                    <option value="published">Published</option>
-                    <option value="draft">Draft</option>
-                    <option value="archived">Archived</option>
+                    <option value="published">🟢 Live Catalog (Published)</option>
+                    <option value="draft">🟡 Inventory Only (Drafts)</option>
+                    <option value="archived">📁 Archived</option>
+                    <option value="everything">🌐 All Products (Incl. Drafts)</option>
                   </select>
+
                 </div>
               </div>
 
