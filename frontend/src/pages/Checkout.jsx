@@ -73,7 +73,15 @@ const Checkout = () => {
   } = useCart();
   const { user, isAuthenticated, isLoaded, getToken, customerType } = useAuth();
   const { deliveryZones, retailCoupons, wholesaleCoupons, deliverySettings } = useSiteData();
-  const coupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const rawCoupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
+  const coupons = rawCoupons.filter(c => {
+    if (c.active === false) return false;
+    if (c.startDate && todayStr < c.startDate) return false;
+    if (c.endDate && todayStr > c.endDate) return false;
+    if (c.usageLimit && Number(c.timesUsed || 0) >= Number(c.usageLimit)) return false;
+    return true;
+  });
   const navigate = useNavigate();
   const addressStorageKey = getUserStorageKey(user, 'addresses');
   const orderStorageKey = getUserStorageKey(user, 'orders');
@@ -652,10 +660,16 @@ const Checkout = () => {
                     <div className="checkout__coupon-input-row">
                       <input
                         type="text"
+                        name="checkout_coupon_no_autofill"
                         placeholder="Have a coupon code?"
                         value={couponInput}
                         onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(''); }}
                         className="checkout__input checkout__coupon-input"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck="false"
+                        data-lpignore="true"
                       />
                       <button type="button" className="checkout__coupon-apply" onClick={handleApplyCoupon}>Apply</button>
                     </div>

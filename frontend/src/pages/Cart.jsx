@@ -20,7 +20,15 @@ const Cart = () => {
   const { user, customerType } = useAuth();
   const { retailCoupons, wholesaleCoupons, deliveryZones } = useSiteData();
   const { getProductsForType } = useProducts();
-  const coupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const rawCoupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
+  const coupons = rawCoupons.filter(c => {
+    if (c.active === false) return false;
+    if (c.startDate && todayStr < c.startDate) return false;
+    if (c.endDate && todayStr > c.endDate) return false;
+    if (c.usageLimit && Number(c.timesUsed || 0) >= Number(c.usageLimit)) return false;
+    return true;
+  });
   const navigate = useNavigate();
   const [coupon, setCoupon] = useState(appliedCouponCode || '');
 
@@ -191,11 +199,17 @@ const Cart = () => {
             <div className="cart__coupon-input-wrap">
               <input
                 type="text"
+                name="coupon_code_no_autocomplete"
                 placeholder='Try "SIRI20"'
                 value={coupon}
                 onChange={(e) => { setCoupon(e.target.value.toUpperCase()); setCouponError(''); }}
                 className="cart__coupon-input"
                 id="cart-coupon-input"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck="false"
+                data-lpignore="true"
               />
               <button className="cart__coupon-btn" onClick={() => applyCoupon()}>Apply</button>
             </div>

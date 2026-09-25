@@ -33,6 +33,9 @@ export const applyCoupon = (code, cartTotal, couponList, options = {}) => {
   if (coupon.endDate && today > coupon.endDate) {
     return { valid: false, error: 'This coupon has expired.' };
   }
+  if (coupon.usageLimit && Number(coupon.timesUsed || 0) >= Number(coupon.usageLimit)) {
+    return { valid: false, error: 'This coupon usage limit has been reached.' };
+  }
 
   if (coupon.targetType === 'customer' && coupon.targetCustomerEmail) {
     if (!userEmail || userEmail.toLowerCase() !== coupon.targetCustomerEmail.toLowerCase()) {
