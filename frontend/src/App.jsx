@@ -21,20 +21,37 @@ import Signup from "./pages/Signup";
 import SsoCallback from "./pages/SsoCallback";
 import Home from "./pages/Home/index.jsx";
 
-const AdminLogin = lazy(() => import("./pages/AdminLogin"));
-const Categories = lazy(() => import("./pages/Categories"));
-const TodaysDeals = lazy(() => import("./pages/TodaysDeals"));
-const Bestsellers = lazy(() => import("./pages/Bestsellers"));
-const FestiveOffers = lazy(() => import("./pages/FestiveOffers"));
-const FestiveOfferDetail = lazy(() => import("./pages/FestiveOfferDetail"));
-const ProductDetail = lazy(() => import("./pages/ProductDetail"));
-const Cart = lazy(() => import("./pages/Cart"));
-const Checkout = lazy(() => import("./pages/Checkout"));
-const Orders = lazy(() => import("./pages/Orders"));
-const Profile = lazy(() => import("./pages/Profile"));
-const Admin        = lazy(() => import("./pages/Admin"));
-const TrackOrder   = lazy(() => import("./pages/TrackOrder"));
-const Info         = lazy(() => import("./pages/Info"));
+const lazyWithRetry = (componentImport) =>
+  lazy(async () => {
+    const pageHasBeenRefreshed = sessionStorage.getItem("page_has_been_refreshed");
+    try {
+      const component = await componentImport();
+      sessionStorage.removeItem("page_has_been_refreshed");
+      return component;
+    } catch (error) {
+      if (!pageHasBeenRefreshed) {
+        sessionStorage.setItem("page_has_been_refreshed", "true");
+        window.location.reload();
+        return new Promise(() => {});
+      }
+      throw error;
+    }
+  });
+
+const AdminLogin = lazyWithRetry(() => import("./pages/AdminLogin"));
+const Categories = lazyWithRetry(() => import("./pages/Categories"));
+const TodaysDeals = lazyWithRetry(() => import("./pages/TodaysDeals"));
+const Bestsellers = lazyWithRetry(() => import("./pages/Bestsellers"));
+const FestiveOffers = lazyWithRetry(() => import("./pages/FestiveOffers"));
+const FestiveOfferDetail = lazyWithRetry(() => import("./pages/FestiveOfferDetail"));
+const ProductDetail = lazyWithRetry(() => import("./pages/ProductDetail"));
+const Cart = lazyWithRetry(() => import("./pages/Cart"));
+const Checkout = lazyWithRetry(() => import("./pages/Checkout"));
+const Orders = lazyWithRetry(() => import("./pages/Orders"));
+const Profile = lazyWithRetry(() => import("./pages/Profile"));
+const Admin        = lazyWithRetry(() => import("./pages/Admin"));
+const TrackOrder   = lazyWithRetry(() => import("./pages/TrackOrder"));
+const Info         = lazyWithRetry(() => import("./pages/Info"));
 import "./App.css";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;

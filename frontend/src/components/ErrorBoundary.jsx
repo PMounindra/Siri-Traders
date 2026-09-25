@@ -24,13 +24,24 @@ class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
-      const isChunkError = this.state.error?.name === 'ChunkLoadError' ||
-        (this.state.error?.message && this.state.error.message.includes('Loading chunk'));
+      const errMsg = (this.state.error?.message || '').toLowerCase();
+      const errName = (this.state.error?.name || '').toLowerCase();
+
+      const isChunkError =
+        errName === 'chunkloaderror' ||
+        errMsg.includes('loading chunk') ||
+        errMsg.includes('dynamically imported module') ||
+        errMsg.includes('failed to fetch dynamically imported') ||
+        errMsg.includes('importing a module script failed') ||
+        errMsg.includes('failed to load resource');
 
       if (isChunkError) {
-        // Automatically reload once on dynamic import / chunk load failure
-        window.location.reload();
-        return null;
+        const reloadKey = 'chunk_reload_' + window.location.pathname;
+        if (!sessionStorage.getItem(reloadKey)) {
+          sessionStorage.setItem(reloadKey, 'true');
+          window.location.reload();
+          return null;
+        }
       }
 
       return (
