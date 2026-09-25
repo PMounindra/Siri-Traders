@@ -2927,8 +2927,47 @@ const Admin = () => {
                   </div>
 
                   <input value={offerDraft.title} onChange={(e) => setOfferDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Deal Title e.g. Diwali Mega Rice Fest" required />
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Link to Catalog Product (Optional)</label>
+                    <select
+                      className="admin-input-box"
+                      value={offerDraft.targetProductId || ''}
+                      onChange={(e) => {
+                        const pId = e.target.value;
+                        const selProd = dbProductsList.find(p => String(p.id) === String(pId));
+                        setOfferDraft(prev => ({
+                          ...prev,
+                          targetProductId: pId,
+                          title: prev.title || (selProd ? selProd.name : ''),
+                          price: prev.price || (selProd ? selProd.price : ''),
+                          mrp: prev.mrp || (selProd ? selProd.mrp || selProd.price : ''),
+                          image: prev.image || (selProd ? selProd.image : ''),
+                          itemsIncluded: prev.itemsIncluded || (selProd ? `${selProd.name} (${selProd.weight || ''}${selProd.unit || ''})` : '')
+                        }));
+                      }}
+                    >
+                      <option value="">-- Custom Combo / No single product --</option>
+                      {dbProductsList.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.weight}{p.unit}) — ₹{p.price}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Package Contents / Items Included *</label>
+                    <input
+                      value={offerDraft.itemsIncluded || ''}
+                      onChange={(e) => setOfferDraft(prev => ({ ...prev, itemsIncluded: e.target.value }))}
+                      placeholder="e.g. Includes: 5kg Basmati Rice + 1L Sunflower Oil"
+                    />
+                  </div>
+
                   <input value={offerDraft.subtitle} onChange={(e) => setOfferDraft(prev => ({ ...prev, subtitle: e.target.value }))} placeholder="Subtitle e.g. Flat 20% off on all Basmati Rice" />
-                  <input value={offerDraft.badge} onChange={(e) => setOfferDraft(prev => ({ ...prev, badge: e.target.value }))} placeholder="Badge e.g. Save ₹80 / BOGO" />
+                  <input value={offerDraft.badge} onChange={(e) => setOfferDraft(prev => ({ ...prev, badge: e.target.value }))} placeholder="Badge e.g. Save ₹80 / BOGO / Teachers Day Special" />
+
 
                   <div className="admin-form__grid admin-form__grid--two">
                     <input value={offerDraft.price} onChange={(e) => setOfferDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="Deal Price (₹)" type="number" min="0" max="9999999" />
@@ -2984,11 +3023,13 @@ const Admin = () => {
                         {offer.subtitle || 'Festive promotion'}
                       </p>
 
-                      {offer.price > 0 && (
-                        <div style={{ background: '#FAF9F5', padding: '8px 10px', borderRadius: '8px', fontSize: '11.5px' }}>
-                          <span>Price: <strong>{formatPrice(offer.price)}</strong>{offer.mrp > offer.price && <> (MRP {formatPrice(offer.mrp)})</>}</span>
-                        </div>
-                      )}
+                      <div style={{ background: '#FAF9F5', padding: '8px 10px', borderRadius: '8px', fontSize: '11.5px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <span>Price: <strong>{formatPrice(offer.price)}</strong>{offer.mrp > offer.price && <> (MRP {formatPrice(offer.mrp)})</>}</span>
+                        {(offer.itemsIncluded || offer.subtitle) && (
+                          <span style={{ color: '#166534', fontWeight: 600 }}>📦 Included: <strong>{offer.itemsIncluded || offer.subtitle}</strong></span>
+                        )}
+                      </div>
+
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
                         <button
