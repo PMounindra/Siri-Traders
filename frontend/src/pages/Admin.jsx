@@ -1657,8 +1657,34 @@ const Admin = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const editCoupon = (coupon) => {
+    setCouponDraft({
+      ...blankCoupon,
+      ...coupon,
+      value: coupon.value ?? '',
+      minOrder: coupon.minOrder ?? '',
+      maxDiscount: coupon.maxDiscount ?? '',
+      usageLimit: coupon.usageLimit ?? 500,
+      perUserLimit: coupon.perUserLimit ?? 1,
+      startDate: coupon.startDate || '',
+      endDate: coupon.endDate || '',
+      title: coupon.title || '',
+      description: coupon.description || '',
+      targetCategory: coupon.targetCategory || '',
+      targetProductId: coupon.targetProductId || '',
+      targetCustomerEmail: coupon.targetCustomerEmail || '',
+    });
+    const formEl = document.getElementById('coupon-form');
+    if (formEl) {
+      formEl.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   const saveCoupon = async (event) => {
     event.preventDefault();
+    const isEdit = Boolean(couponDraft.id);
     const payload = {
       ...couponDraft,
       code: couponDraft.code.trim().toUpperCase(),
@@ -1677,12 +1703,13 @@ const Admin = () => {
       endDate: couponDraft.endDate || null
     };
     try {
-      const saved = await adminApi.saveCoupon(payload);
+      const saved = isEdit ? await adminApi.updateCoupon(couponDraft.id, payload) : await adminApi.saveCoupon(payload);
       setCoupons(prev => [saved, ...prev.filter(coupon => coupon.id !== saved.id)]);
       setCouponDraft(blankCoupon);
-      setSaveToast({ type: 'success', msg: `🎟️ Coupon "${saved.code}" saved and active!` });
+      setSaveToast({ type: 'success', msg: isEdit ? `✏️ Coupon "${saved.code}" updated successfully!` : `🎟️ Coupon "${saved.code}" saved and active!` });
       setTimeout(() => setSaveToast(null), 4000);
       broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
+      refreshSiteData();
     } catch (err) {
       alert(err.message);
     }
@@ -2604,10 +2631,32 @@ const Admin = () => {
             <div className="admin-promos-page" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="admin-grid" style={{ gridTemplateColumns: '1.2fr 1fr' }}>
                 {/* Advanced Coupon Builder Form */}
-                <form className="admin-form" onSubmit={saveCoupon}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <FiGift size={18} style={{ color: '#2D5016' }} />
-                    <h2 style={{ margin: 0 }}>Create Coupon / Promotion</h2>
+                <form id="coupon-form" className="admin-form" onSubmit={saveCoupon}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <FiGift size={18} style={{ color: '#2D5016' }} />
+                      <h2 style={{ margin: 0 }}>
+                        {couponDraft.id ? `✏️ Edit Coupon: ${couponDraft.code}` : 'Create Coupon / Promotion'}
+                      </h2>
+                    </div>
+                    {couponDraft.id && (
+                      <button
+                        type="button"
+                        style={{
+                          background: '#F3F4F6',
+                          color: '#374151',
+                          border: '1px solid #D1D5DB',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => setCouponDraft(blankCoupon)}
+                      >
+                        Cancel Editing
+                      </button>
+                    )}
                   </div>
 
                   <div className="admin-form__grid admin-form__grid--two">
@@ -2724,7 +2773,9 @@ const Admin = () => {
                   <input value={couponDraft.title} onChange={(e) => setCouponDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Coupon title e.g. FLAT ₹50 OFF" />
                   <input value={couponDraft.description} onChange={(e) => setCouponDraft(prev => ({ ...prev, description: e.target.value }))} placeholder="Coupon subtext e.g. On first grocery order" />
 
-                  <button className="admin__primary"><FiPlus /> Save & Activate Coupon</button>
+                  <button className="admin__primary">
+                    {couponDraft.id ? <><FiSave /> Save Changes to Coupon</> : <><FiPlus /> Save & Activate Coupon</>}
+                  </button>
                 </form>
 
                 {/* Coupon Engine Guidance Card */}
@@ -2816,27 +2867,50 @@ const Admin = () => {
                           </button>
 
 
-                        <button
-                          type="button"
-                          className="admin-danger"
-                          style={{ width: '28px', height: '28px', padding: 0, borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                          onClick={async () => {
-                            if (window.confirm(`Delete coupon code ${coupon.code}?`)) {
-                              try {
-                                await adminApi.deleteCoupon(coupon.id);
-                                setCoupons(prev => prev.filter(c => c.id !== coupon.id));
-                                broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
-                                refreshSiteData();
-                                setSaveToast({ type: 'success', msg: `✅ Coupon ${coupon.code} deleted` });
-                                setTimeout(() => setSaveToast(null), 4000);
-                              } catch (err) {
-                                alert(`Failed to delete coupon: ${err.message}`);
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <button
+                            type="button"
+                            style={{
+                              background: '#EFF6FF',
+                              color: '#1D4ED8',
+                              border: '1px solid #BFDBFE',
+                              padding: '3px 10px',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                            onClick={() => editCoupon(coupon)}
+                            title="Edit coupon details"
+                          >
+                            <FiEdit2 size={12} /> Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            className="admin-danger"
+                            style={{ width: '28px', height: '28px', padding: 0, borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                            onClick={async () => {
+                              if (window.confirm(`Delete coupon code ${coupon.code}?`)) {
+                                try {
+                                  await adminApi.deleteCoupon(coupon.id);
+                                  setCoupons(prev => prev.filter(c => c.id !== coupon.id));
+                                  broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
+                                  refreshSiteData();
+                                  setSaveToast({ type: 'success', msg: `✅ Coupon ${coupon.code} deleted` });
+                                  setTimeout(() => setSaveToast(null), 4000);
+                                } catch (err) {
+                                  alert(`Failed to delete coupon: ${err.message}`);
+                                }
                               }
-                            }
-                          }}
-                        >
-                          <FiTrash2 size={13} />
-                        </button>
+                            }}
+                          >
+                            <FiTrash2 size={13} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
