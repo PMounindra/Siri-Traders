@@ -61,7 +61,8 @@ import { useAdminApi } from '../hooks/useAdminApi';
 import { useSiteData } from '../context/SiteDataContext';
 import { formatPrice, getOrderBillBreakdown } from '../utils/format';
 import { toWebpImage } from '../utils/images';
-import { broadcastSync, SYNC_EVENTS } from '../utils/syncChannel';
+import { broadcastSync, subscribeSync, SYNC_EVENTS } from '../utils/syncChannel';
+
 import './Admin.css';
 
 const formatWeightUnit = (weight, unit) => {
