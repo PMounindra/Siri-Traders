@@ -26,7 +26,9 @@ async function autoMigrateOffersSchema() {
       ADD COLUMN IF NOT EXISTS get_qty INTEGER DEFAULT 1,
       ADD COLUMN IF NOT EXISTS target_category TEXT,
       ADD COLUMN IF NOT EXISTS target_product_id INTEGER,
+      ADD COLUMN IF NOT EXISTS items_included TEXT,
       ADD COLUMN IF NOT EXISTS start_date TEXT,
+
       ADD COLUMN IF NOT EXISTS end_date TEXT,
       ADD COLUMN IF NOT EXISTS usage_limit INTEGER,
       ADD COLUMN IF NOT EXISTS times_claimed INTEGER DEFAULT 0,
@@ -212,7 +214,9 @@ export default async function handler(req, res) {
           getQty: safeInt(body.getQty, 1),
           targetCategory: body.targetCategory || null,
           targetProductId: body.targetProductId ? safeInt(body.targetProductId, null) : null,
+          itemsIncluded: body.itemsIncluded || body.items_included || '',
           startDate: body.startDate || null,
+
           endDate: body.endDate || null,
           usageLimit: body.usageLimit ? safeInt(body.usageLimit, null) : null,
           timesClaimed: safeInt(body.timesClaimed, 0),
@@ -261,7 +265,9 @@ export default async function handler(req, res) {
       if (body.getQty !== undefined) patch.getQty = safeInt(body.getQty, 1);
       if (body.targetCategory !== undefined) patch.targetCategory = body.targetCategory;
       if (body.targetProductId !== undefined) patch.targetProductId = body.targetProductId ? safeInt(body.targetProductId, null) : null;
+      if (body.itemsIncluded !== undefined) patch.itemsIncluded = body.itemsIncluded;
       if (body.startDate !== undefined) patch.startDate = body.startDate;
+
       if (body.endDate !== undefined) patch.endDate = body.endDate;
       if (body.usageLimit !== undefined) patch.usageLimit = body.usageLimit ? safeInt(body.usageLimit, null) : null;
       if (body.timesClaimed !== undefined) patch.timesClaimed = safeInt(body.timesClaimed, 0);

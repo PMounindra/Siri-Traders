@@ -19,25 +19,27 @@ const FestiveOffers = () => {
     e.preventDefault();
     e.stopPropagation();
     const price = offer.price || 0;
+    const contents = offer.itemsIncluded || offer.subtitle || 'Special Promotional Deal';
     addToCart({
       id: getCartId(offer),
-      // Only a real product id (when the offer targets one) belongs here —
-      // the cart-only id above isn't a product and breaks order placement
-      // if sent to the backend as productId.
       productId: offer.targetProductId || null,
       name: offer.title,
-      brand: offer.badge || 'Siri Traders Offer',
+      brand: offer.badge || 'FESTIVE DEAL',
       price,
       mrp: offer.mrp || price,
       discount: offer.mrp && price ? Math.round(((offer.mrp - price) / offer.mrp) * 100) : 0,
       image: offer.image,
-      weight: offer.subtitle || 'Combo offer',
+      weight: contents,
+      itemsIncluded: contents,
       unit: '',
-      selectedVariant: offer.subtitle || 'Combo offer',
+      isOffer: true,
+      badge: offer.badge || 'FESTIVE DEAL',
+      selectedVariant: contents,
       category: 'offers',
       deliveryTime: isWholesale ? 'Same day' : '10 mins',
     });
   };
+
 
   const handleIncrease = (e, offer) => {
     e.preventDefault();

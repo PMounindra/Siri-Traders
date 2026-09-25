@@ -79,34 +79,83 @@ const Cart = () => {
 
           {/* Cart items */}
           <div className="cart__items">
-            {cartItems.map(item => (
-              <div key={item.id} className="cart__item">
-                <img src={toWebpImage(item.image)} alt={item.name} className="cart__item-img" 
-                  onClick={() => navigate(`/product/${item.id}`)} />
-                <div className="cart__item-info">
-                  <h3 className="cart__item-name">{item.name}</h3>
-                  <span className="cart__item-weight">{item.weight} {item.unit}</span>
-                  <div className="cart__item-price-row">
-                    <span className="cart__item-price">{formatPrice(item.price * item.quantity)}</span>
-                    {item.discount > 0 && <span className="cart__item-mrp">{formatPrice(item.mrp * item.quantity)}</span>}
+            {cartItems.map(item => {
+              const isOfferItem = item.isOffer || item.category === 'offers' || String(item.id).startsWith('offer-');
+              const includedText = item.itemsIncluded || (isOfferItem ? item.weight : null);
+
+              return (
+                <div key={item.id} className="cart__item">
+                  <img
+                    src={toWebpImage(item.image)}
+                    alt={item.name}
+                    className="cart__item-img" 
+                    onClick={() => item.productId && navigate(`/product/${item.productId}`)}
+                    style={{ cursor: item.productId ? 'pointer' : 'default' }}
+                  />
+                  <div className="cart__item-info">
+                    {isOfferItem && (
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        color: '#B45309',
+                        background: '#FEF3C7',
+                        padding: '1px 7px',
+                        borderRadius: '12px',
+                        display: 'inline-block',
+                        marginBottom: '3px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.4px'
+                      }}>
+                        🎁 {item.badge || 'PROMOTIONAL DEAL'}
+                      </span>
+                    )}
+                    <h3 className="cart__item-name" style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>
+                      {item.name}
+                    </h3>
+
+                    {/* Clear Included Items / Package Contents */}
+                    {isOfferItem && includedText && (
+                      <div style={{
+                        margin: '4px 0',
+                        padding: '4px 8px',
+                        background: '#F0FDF4',
+                        border: '1px solid #DCFCE7',
+                        borderRadius: '6px',
+                        fontSize: '11.5px',
+                        color: '#166534',
+                        fontWeight: 600
+                      }}>
+                        📦 <strong>Included:</strong> {includedText}
+                      </div>
+                    )}
+
+                    {!isOfferItem && (
+                      <span className="cart__item-weight">{item.weight} {item.unit}</span>
+                    )}
+
+                    <div className="cart__item-price-row" style={{ marginTop: '4px' }}>
+                      <span className="cart__item-price">{formatPrice(item.price * item.quantity)}</span>
+                      {item.discount > 0 && <span className="cart__item-mrp">{formatPrice(item.mrp * item.quantity)}</span>}
+                    </div>
+                  </div>
+                  <div className="cart__item-actions">
+                    <div className="cart__item-stepper">
+                      <button onClick={() => updateQuantity(item.id, item.quantity - 1)}>
+                        <FiMinus />
+                      </button>
+                      <span>{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+                        <FiPlus />
+                      </button>
+                    </div>
+                    <button className="cart__item-remove" onClick={() => removeFromCart(item.id)}>
+                      <FiTrash2 />
+                    </button>
                   </div>
                 </div>
-                <div className="cart__item-actions">
-                  <div className="cart__item-stepper">
-                    <button onClick={() => updateQuantity(item.id, item.quantity - 1)}>
-                      <FiMinus />
-                    </button>
-                    <span>{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.id, item.quantity + 1)}>
-                      <FiPlus />
-                    </button>
-                  </div>
-                  <button className="cart__item-remove" onClick={() => removeFromCart(item.id)}>
-                    <FiTrash2 />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
+
           </div>
 
           {/* Suggestions */}
