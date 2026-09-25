@@ -1,4 +1,4 @@
-﻿import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -1490,14 +1490,21 @@ const Admin = () => {
     if (targetId) {
       try {
         await adminApi.updateProduct(targetId, { isPublished: nextPub });
+        broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED);
       } catch (err) {
         console.error('Failed to update published status:', err);
         loadProductsFromDb();
       }
     }
-    setSaveToast({ type: 'success', msg: nextPub ? `🟢 Published "${product.name}" to store` : `🟡 Hidden "${product.name}" (Draft)` });
-    setTimeout(() => setSaveToast(null), 3000);
+    setSaveToast({
+      type: 'success',
+      msg: nextPub
+        ? `🟢 "${product.name}" is now live on the website!`
+        : `🟡 "${product.name}" removed from website (retained in Inventory Hub)`
+    });
+    setTimeout(() => setSaveToast(null), 4000);
   };
+
 
   const updateProductStock = async (productId, stockNote) => {
     const inStock = stockNote !== 'Out of stock';
@@ -4571,8 +4578,10 @@ const Admin = () => {
                                 }}
                                 title={isPublished ? 'Remove from website' : 'Upload to website'}
                                 onClick={() => {
-                                  if (dbProd) togglePublishProduct(dbProd);
+                                  const target = dbProd || { id: item.productId, name: item.name, isPublished };
+                                  togglePublishProduct(target);
                                 }}
+
                               >
                                 {isPublished ? '🌐 Remove from Website' : '🌐 Upload to Website'}
                               </button>
