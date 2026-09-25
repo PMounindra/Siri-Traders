@@ -117,8 +117,8 @@ const blankProduct = {
   expiryDate: '',
   image: '',
   description: '',
-  inStock: true,
-  stockNote: 'In stock',
+  inStock: false,
+  stockNote: 'Out of stock',
   isPublished: false,
   isArchived: false,
   deliveryTime: '15 mins',
@@ -1001,8 +1001,9 @@ const Admin = () => {
     e.preventDefault();
     if (!adjustModalItem) return;
     const qty = parseInt(adjustForm.quantity, 10);
-    if (isNaN(qty) || qty <= 0) {
-      alert('Please enter a valid positive quantity');
+    const isInvalid = isNaN(qty) || (adjustForm.changeType === 'SET' ? qty < 0 : qty <= 0);
+    if (isInvalid) {
+      alert(adjustForm.changeType === 'SET' ? 'Please enter a valid quantity (0 or greater)' : 'Please enter a valid positive quantity');
       return;
     }
 
@@ -5151,14 +5152,14 @@ const Admin = () => {
                             <input
                               type="number"
                               className="admin-input-box"
-                              min="1"
-                              placeholder="e.g. 50"
+                              min={adjustForm.changeType === 'SET' ? "0" : "1"}
+                              placeholder={adjustForm.changeType === 'SET' ? "e.g. 0" : "e.g. 50"}
                               value={adjustForm.quantity}
                               onChange={(e) => setAdjustForm(prev => ({ ...prev, quantity: e.target.value }))}
                               required
                               style={{ fontSize: '15px', fontWeight: 600 }}
                             />
-                            {adjustForm.quantity && (adjustForm.changeType === 'ADD' || adjustForm.changeType === 'SET') && (
+                            {adjustForm.quantity !== '' && !isNaN(parseInt(adjustForm.quantity, 10)) && (adjustForm.changeType === 'ADD' || adjustForm.changeType === 'SET') && (
                               <div style={{ marginTop: '6px', padding: '6px 10px', background: '#EFF6FF', borderRadius: '6px', fontSize: '11.5px', color: '#1E40AF', fontWeight: 600 }}>
                                 {adjustForm.changeType === 'ADD'
                                   ? `After adding: ${currentStock} + ${qty} = ${previewStock} units`

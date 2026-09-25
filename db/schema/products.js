@@ -23,7 +23,7 @@ export const products = pgTable('products', {
   expiryDate: text('expiry_date'),
   image: text('image'),
   description: text('description'),
-  inStock: boolean('in_stock').default(true),
+  inStock: boolean('in_stock').default(false),
   isArchived: boolean('is_archived').default(false),
   isPublished: boolean('is_published').default(true),
   deliveryTime: text('delivery_time').default('15 mins'),

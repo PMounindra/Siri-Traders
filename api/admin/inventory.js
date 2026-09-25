@@ -87,7 +87,7 @@ export default async function handler(req, res) {
         // Auto-create record if missing
         if (!inv) {
           const cost = Math.max(10, Math.round((prod.price || 50) * 0.75));
-          const stock = prod.inStock ? 45 : 0;
+          const stock = 0;
           const reorder = 10;
           const expDate = new Date();
           expDate.setMonth(expDate.getMonth() + 6);
@@ -251,7 +251,7 @@ export default async function handler(req, res) {
       if (!inv) {
         const [createdInv] = await db.insert(inventory).values({
           productId: pId,
-          availableStock: prod.inStock ? 50 : 0,
+          availableStock: 0,
           reorderLevel: 10,
           costPrice: Math.round((prod.price || 50) * 0.75)
         }).returning();
