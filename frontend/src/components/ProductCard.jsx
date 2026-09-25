@@ -15,9 +15,11 @@ const ProductCard = ({ product, compact = false }) => {
   const isWholesale = customerType === 'wholesale';
   const isOutOfStock = product.stockNote === 'Out of stock' || product.inStock === false;
   const stockNote = product.stockNote && product.stockNote !== 'In stock' ? product.stockNote : '';
-  const priceVariants = (Array.isArray(product.variants) && product.variants.length > 0)
+  const priceVariants = (isWholesale && Array.isArray(product.variants) && product.variants.length > 0)
     ? product.variants
-    : [{ label: `${product.weight || ''} ${product.unit || ''}`.trim() || 'Standard Pack', price: Number(product.price) || 0, mrp: Number(product.mrp) || Number(product.price) || 0 }];
+    : (!isWholesale && Array.isArray(product.variants) && product.variants.length > 1)
+      ? product.variants
+      : [{ label: `${product.weight || ''} ${product.unit || ''}`.trim() || 'Standard Pack', price: Number(product.price) || 0, mrp: Number(product.mrp) || Number(product.price) || 0 }];
   const [selectedVariant, setSelectedVariant] = useState(() => {
     // Auto-select the variant that's already in cart (if any), scoped by customerType
     const inCart = priceVariants.find(v => getItemQuantity(`${customerType}-${product.id}-${v.label}`) > 0);

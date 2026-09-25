@@ -76,10 +76,16 @@ export const ProductProvider = ({ children }) => {
       });
       items = wholesaleItems.map(toWholesaleProduct);
     } else {
-      items = list.filter(p => {
+      const retailItems = list.filter(p => {
         if (!p.targetType) return true; // Default fallback for existing DB items
         return p.targetType === 'retail' || p.targetType === 'retail_and_wholesale' || p.targetType === 'both';
       });
+      // Custom price ranges/tiers are strictly for wholesale.
+      // Clear variants on raw retail items so custom wholesale ranges don't bleed into retail pricing or grouping.
+      items = retailItems.map(p => ({
+        ...p,
+        variants: []
+      }));
     }
 
     return groupProductsByBase(items);

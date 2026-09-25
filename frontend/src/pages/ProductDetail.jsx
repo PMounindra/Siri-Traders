@@ -158,7 +158,7 @@ const ProductDetail = () => {
           if (res.ok) {
             const data = await res.json();
             if (data && data.id) {
-              found = customerType === 'wholesale' ? toWholesaleProduct(data) : data;
+              found = customerType === 'wholesale' ? toWholesaleProduct(data) : { ...data, variants: [] };
             }
           }
         } catch (e) {
@@ -288,7 +288,7 @@ const ProductDetail = () => {
 
   const productPackVariants = useMemo(() => {
     if (!product) return [];
-    if (Array.isArray(product.variants) && product.variants.length > 0) {
+    if (customerType === 'wholesale' && Array.isArray(product.variants) && product.variants.length > 0) {
       return product.variants.map((v, idx) => ({
         id: `pack-${idx}-${v.label}`,
         label: String(v.label || `${product.weight || ''} ${product.unit || ''}`).trim() || 'Standard Pack',
