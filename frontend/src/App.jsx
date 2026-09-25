@@ -26,6 +26,7 @@ const Categories = lazy(() => import("./pages/Categories"));
 const TodaysDeals = lazy(() => import("./pages/TodaysDeals"));
 const Bestsellers = lazy(() => import("./pages/Bestsellers"));
 const FestiveOffers = lazy(() => import("./pages/FestiveOffers"));
+const FestiveOfferDetail = lazy(() => import("./pages/FestiveOfferDetail"));
 const ProductDetail = lazy(() => import("./pages/ProductDetail"));
 const Cart = lazy(() => import("./pages/Cart"));
 const Checkout = lazy(() => import("./pages/Checkout"));
@@ -69,6 +70,7 @@ const AppLayout = () => {
             <Route path="/todays-deals" element={<TodaysDeals />} />
             <Route path="/bestsellers" element={<Bestsellers />} />
             <Route path="/festive-offers" element={<FestiveOffers />} />
+            <Route path="/festive-offer/:id" element={<FestiveOfferDetail />} />
             <Route path="/product/:id" element={<ProductDetail />} />
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />

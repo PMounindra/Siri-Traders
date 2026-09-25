@@ -388,19 +388,24 @@ const OffersSection = ({ customerType }) => {
           </div>
           <p className="home-hero__festival-desc">{activeFestival?.text || 'Seasonal deals, curated by Siri Traders.'}</p>
           <ScrollRow className="home-hero__offers-scroll">
-            {festivalSpotlights.map((item, i) => (
-              <Link to={item.link} className="home-hero__offer-card home-hero__offer-card--festive" key={item.id || item.title + i}>
-                <img src={toWebpImage(item.image)} alt={item.title} />
-                <div className="home-hero__offer-card-body">
-                  <span className="home-hero__offer-badge home-hero__offer-badge--festive">{item.badge || 'Festive Offers'}</span>
-                  <h3>{item.title}</h3>
-                  <div className="home-hero__offer-bottom">
-                    {item.price ? <strong>{formatPrice(item.price)}</strong> : <strong>Deal</strong>}
-                    {renderOfferAction(item)}
+            {festivalSpotlights.map((item, i) => {
+              const itemDetailPath = (item.link && item.link !== '/categories' && !item.link.startsWith('/categories?'))
+                ? item.link
+                : `/festive-offer/${item.id}`;
+              return (
+                <Link to={itemDetailPath} className="home-hero__offer-card home-hero__offer-card--festive" key={item.id || item.title + i}>
+                  <img src={toWebpImage(item.image)} alt={item.title} />
+                  <div className="home-hero__offer-card-body">
+                    <span className="home-hero__offer-badge home-hero__offer-badge--festive">{item.badge || 'Festive Offers'}</span>
+                    <h3>{item.title}</h3>
+                    <div className="home-hero__offer-bottom">
+                      {item.price ? <strong>{formatPrice(item.price)}</strong> : <strong>Deal</strong>}
+                      {renderOfferAction(item)}
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </ScrollRow>
         </div>
       )}

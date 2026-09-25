@@ -101,12 +101,16 @@ const FestiveOffers = () => {
         </div>
 
         <div className="fopage__grid">
-          {offers.map((offer, i) => (
-            <Link
-              to={offer.link}
-              className="fopage__card"
-              key={offer.id || offer.title + i}
-            >
+          {offers.map((offer, i) => {
+            const offerDetailPath = (offer.link && offer.link !== '/categories' && !offer.link.startsWith('/categories?'))
+              ? offer.link
+              : `/festive-offer/${offer.id}`;
+            return (
+              <Link
+                to={offerDetailPath}
+                className="fopage__card"
+                key={offer.id || offer.title + i}
+              >
               <div className="fopage__card-img-wrap">
                 <img src={toWebpImage(offer.image)} alt={offer.title} />
                 <span className="fopage__card-badge">{offer.badge}</span>
@@ -136,7 +140,8 @@ const FestiveOffers = () => {
                 </div>
               </div>
             </Link>
-          ))}
+          );
+        })}
         </div>
       </div>
     </div>
