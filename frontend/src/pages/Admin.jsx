@@ -4454,28 +4454,16 @@ const Admin = () => {
                           📥 Export CSV
                         </button>
                         <button
-                          className="admin__ghost"
-                          style={{ height: '38px', padding: '0 14px', fontSize: '12px' }}
-                          onClick={() => {
-                            setProductDraft(blankProduct);
-                            setProductModalMode('retail');
-                            setDetailedVariants([]);
-                            setShowProductModal(true);
-                          }}
-                        >
-                          <FiPlus size={13} /> Add Retail Item
-                        </button>
-                        <button
                           className="admin__primary"
                           style={{ height: '38px', padding: '0 14px', fontSize: '12px' }}
                           onClick={() => {
-                            setProductDraft(blankWholesaleProduct);
-                            setProductModalMode('wholesale');
+                            setProductDraft(blankProduct);
+                            setProductModalMode('all');
                             setDetailedVariants([]);
                             setShowProductModal(true);
                           }}
                         >
-                          <FiPlus size={13} /> Add Wholesale Item
+                          <FiPlus size={13} /> Add Item
                         </button>
                       </div>
                     </div>
@@ -4989,7 +4977,7 @@ const Admin = () => {
               <div className="inventory-modal" style={{ maxWidth: '860px' }} onClick={e => e.stopPropagation()}>
                 <div className="inventory-modal__header">
                   <div>
-                    <h2 style={{ margin: 0 }}>{productDraft.id ? 'Edit Grocery Item' : `Add New ${productModalMode === 'wholesale' ? 'Wholesale' : 'Retail'} Item`}</h2>
+                    <h2 style={{ margin: 0 }}>{productDraft.id ? 'Edit Grocery Item' : 'Add New Item'}</h2>
                     {productDraft.id && (
                       <span style={{ fontSize: '11px', color: '#687466' }}>Editing ID #{productDraft.id}</span>
                     )}
