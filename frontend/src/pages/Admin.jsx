@@ -539,6 +539,17 @@ const Admin = () => {
     }
   }, [adminApi]);
 
+  const loadCoupons = useCallback(async () => {
+    try {
+      const data = await adminApi.fetchCoupons();
+      if (Array.isArray(data)) {
+        setCoupons(data);
+      }
+    } catch (err) {
+      console.warn('Failed to load coupons:', err);
+    }
+  }, [adminApi]);
+
   const normalizeOffer = (o) => ({ ...o, group: o.groupType || o.group || 'daily' });
   const allowedAdminTabs = ADMIN_ROLE_PERMISSIONS[selectedAdminRole] || ADMIN_ROLE_PERMISSIONS.Viewer;
 
@@ -675,7 +686,7 @@ const Admin = () => {
     loadReviews();
     loadCmsData();
     adminApi.fetchOffers().then(data => setOffers(data.map(normalizeOffer))).catch(() => {});
-    adminApi.fetchCoupons().then(setCoupons).catch(() => {});
+    loadCoupons();
     adminApi.fetchDeliveryZones().then(setDeliveryZones).catch(() => {});
     adminApi.fetchCategories().then(setDbCategories).catch(() => {});
     adminApi.fetchAdminUsers().then(setAdminAccounts).catch(() => {});
@@ -695,9 +706,28 @@ const Admin = () => {
       loadCustomers();
     } else if (activeTab === 'reviews') {
       loadReviews();
+    } else if (activeTab === 'promotions') {
+      loadCoupons();
+      const interval = setInterval(() => {
+        loadCoupons();
+      }, 5000);
+      return () => clearInterval(interval);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, inventoryFilter]);
+  }, [activeTab, inventoryFilter, loadCoupons]);
+
+  // Real-time broadcast sync for coupons and orders
+  useEffect(() => {
+    const unsubscribe = subscribeSync(
+      [SYNC_EVENTS.SITE_DATA_CHANGED, SYNC_EVENTS.ORDER_PLACED, SYNC_EVENTS.ORDERS_CHANGED, SYNC_EVENTS.REFRESH_ALL],
+      () => {
+        loadCoupons();
+        loadOrders();
+      }
+    );
+    return () => unsubscribe();
+  }, [loadCoupons]);
+
 
   // Real-time order notifications
   useEffect(() => {
@@ -2667,18 +2697,24 @@ const Admin = () => {
 
                   <div className="admin-form__grid admin-form__grid--two">
                     <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Total Usage Limit</label>
-                      <input type="number" value={couponDraft.usageLimit} onChange={(e) => setCouponDraft(prev => ({ ...prev, usageLimit: e.target.value }))} placeholder="500" />
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Total Store Usage Limit</label>
+                      <input type="number" value={couponDraft.usageLimit} onChange={(e) => setCouponDraft(prev => ({ ...prev, usageLimit: e.target.value }))} placeholder="e.g. 500 (optional)" />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Customer Type</label>
-                      <select value={couponDraft.customerType} onChange={(e) => setCouponDraft(prev => ({ ...prev, customerType: e.target.value }))}>
-                        <option value="retail">Retail Store</option>
-                        <option value="wholesale">Wholesale B2B</option>
-                        <option value="all">Both Retail & Wholesale</option>
-                      </select>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Customer Limit (Per User)</label>
+                      <input type="number" value={couponDraft.perUserLimit || 1} onChange={(e) => setCouponDraft(prev => ({ ...prev, perUserLimit: e.target.value }))} placeholder="1" min="1" />
                     </div>
                   </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Target Customer Type</label>
+                    <select value={couponDraft.customerType} onChange={(e) => setCouponDraft(prev => ({ ...prev, customerType: e.target.value }))}>
+                      <option value="retail">Retail Store</option>
+                      <option value="wholesale">Wholesale B2B</option>
+                      <option value="all">Both Retail & Wholesale</option>
+                    </select>
+                  </div>
+
 
                   <input value={couponDraft.title} onChange={(e) => setCouponDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Coupon title e.g. FLAT ₹50 OFF" />
                   <input value={couponDraft.description} onChange={(e) => setCouponDraft(prev => ({ ...prev, description: e.target.value }))} placeholder="Coupon subtext e.g. On first grocery order" />
@@ -2728,54 +2764,67 @@ const Admin = () => {
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
-                  {coupons.map(coupon => (
-                    <div key={coupon.id} className="admin-promo-card">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <strong style={{ fontSize: '15px', color: '#1C4D12', letterSpacing: '0.5px' }}>{coupon.code}</strong>
-                        <span className={`admin-promo-pill admin-promo-pill--${coupon.type}`}>
-                          {coupon.type === 'bogo' ? '🎁 BOGO'
-                            : coupon.type === 'buyXgetY' ? `🎁 Buy ${coupon.buyQuantity} Get ${coupon.getQuantity}`
-                            : coupon.type === 'freeDelivery' ? '🚚 FREE Delivery'
-                            : coupon.type === 'percent' ? `${coupon.value}% OFF`
-                            : `₹${coupon.value} OFF`}
-                        </span>
-                      </div>
+                  {coupons.map(coupon => {
+                    const isExpired = Boolean(coupon.endDate && new Date(coupon.endDate + 'T23:59:59') < new Date());
+                    const expiryFormatted = coupon.endDate
+                      ? new Date(coupon.endDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                      : 'No Expiry';
+                    const usageText = coupon.usageLimit
+                      ? `${coupon.timesUsed || 0} / ${coupon.usageLimit} times`
+                      : `${coupon.timesUsed || 0} times`;
+                    const perUserText = coupon.perUserLimit ? `${coupon.perUserLimit} use${coupon.perUserLimit > 1 ? 's' : ''}/user` : '1 use/user';
 
-                      <p style={{ margin: 0, fontSize: '12px', color: '#4B5563' }}>
-                        {coupon.title || coupon.description || 'Promotional coupon'}
-                      </p>
+                    return (
+                      <div key={coupon.id} className="admin-promo-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <strong style={{ fontSize: '15px', color: '#1C4D12', letterSpacing: '0.5px' }}>{coupon.code}</strong>
+                          <span className={`admin-promo-pill admin-promo-pill--${coupon.type}`}>
+                            {coupon.type === 'bogo' ? '🎁 BOGO'
+                              : coupon.type === 'buyXgetY' ? `🎁 Buy ${coupon.buyQuantity} Get ${coupon.getQuantity}`
+                              : coupon.type === 'freeDelivery' ? '🚚 FREE Delivery'
+                              : coupon.type === 'percent' ? `${coupon.value}% OFF`
+                              : `₹${coupon.value} OFF`}
+                          </span>
+                        </div>
 
-                      <div style={{ background: '#FAF9F5', padding: '8px 10px', borderRadius: '8px', fontSize: '11.5px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-                        <span>Scope: <strong>{coupon.targetType || 'All'}</strong></span>
-                        <span>Customer: <strong>{coupon.customerType === 'all' ? 'Retail & Wholesale' : (coupon.customerType || 'Retail')}</strong></span>
-                        <span>Used: <strong>{coupon.timesUsed || 0} times</strong></span>
-                        <span>Discount Given: <strong>₹{coupon.totalDiscountGiven || 0}</strong></span>
-                      </div>
+                        <p style={{ margin: 0, fontSize: '12px', color: '#4B5563' }}>
+                          {coupon.title || coupon.description || 'Promotional coupon'}
+                        </p>
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-                        <button
-                          type="button"
-                          style={{
-                            background: coupon.active !== false ? '#DCFCE7' : '#F3F4F6',
-                            color: coupon.active !== false ? '#166534' : '#6B7280',
-                            border: 'none',
-                            padding: '2px 8px',
-                            borderRadius: '10px',
-                            fontSize: '11px',
-                            fontWeight: 800,
-                            cursor: 'pointer'
-                          }}
-                          onClick={async () => {
-                            const nextActive = coupon.active === false ? true : false;
-                            try {
-                              const updated = await adminApi.updateCoupon(coupon.id, { active: nextActive });
-                              setCoupons(prev => prev.map(c => c.id === updated.id ? updated : c));
-                              broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
-                            } catch (err) { alert(err.message); }
-                          }}
-                        >
-                          {coupon.active !== false ? '🟢 Active' : '⚪ Inactive'}
-                        </button>
+                        <div style={{ background: '#FAF9F5', padding: '10px 12px', borderRadius: '8px', fontSize: '11.5px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 10px', border: '1px solid #F0EDE4' }}>
+                          <span>Scope: <strong>{coupon.targetType || 'all'}</strong></span>
+                          <span>Customer: <strong>{coupon.customerType === 'all' ? 'retail & wholesale' : (coupon.customerType || 'retail')}</strong></span>
+                          <span>Used: <strong style={{ color: '#1C4D12' }}>{usageText}</strong></span>
+                          <span>Discount Given: <strong style={{ color: '#166534' }}>₹{coupon.totalDiscountGiven || 0}</strong></span>
+                          <span>User Limit: <strong>{perUserText}</strong></span>
+                          <span>Expiry: <strong style={{ color: isExpired ? '#DC2626' : '#374151' }}>{expiryFormatted}</strong></span>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+                          <button
+                            type="button"
+                            style={{
+                              background: isExpired ? '#FEE2E2' : (coupon.active !== false ? '#DCFCE7' : '#F3F4F6'),
+                              color: isExpired ? '#991B1B' : (coupon.active !== false ? '#166534' : '#6B7280'),
+                              border: isExpired ? '1px solid #FCA5A5' : 'none',
+                              padding: '3px 10px',
+                              borderRadius: '10px',
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              cursor: 'pointer'
+                            }}
+                            onClick={async () => {
+                              const nextActive = coupon.active === false ? true : false;
+                              try {
+                                const updated = await adminApi.updateCoupon(coupon.id, { active: nextActive });
+                                setCoupons(prev => prev.map(c => c.id === updated.id ? updated : c));
+                                broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
+                              } catch (err) { alert(err.message); }
+                            }}
+                          >
+                            {isExpired ? '⏰ Expired' : (coupon.active !== false ? '🟢 Active' : '⚪ Inactive')}
+                          </button>
+
 
                         <button
                           type="button"
@@ -2796,12 +2845,16 @@ const Admin = () => {
                             }
                           }}
                         >
-                          <FiTrash2 size={12} />
+                          <FiTrash2 size={13} />
                         </button>
                       </div>
                     </div>
-                  ))}
+                  );
+                })}
+
                 </div>
+
+
               </div>
             </div>
           )}
