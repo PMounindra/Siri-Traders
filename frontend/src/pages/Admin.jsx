@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+﻿import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -1382,13 +1382,14 @@ const Admin = () => {
     setShowProductModal(false);
 
     if (!isEdit) {
-      // Newly added â€” ask if it should be published to the website
-      setPublishPromptProduct(nextProduct);
+      const status = nextProduct.isPublished !== false ? 'live on the website' : 'saved to inventory only';
+      setSaveToast({ type: 'success', msg: '"' + nextProduct.name + '" added — ' + status + '.' });
+      setTimeout(() => setSaveToast(null), 5000);
     } else {
       setSaveToast({ type: 'success', msg: '"' + nextProduct.name + '" updated successfully' });
       setTimeout(() => setSaveToast(null), 4000);
     }
-  };
+    };
 
   const editProduct = (product) => {
     const isWholesale = Boolean(product.wholesalePrice);
@@ -5217,6 +5218,61 @@ const Admin = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Upload to Website toggle — shown only when adding a new item */}
+                  {!productDraft.id && (
+                    <div style={{
+                      background: productDraft.isPublished ? '#F0FDF4' : '#FFFBEB',
+                      border: `2px solid ${productDraft.isPublished ? '#86EFAC' : '#FCD34D'}`,
+                      borderRadius: '12px',
+                      padding: '14px 18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '16px',
+                      flexWrap: 'wrap',
+                      marginBottom: '4px'
+                    }}>
+                      <div>
+                        <strong style={{ fontSize: '13px', color: '#111827' }}>
+                          {productDraft.isPublished ? '🟢 Upload to Website' : '🟡 Inventory Only'}
+                        </strong>
+                        <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#687466' }}>
+                          {productDraft.isPublished
+                            ? 'This item will be visible to customers on the website after saving.'
+                            : 'This item will be saved to inventory only. Customers won\'t see it yet.'}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          style={{
+                            padding: '8px 18px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                            border: '2px solid #86EFAC',
+                            background: productDraft.isPublished ? '#16A34A' : 'transparent',
+                            color: productDraft.isPublished ? '#fff' : '#16A34A',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => setProductDraft(prev => ({ ...prev, isPublished: true }))}
+                        >
+                          ✅ Yes, Upload
+                        </button>
+                        <button
+                          type="button"
+                          style={{
+                            padding: '8px 18px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                            border: '2px solid #FCD34D',
+                            background: !productDraft.isPublished ? '#D97706' : 'transparent',
+                            color: !productDraft.isPublished ? '#fff' : '#92400E',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => setProductDraft(prev => ({ ...prev, isPublished: false }))}
+                        >
+                          📦 No, Keep in Inventory
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="inventory-modal__footer">
                     <button type="button" className="admin__ghost" onClick={() => setShowProductModal(false)}>Cancel</button>
