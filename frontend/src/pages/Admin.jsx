@@ -1229,6 +1229,7 @@ const Admin = () => {
       });
       setDbCategories(prev => [...prev, saved]);
       setCategoryDraft({ name: '', image: '', color: '#F1F8E9' });
+      broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
       setSaveToast({ type: 'success', msg: `Category "${saved.name}" added` });
       setTimeout(() => setSaveToast(null), 3000);
     } catch (err) {
