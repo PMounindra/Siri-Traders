@@ -169,6 +169,8 @@ export default async function handler(req, res) {
           inStock: prod.inStock,
           wholesalePrice: prod.wholesalePrice,
           isWholesale: Boolean(prod.wholesalePrice),
+          isPublished: prod.isPublished !== false,
+          isArchived: Boolean(prod.isArchived),
           // Inventory Fields
           inventoryId: inv.id,
           availableStock: available,

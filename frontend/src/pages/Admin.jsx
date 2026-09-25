@@ -1484,8 +1484,29 @@ const Admin = () => {
   };
 
   const togglePublishProduct = async (product) => {
+    if (!product || !product.id) return;
+    const targetIdStr = String(product.id);
     const nextPub = product.isPublished === false ? true : false;
-    setDbProductsList(prev => prev.map(p => String(p.id) === String(product.id) ? { ...p, isPublished: nextPub } : p));
+
+    // Synchronously update dbProductsList
+    setDbProductsList(prev => {
+      const exists = prev.some(p => String(p.id) === targetIdStr);
+      return exists
+        ? prev.map(p => String(p.id) === targetIdStr ? { ...p, isPublished: nextPub } : p)
+        : [{ ...product, isPublished: nextPub }, ...prev];
+    });
+
+    // Synchronously update inventoryData items
+    setInventoryData(prev => {
+      if (!prev || !Array.isArray(prev.items)) return prev;
+      return {
+        ...prev,
+        items: prev.items.map(item =>
+          String(item.productId) === targetIdStr ? { ...item, isPublished: nextPub } : item
+        )
+      };
+    });
+
     const targetId = Number(product.id) || product.id;
     if (targetId) {
       try {
@@ -1494,6 +1515,7 @@ const Admin = () => {
       } catch (err) {
         console.error('Failed to update published status:', err);
         loadProductsFromDb();
+        loadInventory();
       }
     }
     setSaveToast({
@@ -1504,6 +1526,7 @@ const Admin = () => {
     });
     setTimeout(() => setSaveToast(null), 4000);
   };
+
 
 
   const updateProductStock = async (productId, stockNote) => {
@@ -4497,10 +4520,12 @@ const Admin = () => {
                             No inventory items matching your filter/search.
                           </td>
                         </tr>
-                        ) : filteredInventoryItems.map(item => {
+                      ) : filteredInventoryItems.map(item => {
                           const dbProd = dbProductsList.find(p => String(p.id) === String(item.productId));
-                          const isPublished = dbProd ? dbProd.isPublished !== false : true;
+                          const isPublished = item.isPublished !== undefined ? item.isPublished : (dbProd ? dbProd.isPublished !== false : true);
+
                           return (
+
                         <tr key={item.productId}>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -4578,9 +4603,12 @@ const Admin = () => {
                                 }}
                                 title={isPublished ? 'Remove from website' : 'Upload to website'}
                                 onClick={() => {
-                                  const target = dbProd || { id: item.productId, name: item.name, isPublished };
+                                  const target = dbProd
+                                    ? { ...dbProd, isPublished }
+                                    : { id: item.productId, name: item.name, isPublished };
                                   togglePublishProduct(target);
                                 }}
+
 
                               >
                                 {isPublished ? '🌐 Remove from Website' : '🌐 Upload to Website'}
