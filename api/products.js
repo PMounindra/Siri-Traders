@@ -1,4 +1,4 @@
-import { db, products, categories, inventory, orderItems } from '../db/index.js';
+import { db, products, categories, inventory, orderItems, reviews } from '../db/index.js';
 import { eq, and, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { setCorsHeaders } from './_cors.js';
@@ -285,9 +285,12 @@ export default async function handler(req, res) {
       }
 
       try {
-        await db.update(orderItems).set({ productId: null }).where(eq(orderItems.productId, parsedId)).catch(() => {});
-        await db.delete(inventory).where(eq(inventory.productId, parsedId)).catch(() => {});
-        await db.delete(products).where(eq(products.id, parsedId));
+        await db.transaction(async (tx) => {
+          await tx.update(orderItems).set({ productId: null }).where(eq(orderItems.productId, parsedId)).catch(() => {});
+          await tx.update(reviews).set({ productId: null }).where(eq(reviews.productId, parsedId)).catch(() => {});
+          await tx.delete(inventory).where(eq(inventory.productId, parsedId)).catch(() => {});
+          await tx.delete(products).where(eq(products.id, parsedId));
+        });
         return res.status(200).json({ success: true, id: parsedId });
       } catch (delErr) {
         console.error('Error deleting product from database:', delErr);

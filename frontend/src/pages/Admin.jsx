@@ -301,11 +301,7 @@ const Admin = () => {
   const [adminMode, setAdminMode] = useState('retail');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // ── Products state ──
-  // Real source of truth is the DB (fetched below); localStorage is only a
-  // paint-before-fetch cache, never the static sample catalog.
-  const [retailProducts, setRetailProducts] = useState(() => readStorage(ADMIN_PRODUCTS_RETAIL_KEY, []));
-  const [wholesaleProducts, setWholesaleProducts] = useState(() => readStorage(ADMIN_PRODUCTS_WHOLESALE_KEY, []));
+  const [dbProductsList, setDbProductsList] = useState([]);
 
   // Status, Category & Target Availability filters for products
   const [productStatusFilter, setProductStatusFilter] = useState('all');
@@ -524,15 +520,21 @@ const Admin = () => {
     }
   };
 
-  const persistRetailProducts = (next) => {
-    setRetailProducts(next);
-    writeStorage(ADMIN_PRODUCTS_RETAIL_KEY, next);
-  };
-
-  const persistWholesaleProducts = (next) => {
-    setWholesaleProducts(next);
-    writeStorage(ADMIN_PRODUCTS_WHOLESALE_KEY, next);
-  };
+  const loadProductsFromDb = useCallback(async () => {
+    try {
+      const dbProducts = await adminApi.fetchProducts(true);
+      const list = Array.isArray(dbProducts) ? dbProducts : [];
+      const normalize = p => ({
+        ...p,
+        stockNote: p.inStock ? 'In stock' : 'Out of stock',
+        isPublished: p.isPublished ?? true,
+        isArchived: p.isArchived ?? false
+      });
+      setDbProductsList(list.map(normalize));
+    } catch (err) {
+      console.warn("Failed to fetch products from DB:", err);
+    }
+  }, [adminApi]);
 
   const normalizeOffer = (o) => ({ ...o, group: o.groupType || o.group || 'daily' });
   const allowedAdminTabs = ADMIN_ROLE_PERMISSIONS[selectedAdminRole] || ADMIN_ROLE_PERMISSIONS.Viewer;
@@ -635,21 +637,8 @@ const Admin = () => {
 
   // ── Load initial data ──
   useEffect(() => {
-    adminApi.fetchProducts(true).then(dbProducts => {
-      const list = Array.isArray(dbProducts) ? dbProducts : [];
-      const retail = list.filter(p => !p.wholesalePrice);
-      const ws = list.filter(p => p.wholesalePrice);
-      const normalize = p => ({
-        ...p,
-        stockNote: p.inStock ? 'In stock' : 'Out of stock',
-        isPublished: p.isPublished ?? true,
-        isArchived: p.isArchived ?? false
-      });
-      persistRetailProducts(retail.map(normalize));
-      persistWholesaleProducts(ws.map(normalize));
-    }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    loadProductsFromDb();
+  }, [loadProductsFromDb]);
   
   useEffect(() => {
     adminApi.me().then(session => {
@@ -741,7 +730,21 @@ const Admin = () => {
     return () => clearInterval(interval);
   }, [adminSession, adminApi]);
 
-  const allProducts = useMemo(() => [...retailProducts, ...wholesaleProducts], [retailProducts, wholesaleProducts]);
+  const allProducts = dbProductsList;
+
+  const retailProducts = useMemo(() => {
+    return dbProductsList.filter(p => {
+      const target = p.targetType || (p.wholesalePrice ? 'wholesale' : 'retail_and_wholesale');
+      return target === 'retail' || target === 'retail_and_wholesale' || target === 'both' || !p.wholesalePrice;
+    });
+  }, [dbProductsList]);
+
+  const wholesaleProducts = useMemo(() => {
+    return dbProductsList.filter(p => {
+      const target = p.targetType || (p.wholesalePrice ? 'wholesale' : 'retail_and_wholesale');
+      return target === 'wholesale' || target === 'retail_and_wholesale' || target === 'both' || Boolean(p.wholesalePrice);
+    });
+  }, [dbProductsList]);
 
   // ── Filtered Reviews ──
   const filteredReviews = useMemo(() => {
@@ -1366,25 +1369,13 @@ const Admin = () => {
     loadInventory();
     broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED);
 
-    if (nextProduct.targetType === 'wholesale' || isWholesale) {
-      const exists = wholesaleProducts.some(p => String(p.id) === String(nextProduct.id));
-      const next = exists ? wholesaleProducts.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p) : [nextProduct, ...wholesaleProducts];
-      persistWholesaleProducts(next);
-      if (nextProduct.targetType === 'wholesale') {
-        persistRetailProducts(retailProducts.filter(p => String(p.id) !== String(nextProduct.id)));
-      } else {
-        const existsRt = retailProducts.some(p => String(p.id) === String(nextProduct.id));
-        const nextRt = existsRt ? retailProducts.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p) : [nextProduct, ...retailProducts];
-        persistRetailProducts(nextRt);
-      }
-    } else {
-      const exists = retailProducts.some(p => String(p.id) === String(nextProduct.id));
-      const next = exists ? retailProducts.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p) : [nextProduct, ...retailProducts];
-      persistRetailProducts(next);
-      if (nextProduct.targetType === 'retail') {
-        persistWholesaleProducts(wholesaleProducts.filter(p => String(p.id) !== String(nextProduct.id)));
-      }
-    }
+    setDbProductsList(prev => {
+      const exists = prev.some(p => String(p.id) === String(nextProduct.id));
+      return exists
+        ? prev.map(p => String(p.id) === String(nextProduct.id) ? nextProduct : p)
+        : [nextProduct, ...prev];
+    });
+
     setProductDraft(blankProduct);
     setDetailedVariants([]);
     setShowProductModal(false);
@@ -1468,16 +1459,14 @@ const Admin = () => {
 
   const toggleArchiveProduct = async (product) => {
     const nextArchived = !product.isArchived;
-    const isWholesale = Boolean(product.wholesalePrice);
-    const updater = p => p.id === product.id ? { ...p, isArchived: nextArchived } : p;
-    if (isWholesale) persistWholesaleProducts(wholesaleProducts.map(updater));
-    else persistRetailProducts(retailProducts.map(updater));
+    setDbProductsList(prev => prev.map(p => String(p.id) === String(product.id) ? { ...p, isArchived: nextArchived } : p));
     const targetId = Number(product.id) || product.id;
     if (targetId) {
       try {
         await adminApi.updateProduct(targetId, { isArchived: nextArchived });
       } catch (err) {
         console.error('Failed to update archive status:', err);
+        loadProductsFromDb();
       }
     }
     setSaveToast({ type: 'success', msg: nextArchived ? `📁 Archived "${product.name}"` : `Restored "${product.name}" from archive` });
@@ -1486,29 +1475,23 @@ const Admin = () => {
 
   const togglePublishProduct = async (product) => {
     const nextPub = product.isPublished === false ? true : false;
-    const isWholesale = Boolean(product.wholesalePrice);
-    const updater = p => p.id === product.id ? { ...p, isPublished: nextPub } : p;
-    if (isWholesale) persistWholesaleProducts(wholesaleProducts.map(updater));
-    else persistRetailProducts(retailProducts.map(updater));
+    setDbProductsList(prev => prev.map(p => String(p.id) === String(product.id) ? { ...p, isPublished: nextPub } : p));
     const targetId = Number(product.id) || product.id;
     if (targetId) {
       try {
         await adminApi.updateProduct(targetId, { isPublished: nextPub });
       } catch (err) {
         console.error('Failed to update published status:', err);
+        loadProductsFromDb();
       }
     }
     setSaveToast({ type: 'success', msg: nextPub ? `🟢 Published "${product.name}" to store` : `🟡 Hidden "${product.name}" (Draft)` });
     setTimeout(() => setSaveToast(null), 3000);
   };
 
-  const updateProductStock = async (productId, stockNote, isWholesale) => {
+  const updateProductStock = async (productId, stockNote) => {
     const inStock = stockNote !== 'Out of stock';
-    if (isWholesale) {
-      persistWholesaleProducts(wholesaleProducts.map(p => p.id === productId ? { ...p, stockNote, inStock } : p));
-    } else {
-      persistRetailProducts(retailProducts.map(p => p.id === productId ? { ...p, stockNote, inStock } : p));
-    }
+    setDbProductsList(prev => prev.map(p => String(p.id) === String(productId) ? { ...p, stockNote, inStock } : p));
     const targetId = Number(productId) || productId;
     if (targetId) {
       adminApi.updateProduct(targetId, { inStock }).catch(() => {});
@@ -1517,8 +1500,8 @@ const Admin = () => {
 
   const removeProduct = async (productId) => {
     if (!window.confirm('Delete this product? This cannot be undone.')) return;
-    persistWholesaleProducts(wholesaleProducts.filter(p => String(p.id) !== String(productId)));
-    persistRetailProducts(retailProducts.filter(p => String(p.id) !== String(productId)));
+    const targetIdStr = String(productId);
+    setDbProductsList(prev => prev.filter(p => String(p.id) !== targetIdStr));
     const numericId = Number(productId);
     const isDbProduct = !isNaN(numericId) && numericId > 0;
     if (isDbProduct) {
@@ -1530,6 +1513,7 @@ const Admin = () => {
         console.error('Failed to delete product from database:', err);
         setSaveToast({ type: 'error', msg: `⚠️ DB deletion error: ${err.message}` });
         setTimeout(() => setSaveToast(null), 8000);
+        loadProductsFromDb();
       }
     } else {
       broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED);
@@ -1537,14 +1521,10 @@ const Admin = () => {
     }
   };
 
-  const toggleProductFlag = async (productId, field, currentValue, isWholesale) => {
+  const toggleProductFlag = async (productId, field, currentValue) => {
     const nextValue = !currentValue;
-    const updater = (p) => p.id === productId ? { ...p, [field]: nextValue } : p;
-    if (isWholesale) {
-      persistWholesaleProducts(wholesaleProducts.map(updater));
-    } else {
-      persistRetailProducts(retailProducts.map(updater));
-    }
+    const targetIdStr = String(productId);
+    setDbProductsList(prev => prev.map(p => String(p.id) === targetIdStr ? { ...p, [field]: nextValue } : p));
     const targetId = Number(productId) || productId;
     if (targetId) {
       try {
@@ -1552,6 +1532,7 @@ const Admin = () => {
         broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED);
       } catch (err) {
         alert(`Failed to update ${field}: ${err.message}`);
+        loadProductsFromDb();
       }
     }
   };
