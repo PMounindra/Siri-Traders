@@ -119,7 +119,7 @@ const blankProduct = {
   description: '',
   inStock: false,
   stockNote: 'Out of stock',
-  isPublished: false,
+  isPublished: true,
   isArchived: false,
   deliveryTime: '15 mins',
   isBestseller: false,
@@ -157,7 +157,7 @@ const blankWholesaleProduct = {
   description: '',
   inStock: true,
   stockNote: 'In stock',
-  isPublished: false,
+  isPublished: true,
   isArchived: false,
   deliveryTime: 'Same day',
   isBestseller: false,
@@ -825,9 +825,7 @@ const Admin = () => {
   // ── Product filtering ──
   const filterProductList = (productsList) => {
     return productsList.filter(p => {
-      if ((productStatusFilter === 'published' || productStatusFilter === 'all') && (p.isPublished === false || p.isArchived)) return false;
-      if (productStatusFilter === 'draft' && (p.isPublished !== false || p.isArchived)) return false;
-      if (productStatusFilter === 'archived' && !p.isArchived) return false;
+      if (p.isArchived) return false;
 
       if (productCategoryFilter !== 'all' && p.category !== productCategoryFilter) return false;
       if (productTargetFilter !== 'all') {
@@ -1423,8 +1421,7 @@ const Admin = () => {
     setShowProductModal(false);
 
     if (!isEdit) {
-      const status = nextProduct.isPublished !== false ? 'live on the website' : 'saved to inventory only';
-      setSaveToast({ type: 'success', msg: '"' + nextProduct.name + '" added — ' + status + '.' });
+      setSaveToast({ type: 'success', msg: `"${nextProduct.name}" added to catalog successfully!` });
       setTimeout(() => setSaveToast(null), 5000);
     } else {
       setSaveToast({ type: 'success', msg: '"' + nextProduct.name + '" updated successfully' });
@@ -5119,50 +5116,7 @@ const Admin = () => {
                 </div>
               )}
 
-              {/* PUBLISH PROMPT — shown after adding a new product */}
-              {publishPromptProduct && (
-                <div className="inventory-modal-backdrop" onClick={() => setPublishPromptProduct(null)}>
-                  <div className="inventory-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', width: '95%', textAlign: 'center' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '12px' }}>🛒</div>
-                    <h2 style={{ margin: '0 0 8px', fontSize: '17px', fontWeight: 800, color: '#1C4B12' }}>
-                      Upload to Website?
-                    </h2>
-                    <p style={{ margin: '0 0 6px', fontSize: '13px', color: '#374151' }}>
-                      <strong>{publishPromptProduct.name}</strong> has been added to your inventory.
-                    </p>
-                    <p style={{ margin: '0 0 24px', fontSize: '12px', color: '#687466' }}>
-                      Do you want to make it visible on the storefront right now?
-                    </p>
-                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                      <button
-                        className="admin__primary"
-                        style={{ padding: '10px 28px', fontSize: '14px', borderRadius: '10px' }}
-                        onClick={async () => {
-                          const prod = publishPromptProduct;
-                          setPublishPromptProduct(null);
-                          await togglePublishProduct(prod);
-                          setSaveToast({ type: 'success', msg: `"${prod.name}" is now live on the website!` });
-                          setTimeout(() => setSaveToast(null), 4000);
-                        }}
-                      >
-                        ✅ Yes, Upload Now
-                      </button>
-                      <button
-                        className="admin__ghost"
-                        style={{ padding: '10px 28px', fontSize: '14px', borderRadius: '10px' }}
-                        onClick={() => {
-                          const name = publishPromptProduct.name;
-                          setPublishPromptProduct(null);
-                          setSaveToast({ type: 'success', msg: `"${name}" saved to inventory only. You can upload it later.` });
-                          setTimeout(() => setSaveToast(null), 4000);
-                        }}
-                      >
-                        📦 No, Keep in Inventory Only
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+
 
               {/* MODALS FOR INVENTORY */}
               {adjustModalItem && (() => {
@@ -5391,17 +5345,6 @@ const Admin = () => {
                     <option value="retail_and_wholesale">Retail & Wholesale</option>
                     <option value="retail">Retail Only</option>
                     <option value="wholesale">Wholesale Only</option>
-                  </select>
-                  <select
-                    className="admin-input-box"
-                    style={{ width: 'auto', minWidth: '140px' }}
-                    value={productStatusFilter}
-                    onChange={(e) => setProductStatusFilter(e.target.value)}
-                  >
-                    <option value="published">🟢 Live Catalog (Published)</option>
-                    <option value="draft">🟡 Inventory Only (Drafts)</option>
-                    <option value="archived">📁 Archived</option>
-                    <option value="everything">🌐 All Products (Incl. Drafts)</option>
                   </select>
 
                 </div>
@@ -5711,60 +5654,7 @@ const Admin = () => {
                     )}
                   </div>
 
-                  {/* Upload to Website toggle — shown only when adding a new item */}
-                  {!productDraft.id && (
-                    <div style={{
-                      background: productDraft.isPublished ? '#F0FDF4' : '#FFFBEB',
-                      border: `2px solid ${productDraft.isPublished ? '#86EFAC' : '#FCD34D'}`,
-                      borderRadius: '12px',
-                      padding: '14px 18px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '16px',
-                      flexWrap: 'wrap',
-                      marginBottom: '4px'
-                    }}>
-                      <div>
-                        <strong style={{ fontSize: '13px', color: '#111827' }}>
-                          {productDraft.isPublished ? '🟢 Upload to Website' : '🟡 Inventory Only'}
-                        </strong>
-                        <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#687466' }}>
-                          {productDraft.isPublished
-                            ? 'This item will be visible to customers on the website after saving.'
-                            : 'This item will be saved to inventory only. Customers won\'t see it yet.'}
-                        </p>
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                        <button
-                          type="button"
-                          style={{
-                            padding: '8px 18px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                            border: '2px solid #86EFAC',
-                            background: productDraft.isPublished ? '#16A34A' : 'transparent',
-                            color: productDraft.isPublished ? '#fff' : '#16A34A',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => setProductDraft(prev => ({ ...prev, isPublished: true }))}
-                        >
-                          ✅ Yes, Upload
-                        </button>
-                        <button
-                          type="button"
-                          style={{
-                            padding: '8px 18px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                            border: '2px solid #FCD34D',
-                            background: !productDraft.isPublished ? '#D97706' : 'transparent',
-                            color: !productDraft.isPublished ? '#fff' : '#92400E',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => setProductDraft(prev => ({ ...prev, isPublished: false }))}
-                        >
-                          📦 No, Keep in Inventory
-                        </button>
-                      </div>
-                    </div>
-                  )}
+
 
                   <div className="inventory-modal__footer">
                     <button type="button" className="admin__ghost" onClick={() => setShowProductModal(false)}>Cancel</button>
