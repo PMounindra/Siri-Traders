@@ -1695,19 +1695,20 @@ const Admin = () => {
     }
   };
 
-  const updateProductField = (productId, field, value, isWholesale) => {
-    const updater = (p) =>
-      p.id === productId
-        ? {
-            ...p,
-            [field]: ['price', 'mrp', 'discount', 'costPrice', 'gstRate'].includes(field) ? Number(value) || 0 : value,
-            inStock: field === 'stockNote' ? value !== 'Out of stock' : p.inStock
-          }
-        : p;
-    if (isWholesale) {
-      persistWholesaleProducts(wholesaleProducts.map(updater));
-    } else {
-      persistRetailProducts(retailProducts.map(updater));
+  const updateProductField = (productId, field, value) => {
+    const targetIdStr = String(productId);
+    const parsedVal = ['price', 'mrp', 'discount', 'costPrice', 'gstRate'].includes(field) ? Number(value) || 0 : value;
+    setDbProductsList(prev => prev.map(p => {
+      if (String(p.id) !== targetIdStr) return p;
+      return {
+        ...p,
+        [field]: parsedVal,
+        inStock: field === 'stockNote' ? value !== 'Out of stock' : p.inStock
+      };
+    }));
+    const targetId = Number(productId) || productId;
+    if (targetId) {
+      adminApi.updateProduct(targetId, { [field]: parsedVal }).catch(() => {});
     }
   };
 
