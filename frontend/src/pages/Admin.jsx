@@ -177,6 +177,7 @@ const blankOffer = {
   badge: '',
   price: '',
   mrp: '',
+  discountAmount: '',
   image: '',
   group: 'daily',
   type: 'Sale offer',
@@ -1687,18 +1688,20 @@ const Admin = () => {
       }
 
       const totalMrp = updatedList.reduce((sum, i) => sum + ((i.mrp || i.price) * i.quantity), 0);
-      const totalPriceSum = updatedList.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-      const defaultDiscountPrice = Math.round(totalPriceSum * 0.85);
-
+      const totalRegularPrice = updatedList.reduce((sum, i) => sum + (i.price * i.quantity), 0);
       const autoItemsText = updatedList.map(i => `${i.quantity}x ${i.name} (${i.weight})`).join(', ');
+
+      const discVal = (prev.discountAmount !== undefined && prev.discountAmount !== '') ? Number(prev.discountAmount) || 0 : 0;
+      const finalPrice = discVal > 0 ? Math.max(0, totalRegularPrice - discVal) : totalRegularPrice;
 
       return {
         ...prev,
         comboItems: updatedList,
-        mrp: totalMrp || prev.mrp,
-        price: prev.price || defaultDiscountPrice,
+        mrp: totalMrp,
+        price: finalPrice,
+        discountAmount: prev.discountAmount !== undefined ? prev.discountAmount : '',
         title: prev.title || `Festive Combo Pack (${updatedList.length} Items)`,
-        badge: prev.badge || 'FESTIVE COMBO DEAL',
+        badge: discVal > 0 ? `SAVE ₹${discVal} ON COMBO` : (prev.badge || 'FESTIVE COMBO DEAL'),
         itemsIncluded: autoItemsText,
         image: prev.image || prod.image
       };
@@ -1710,12 +1713,16 @@ const Admin = () => {
       const existingList = Array.isArray(prev.comboItems) ? prev.comboItems : [];
       const updatedList = existingList.filter(i => String(i.productId) !== String(prodId));
       const totalMrp = updatedList.reduce((sum, i) => sum + ((i.mrp || i.price) * i.quantity), 0);
+      const totalRegularPrice = updatedList.reduce((sum, i) => sum + (i.price * i.quantity), 0);
       const autoItemsText = updatedList.map(i => `${i.quantity}x ${i.name} (${i.weight})`).join(', ');
+      const discVal = Number(prev.discountAmount) || 0;
+      const finalPrice = discVal > 0 ? Math.max(0, totalRegularPrice - discVal) : totalRegularPrice;
 
       return {
         ...prev,
         comboItems: updatedList,
-        mrp: totalMrp || prev.mrp,
+        mrp: totalMrp,
+        price: finalPrice,
         itemsIncluded: autoItemsText
       };
     });
@@ -1732,12 +1739,16 @@ const Admin = () => {
         String(i.productId) === String(prodId) ? { ...i, quantity: newQty } : i
       );
       const totalMrp = updatedList.reduce((sum, i) => sum + ((i.mrp || i.price) * i.quantity), 0);
+      const totalRegularPrice = updatedList.reduce((sum, i) => sum + (i.price * i.quantity), 0);
       const autoItemsText = updatedList.map(i => `${i.quantity}x ${i.name} (${i.weight})`).join(', ');
+      const discVal = Number(prev.discountAmount) || 0;
+      const finalPrice = discVal > 0 ? Math.max(0, totalRegularPrice - discVal) : totalRegularPrice;
 
       return {
         ...prev,
         comboItems: updatedList,
-        mrp: totalMrp || prev.mrp,
+        mrp: totalMrp,
+        price: finalPrice,
         itemsIncluded: autoItemsText
       };
     });
@@ -1752,10 +1763,19 @@ const Admin = () => {
         parsedCombo = [];
       }
     }
+    const comboList = Array.isArray(parsedCombo) ? parsedCombo : [];
+    const comboRegPrice = comboList.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+    const comboMrpPrice = comboList.reduce((sum, i) => sum + ((i.mrp || i.price) * i.quantity), 0);
+    const baseVal = comboRegPrice || comboMrpPrice || Number(offer.mrp || 0);
+    const discAmt = (offer.price !== undefined && offer.price !== null && baseVal > Number(offer.price))
+      ? baseVal - Number(offer.price)
+      : '';
+
     setOfferDraft({
       ...blankOffer,
       ...offer,
-      comboItems: Array.isArray(parsedCombo) ? parsedCombo : []
+      discountAmount: discAmt !== '' ? discAmt : (offer.discountAmount ?? ''),
+      comboItems: comboList
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -3143,31 +3163,50 @@ const Admin = () => {
                           </div>
                         ))}
 
-                        {/* Combo Price Calculations Summary */}
-                        <div style={{ background: '#FFFFFF', border: '1.5px dashed #86EFAC', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                        {/* Combo Price Calculations Summary & Discount Input */}
+                        <div style={{ background: '#FFFFFF', border: '1.5px dashed #86EFAC', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                           <div>
-                            <span style={{ color: '#166534', fontWeight: 600 }}>Total Value of Combo: </span>
-                            <strong style={{ color: '#111827', fontSize: '13px' }}>
-                              MRP ₹{offerDraft.comboItems.reduce((sum, i) => sum + ((i.mrp || i.price) * i.quantity), 0)} (Regular ₹{offerDraft.comboItems.reduce((sum, i) => sum + (i.price * i.quantity), 0)})
-                            </strong>
+                            <div style={{ color: '#166534', fontWeight: 600, fontSize: '12px' }}>
+                              Combo Total: <strong style={{ color: '#111827' }}>MRP ₹{offerDraft.comboItems.reduce((sum, i) => sum + ((i.mrp || i.price) * i.quantity), 0)}</strong>
+                              <span style={{ margin: '0 6px', color: '#CBD5E1' }}>|</span>
+                              Regular Price Sum: <strong style={{ color: '#111827' }}>₹{offerDraft.comboItems.reduce((sum, i) => sum + (i.price * i.quantity), 0)}</strong>
+                            </div>
+                            {Number(offerDraft.discountAmount) > 0 && (
+                              <div style={{ color: '#15803D', fontSize: '11.5px', fontWeight: 700, marginTop: '2px' }}>
+                                Final Deal Price: ₹{offerDraft.price} (Saving ₹{offerDraft.discountAmount})
+                              </div>
+                            )}
                           </div>
-                          <button
-                            type="button"
-                            style={{ background: '#166534', color: '#FFFFFF', border: 'none', borderRadius: '6px', padding: '5px 12px', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer' }}
-                            onClick={() => {
-                              const totalMrp = offerDraft.comboItems.reduce((sum, i) => sum + ((i.mrp || i.price) * i.quantity), 0);
-                              const totalPrice = offerDraft.comboItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-                              const discountedPrice = Math.round(totalPrice * 0.85); // 15% discount off sum of regular prices
-                              setOfferDraft(prev => ({
-                                ...prev,
-                                mrp: totalMrp,
-                                price: discountedPrice,
-                                badge: prev.badge || `SAVE ₹${totalMrp - discountedPrice} ON COMBO`
-                              }));
-                            }}
-                          >
-                            ⚡ Auto-Apply Combo MRP & Discount
-                          </button>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: 700, color: '#166534', whiteSpace: 'nowrap' }}>
+                              Discount Amount (₹):
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="e.g. 50"
+                              className="admin-input-box"
+                              style={{ width: '110px', padding: '5px 10px', background: '#F0FDF4', borderColor: '#86EFAC', fontSize: '13px', fontWeight: 700, color: '#166534' }}
+                              value={offerDraft.discountAmount ?? ''}
+                              onChange={(e) => {
+                                const discVal = e.target.value;
+                                const discNum = Math.max(0, Number(discVal) || 0);
+                                const totalMrp = offerDraft.comboItems.reduce((sum, i) => sum + ((i.mrp || i.price) * i.quantity), 0);
+                                const totalPrice = offerDraft.comboItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+                                const basePrice = totalPrice || totalMrp;
+                                const finalPrice = Math.max(0, basePrice - discNum);
+
+                                setOfferDraft(prev => ({
+                                  ...prev,
+                                  discountAmount: discVal,
+                                  price: discVal !== '' ? finalPrice : basePrice,
+                                  mrp: totalMrp || prev.mrp,
+                                  badge: discNum > 0 ? `SAVE ₹${discNum} ON COMBO` : (prev.badge || 'FESTIVE COMBO DEAL')
+                                }));
+                              }}
+                            />
+                          </div>
                         </div>
                       </div>
                     )}
@@ -3186,9 +3225,67 @@ const Admin = () => {
                   <input value={offerDraft.badge} onChange={(e) => setOfferDraft(prev => ({ ...prev, badge: e.target.value }))} placeholder="Badge e.g. Save ₹80 / BOGO / Teachers Day Special" />
 
 
-                  <div className="admin-form__grid admin-form__grid--two">
-                    <input value={offerDraft.price} onChange={(e) => setOfferDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="Deal Price (₹)" type="number" min="0" max="9999999" />
-                    <input value={offerDraft.mrp} onChange={(e) => setOfferDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="MRP (₹)" type="number" min="0" max="9999999" />
+                  <div className="admin-form__grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Deal Price (₹) *</label>
+                      <input
+                        value={offerDraft.price}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const valNum = Number(val);
+                          const comboReg = Array.isArray(offerDraft.comboItems) && offerDraft.comboItems.length > 0
+                            ? offerDraft.comboItems.reduce((sum, i) => sum + (i.price * i.quantity), 0)
+                            : Number(offerDraft.mrp || 0);
+                          const computedDisc = (val !== '' && !isNaN(valNum) && comboReg > valNum) ? comboReg - valNum : '';
+                          setOfferDraft(prev => ({
+                            ...prev,
+                            price: val,
+                            discountAmount: computedDisc !== '' ? computedDisc : prev.discountAmount
+                          }));
+                        }}
+                        placeholder="Deal Price (₹)"
+                        type="number"
+                        min="0"
+                        max="9999999"
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Discount Amount (₹)</label>
+                      <input
+                        value={offerDraft.discountAmount ?? ''}
+                        onChange={(e) => {
+                          const discVal = e.target.value;
+                          const discNum = Math.max(0, Number(discVal) || 0);
+                          const comboReg = Array.isArray(offerDraft.comboItems) && offerDraft.comboItems.length > 0
+                            ? offerDraft.comboItems.reduce((sum, i) => sum + (i.price * i.quantity), 0)
+                            : Number(offerDraft.mrp || 0);
+                          const finalPrice = Math.max(0, comboReg - discNum);
+                          setOfferDraft(prev => ({
+                            ...prev,
+                            discountAmount: discVal,
+                            price: discVal !== '' ? finalPrice : (prev.price || comboReg),
+                            badge: discNum > 0 ? `SAVE ₹${discNum} ON COMBO` : prev.badge
+                          }));
+                        }}
+                        placeholder="e.g. 50"
+                        type="number"
+                        min="0"
+                        max="9999999"
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Total MRP (₹)</label>
+                      <input
+                        value={offerDraft.mrp}
+                        onChange={(e) => setOfferDraft(prev => ({ ...prev, mrp: e.target.value }))}
+                        placeholder="MRP (₹)"
+                        type="number"
+                        min="0"
+                        max="9999999"
+                      />
+                    </div>
                   </div>
 
                   <div className="admin-offer-image">
