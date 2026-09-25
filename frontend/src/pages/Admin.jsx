@@ -118,7 +118,7 @@ const blankProduct = {
   description: '',
   inStock: true,
   stockNote: 'In stock',
-  isPublished: true,
+  isPublished: false,
   isArchived: false,
   deliveryTime: '15 mins',
   isBestseller: false,
@@ -156,7 +156,7 @@ const blankWholesaleProduct = {
   description: '',
   inStock: true,
   stockNote: 'In stock',
-  isPublished: true,
+  isPublished: false,
   isArchived: false,
   deliveryTime: 'Same day',
   isBestseller: false,
@@ -322,6 +322,8 @@ const Admin = () => {
   const [offers, setOffers] = useState([]);
   const [coupons, setCoupons] = useState([]);
   const [productDraft, setProductDraft] = useState(blankProduct);
+  const [publishPromptProduct, setPublishPromptProduct] = useState(null); // newly saved product awaiting publish decision
+
   const [apiLoading, setApiLoading] = useState(false);
   const [saveToast, setSaveToast] = useState(null);
   const [liveOrders, setLiveOrders] = useState(null);
@@ -1343,9 +1345,9 @@ const Admin = () => {
     
     setApiLoading(true);
     setSaveToast(null);
+    const numericId = Number(productDraft.id);
+    const isEdit = Boolean(productDraft.id != null && String(productDraft.id).trim() !== '' && !isNaN(numericId) && numericId > 0);
     try {
-      const numericId = Number(productDraft.id);
-      const isEdit = Boolean(productDraft.id != null && String(productDraft.id).trim() !== '' && !isNaN(numericId) && numericId > 0);
       const targetId = isEdit ? numericId : null;
       const { stockNote, id: _id, ...apiPayload } = nextProduct;
       if (isEdit) {
@@ -1365,8 +1367,6 @@ const Admin = () => {
     }
     setApiLoading(false);
 
-    setSaveToast({ type: 'success', msg: `✅ “${nextProduct.name}” saved to database` });
-    setTimeout(() => setSaveToast(null), 5000);
     loadInventory();
     broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED);
 
@@ -1380,6 +1380,14 @@ const Admin = () => {
     setProductDraft(blankProduct);
     setDetailedVariants([]);
     setShowProductModal(false);
+
+    if (!isEdit) {
+      // Newly added â€” ask if it should be published to the website
+      setPublishPromptProduct(nextProduct);
+    } else {
+      setSaveToast({ type: 'success', msg: '"' + nextProduct.name + '" updated successfully' });
+      setTimeout(() => setSaveToast(null), 4000);
+    }
   };
 
   const editProduct = (product) => {
@@ -4481,7 +4489,10 @@ const Admin = () => {
                             No inventory items matching your filter/search.
                           </td>
                         </tr>
-                      ) : filteredInventoryItems.map(item => (
+                        ) : filteredInventoryItems.map(item => {
+                          const dbProd = dbProductsList.find(p => String(p.id) === String(item.productId));
+                          const isPublished = dbProd ? dbProd.isPublished !== false : true;
+                          return (
                         <tr key={item.productId}>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -4490,6 +4501,14 @@ const Admin = () => {
                                 <strong style={{ fontSize: '13px', color: '#111827' }}>{item.name}</strong>
                                 <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>
                                   {item.brand ? `${item.brand} · ` : ''}{item.weight}{item.unit}
+                                </span>
+                                <span style={{
+                                  fontSize: '10px', fontWeight: 700, display: 'inline-block', marginTop: '3px',
+                                  padding: '1px 7px', borderRadius: '20px',
+                                  background: isPublished ? '#DCFCE7' : '#FEF3C7',
+                                  color: isPublished ? '#166534' : '#92400E'
+                                }}>
+                                  {isPublished ? '🟢 Live on Website' : '🟡 Inventory Only'}
                                 </span>
                               </div>
                             </div>
@@ -4523,7 +4542,7 @@ const Admin = () => {
                           </td>
 
                           <td>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                               <button
                                 className="admin__primary"
                                 style={{ height: '32px', padding: '0 12px', fontSize: '11px', borderRadius: '6px' }}
@@ -4541,6 +4560,22 @@ const Admin = () => {
                                 Update Stock
                               </button>
                               <button
+                                style={{
+                                  height: '32px', padding: '0 10px', fontSize: '11px', borderRadius: '6px',
+                                  display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                  background: isPublished ? '#FEF3C7' : '#DCFCE7',
+                                  color: isPublished ? '#92400E' : '#166534',
+                                  border: `1px solid ${isPublished ? '#FCD34D' : '#86EFAC'}`,
+                                  cursor: 'pointer', fontWeight: 600
+                                }}
+                                title={isPublished ? 'Remove from website' : 'Upload to website'}
+                                onClick={() => {
+                                  if (dbProd) togglePublishProduct(dbProd);
+                                }}
+                              >
+                                {isPublished ? '🌐 Remove from Website' : '🌐 Upload to Website'}
+                              </button>
+                              <button
                                 className="admin-danger"
                                 style={{ height: '32px', padding: '0 10px', fontSize: '11px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                                 title="Delete Product"
@@ -4551,7 +4586,8 @@ const Admin = () => {
                             </div>
                           </td>
                         </tr>
-                      ))}
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>
@@ -4591,8 +4627,54 @@ const Admin = () => {
                 </div>
               )}
 
+              {/* PUBLISH PROMPT — shown after adding a new product */}
+              {publishPromptProduct && (
+                <div className="inventory-modal-backdrop" onClick={() => setPublishPromptProduct(null)}>
+                  <div className="inventory-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', width: '95%', textAlign: 'center' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '12px' }}>🛒</div>
+                    <h2 style={{ margin: '0 0 8px', fontSize: '17px', fontWeight: 800, color: '#1C4B12' }}>
+                      Upload to Website?
+                    </h2>
+                    <p style={{ margin: '0 0 6px', fontSize: '13px', color: '#374151' }}>
+                      <strong>{publishPromptProduct.name}</strong> has been added to your inventory.
+                    </p>
+                    <p style={{ margin: '0 0 24px', fontSize: '12px', color: '#687466' }}>
+                      Do you want to make it visible on the storefront right now?
+                    </p>
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                      <button
+                        className="admin__primary"
+                        style={{ padding: '10px 28px', fontSize: '14px', borderRadius: '10px' }}
+                        onClick={async () => {
+                          const prod = publishPromptProduct;
+                          setPublishPromptProduct(null);
+                          await togglePublishProduct(prod);
+                          setSaveToast({ type: 'success', msg: `"${prod.name}" is now live on the website!` });
+                          setTimeout(() => setSaveToast(null), 4000);
+                        }}
+                      >
+                        ✅ Yes, Upload Now
+                      </button>
+                      <button
+                        className="admin__ghost"
+                        style={{ padding: '10px 28px', fontSize: '14px', borderRadius: '10px' }}
+                        onClick={() => {
+                          const name = publishPromptProduct.name;
+                          setPublishPromptProduct(null);
+                          setSaveToast({ type: 'success', msg: `"${name}" saved to inventory only. You can upload it later.` });
+                          setTimeout(() => setSaveToast(null), 4000);
+                        }}
+                      >
+                        📦 No, Keep in Inventory Only
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* MODALS FOR INVENTORY */}
               {adjustModalItem && (() => {
+
                 const currentStock = adjustModalItem.availableStock ?? 0;
                 const qty = parseInt(adjustForm.quantity, 10) || 0;
                 const previewStock = adjustForm.changeType === 'ADD'

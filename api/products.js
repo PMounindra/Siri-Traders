@@ -160,7 +160,7 @@ export default async function handler(req, res) {
     // ── Products Collection: /api/products ─────────────────────────────
     if (!id) {
       if (req.method === 'GET') {
-        const { category, includeArchived } = req.query;
+        const { category, includeArchived, includeUnpublished } = req.query;
         let limitVal = parseInt(req.query.limit, 10);
         let offsetVal = parseInt(req.query.offset, 10);
 
@@ -181,6 +181,12 @@ export default async function handler(req, res) {
           conditions.push(eq(products.isArchived, false));
         }
 
+        // Public/storefront requests only see published products.
+        // Admin fetches pass includeUnpublished=true to see everything.
+        if (includeUnpublished !== 'true') {
+          conditions.push(eq(products.isPublished, true));
+        }
+
         if (conditions.length === 1) {
           query = query.where(conditions[0]);
         } else if (conditions.length > 1) {
@@ -191,6 +197,7 @@ export default async function handler(req, res) {
         res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
         return res.status(200).json(allProducts);
       }
+
 
       if (req.method === 'POST') {
         const adminOk = await isAdminRequest(req);

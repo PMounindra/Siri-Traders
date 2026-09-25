@@ -68,15 +68,17 @@ export const ProductProvider = ({ children }) => {
   // Returns the live API products filtered by customerType / targetType & grouped by base product
   const getProductsForType = (customerType = 'retail') => {
     const list = Array.isArray(products) ? products : [];
+    // Only show products the admin has explicitly published to the website
+    const publishedList = list.filter(p => p.isPublished !== false);
     let items;
     if (customerType === 'wholesale') {
-      const wholesaleItems = list.filter(p => {
+      const wholesaleItems = publishedList.filter(p => {
         if (!p.targetType) return true; // Default fallback for existing DB items
         return p.targetType === 'wholesale' || p.targetType === 'retail_and_wholesale' || p.targetType === 'both';
       });
       items = wholesaleItems.map(toWholesaleProduct);
     } else {
-      const retailItems = list.filter(p => {
+      const retailItems = publishedList.filter(p => {
         if (!p.targetType) return true; // Default fallback for existing DB items
         return p.targetType === 'retail' || p.targetType === 'retail_and_wholesale' || p.targetType === 'both';
       });
@@ -90,6 +92,7 @@ export const ProductProvider = ({ children }) => {
 
     return groupProductsByBase(items);
   };
+
 
   const addProduct = async (productData) => {
     try {
