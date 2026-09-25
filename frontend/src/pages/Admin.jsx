@@ -2727,78 +2727,24 @@ const Admin = () => {
                   <button className="admin__primary"><FiPlus /> Save & Activate Coupon</button>
                 </form>
 
-                {/* Promotional Banners & Sale Deals Form */}
-                <form className="admin-form" onSubmit={saveOffer}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {/* Coupon Engine Guidance Card */}
+                <div className="admin-card">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                     <FiTag size={18} style={{ color: '#2D5016' }} />
-                    <h2 style={{ margin: 0 }}>Add Festive / Daily Deal Promotion</h2>
+                    <h2 style={{ margin: 0 }}>Coupon Engine Rules & Guidance</h2>
                   </div>
+                  <p style={{ fontSize: '12.5px', color: '#4B5563', lineHeight: 1.6, margin: 0 }}>
+                    Create custom promo codes and discounts for your customers here. Coupons are validated live at checkout.
+                  </p>
+                  <ul style={{ fontSize: '12px', color: '#687466', marginTop: '10px', paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <li><strong>Target Scope:</strong> Apply discounts storewide, or target specific categories, products, or customer emails.</li>
+                    <li><strong>Per-User Limit:</strong> Restrict how many times an individual customer can redeem the code.</li>
+                    <li><strong>Total Usage Limit:</strong> Set an optional total storewide redemption cap (e.g. first 500 customers).</li>
+                    <li><strong>Target Customer Type:</strong> Restrict coupon use to Retail customers, Wholesale B2B customers, or both.</li>
+                    <li><strong>Festive Offers:</strong> To add or manage seasonal festive deals, use <em>Product Catalog &rarr; Festive Offers</em>.</li>
+                  </ul>
+                </div>
 
-                  <input value={offerDraft.title} onChange={(e) => setOfferDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Deal Title e.g. Diwali Mega Rice Fest" required />
-                  
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Link to Catalog Product (Optional)</label>
-                    <select
-                      className="admin-input-box"
-                      value={offerDraft.targetProductId || ''}
-                      onChange={(e) => {
-                        const pId = e.target.value;
-                        const selProd = dbProductsList.find(p => String(p.id) === String(pId));
-                        setOfferDraft(prev => ({
-                          ...prev,
-                          targetProductId: pId,
-                          title: prev.title || (selProd ? selProd.name : ''),
-                          price: prev.price || (selProd ? selProd.price : ''),
-                          mrp: prev.mrp || (selProd ? selProd.mrp || selProd.price : ''),
-                          image: prev.image || (selProd ? selProd.image : ''),
-                          itemsIncluded: prev.itemsIncluded || (selProd ? `${selProd.name} (${selProd.weight || ''}${selProd.unit || ''})` : '')
-                        }));
-                      }}
-                    >
-                      <option value="">-- Custom Combo / No single product --</option>
-                      {dbProductsList.map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.weight}{p.unit}) — ₹{p.price}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Package Contents / Items Included *</label>
-                    <input
-                      value={offerDraft.itemsIncluded || ''}
-                      onChange={(e) => setOfferDraft(prev => ({ ...prev, itemsIncluded: e.target.value }))}
-                      placeholder="e.g. Includes: 5kg Basmati Rice + 1L Sunflower Oil"
-                    />
-                  </div>
-
-                  <input value={offerDraft.subtitle} onChange={(e) => setOfferDraft(prev => ({ ...prev, subtitle: e.target.value }))} placeholder="Subtitle e.g. Flat 20% off on all Basmati Rice" />
-                  <input value={offerDraft.badge} onChange={(e) => setOfferDraft(prev => ({ ...prev, badge: e.target.value }))} placeholder="Badge e.g. Save ₹80 / BOGO / Teachers Day Special" />
-
-
-                  <div className="admin-form__grid admin-form__grid--two">
-                    <input value={offerDraft.price} onChange={(e) => setOfferDraft(prev => ({ ...prev, price: e.target.value }))} placeholder="Deal Price (₹)" type="number" min="0" max="9999999" />
-                    <input value={offerDraft.mrp} onChange={(e) => setOfferDraft(prev => ({ ...prev, mrp: e.target.value }))} placeholder="MRP (₹)" type="number" min="0" max="9999999" />
-                  </div>
-
-                  <div className="admin-offer-image">
-                    {offerDraft.image ? (
-                      <img src={toWebpImage(offerDraft.image)} alt="Offer preview" />
-                    ) : (
-                      <div className="admin-offer-image__empty"><FiGift /></div>
-                    )}
-                    <div>
-                      <input value={offerDraft.image} onChange={(e) => setOfferDraft(prev => ({ ...prev, image: e.target.value }))} placeholder="Add offer image URL" />
-                      <label className="admin-file-input admin-file-input--compact">
-                        <span>Or choose file from device</span>
-                        <input type="file" accept="image/*" onChange={handleOfferImageUpload} />
-                      </label>
-                    </div>
-                  </div>
-
-                  <button className="admin__primary" disabled={imageUploading}>{imageUploading ? 'Uploading image...' : <><FiPlus /> Publish Promotion Deal</>}</button>
-                </form>
               </div>
 
               {/* Active Coupons Grid with Usage Analytics */}
