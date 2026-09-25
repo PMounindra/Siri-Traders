@@ -627,8 +627,10 @@ const Admin = () => {
   };
 
   // ── Load Inventory ──
-  const loadInventory = async () => {
-    setInventoryLoading(true);
+  const loadInventory = async (showLoading = false) => {
+    if (showLoading || !inventoryData) {
+      setInventoryLoading(true);
+    }
     try {
       const data = await adminApi.fetchInventory();
       setInventoryData(data);
@@ -640,8 +642,10 @@ const Admin = () => {
   };
 
   // ── Load Inventory Movement Logs ──
-  const loadInventoryLogs = async () => {
-    setLogsLoading(true);
+  const loadInventoryLogs = async (showLoading = false) => {
+    if (showLoading || !inventoryLogs) {
+      setLogsLoading(true);
+    }
     try {
       const logs = await adminApi.fetchInventoryLogs();
       setInventoryLogs(logs);
@@ -701,8 +705,8 @@ const Admin = () => {
     if (activeTab === 'cms') {
       loadCmsData();
     } else if (activeTab === 'inventory') {
-      loadInventory();
-      if (inventoryFilter === 'logs') loadInventoryLogs();
+      loadInventory(false);
+      if (inventoryFilter === 'logs' && !inventoryLogs) loadInventoryLogs(false);
     } else if (activeTab === 'orders') {
       loadOrders();
     } else if (activeTab === 'customers') {
