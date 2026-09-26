@@ -254,6 +254,11 @@ const WelcomeBanner = ({ customerType }) => {
             ))}
           </div>
         </div>
+        {storeClosed && (
+          <div className="home-hero__closed" role="status">
+            🔒 Store is closed right now — please check back soon.
+          </div>
+        )}
         <p>{isWholesale ? 'Bulk prices, bigger savings for your business' : 'Order now and enjoy great offers'}</p>
       </div>
       {coupons.length > 0 && (

@@ -52,7 +52,7 @@ export const SiteDataProvider = ({ children }) => {
   const [coupons, setCoupons] = useState(() => (Array.isArray(cached?.coupon) ? cached.coupon.map(normalizeCoupon) : []));
   const [deliveryZones, setDeliveryZones] = useState(cached?.zone || []);
   const [deliverySettings, setDeliverySettings] = useState({ deliveryFee: 25, freeDeliveryThreshold: 500, handlingCharge: 5 });
-  const [homeSections, setHomeSections] = useState({
+  const [homeSections, setHomeSections] = useState(cached?.home || {
     todaysDeals: true,
     bestsellers: true,
     dailyOffers: true,
@@ -93,6 +93,7 @@ export const SiteDataProvider = ({ children }) => {
           cat: catRes.ok ? catRes.data : cached?.cat, offer: offerRes.ok ? offerRes.data : cached?.offer,
           coupon: couponRes.ok ? couponRes.data : cached?.coupon, zone: zoneRes.ok ? zoneRes.data : cached?.zone,
           page: pageRes.ok ? pageRes.data : cached?.page,
+          home: settingsRes.ok && settingsRes.data?.homeSections ? settingsRes.data.homeSections : cached?.home,
         }));
       } catch { /* quota/private mode */ }
 

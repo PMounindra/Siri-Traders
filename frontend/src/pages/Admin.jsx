@@ -443,6 +443,24 @@ const Admin = () => {
     }
   };
 
+  // Store open/closed is saved immediately (not via "Save Settings") and merged
+  // into the last *saved* homeSections so unsaved layout edits aren't published.
+  const setStoreOpen = async (open) => {
+    setApiLoading(true);
+    try {
+      const updated = await adminApi.updateSettings({ homeSections: { ...(homeSections || {}), storeOpen: open } });
+      if (updated && updated.homeSections) setHomeSections(updated.homeSections);
+      setLocalHomeSections(prev => ({ ...prev, storeOpen: open }));
+      broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
+      setSaveToast({ type: 'success', msg: open ? 'Store is now OPEN.' : 'Store is now CLOSED. The homepage banner shows it.' });
+      setTimeout(() => setSaveToast(null), 4000);
+    } catch (err) {
+      alert('Failed to update store status: ' + err.message);
+    } finally {
+      setApiLoading(false);
+    }
+  };
+
   const toggleSectionKey = (key, enabled) => {
     setLocalHomeSections(prev => ({
       ...prev,
@@ -6195,6 +6213,29 @@ const Admin = () => {
                   <FiSave /> {apiLoading ? 'Saving...' : 'Save Settings'}
                 </button>
               </div>
+
+              {/* Store open / closed */}
+              {(() => {
+                const isOpen = localHomeSections.storeOpen !== false;
+                return (
+                  <div style={{ marginBottom: '28px', padding: '16px 18px', borderRadius: '12px', border: `2px solid ${isOpen ? '#2D5016' : '#C0392B'}`, background: isOpen ? '#F1F8E9' : '#FDECEA', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ fontSize: '15px', fontWeight: 800, color: isOpen ? '#1C4B12' : '#C0392B' }}>
+                        Is the store open? — currently {isOpen ? 'OPEN' : 'CLOSED'}
+                      </div>
+                      <div style={{ fontSize: '12.5px', color: '#687466', marginTop: '2px' }}>
+                        Choose No to show a "Store is closed" message in the homepage hero banner.
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button type="button" disabled={apiLoading || isOpen} onClick={() => setStoreOpen(true)}
+                        style={{ padding: '8px 22px', borderRadius: '8px', border: '1px solid #2D5016', fontWeight: 800, cursor: isOpen ? 'default' : 'pointer', background: isOpen ? '#2D5016' : '#fff', color: isOpen ? '#fff' : '#2D5016' }}>Yes</button>
+                      <button type="button" disabled={apiLoading || !isOpen} onClick={() => setStoreOpen(false)}
+                        style={{ padding: '8px 22px', borderRadius: '8px', border: '1px solid #C0392B', fontWeight: 800, cursor: !isOpen ? 'default' : 'pointer', background: !isOpen ? '#C0392B' : '#fff', color: !isOpen ? '#fff' : '#C0392B' }}>No</button>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Featured Home Sections */}
               <div style={{ marginBottom: '32px' }}>
