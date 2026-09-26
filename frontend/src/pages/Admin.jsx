@@ -355,6 +355,36 @@ const Admin = () => {
     reader.readAsDataURL(file);
   };
 
+  const addAdditionalVariantRow = (itemIdx, label = '', price = '') => {
+    setAdditionalItems(prev => prev.map((item, idx) => {
+      if (idx !== itemIdx) return item;
+      const currentVars = item.variants || [];
+      return {
+        ...item,
+        variants: [
+          ...currentVars,
+          { id: `var-${Date.now()}-${Math.random()}`, label, price, unit: item.unit || productDraft.unit || 'g' }
+        ]
+      };
+    }));
+  };
+
+  const updateAdditionalVariantRow = (itemIdx, varIdx, field, value) => {
+    setAdditionalItems(prev => prev.map((item, idx) => {
+      if (idx !== itemIdx) return item;
+      const updatedVars = (item.variants || []).map((v, i) => i === varIdx ? { ...v, [field]: value } : v);
+      return { ...item, variants: updatedVars };
+    }));
+  };
+
+  const removeAdditionalVariantRow = (itemIdx, varIdx) => {
+    setAdditionalItems(prev => prev.map((item, idx) => {
+      if (idx !== itemIdx) return item;
+      const updatedVars = (item.variants || []).filter((_, i) => i !== varIdx);
+      return { ...item, variants: updatedVars };
+    }));
+  };
+
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categoryDraft, setCategoryDraft] = useState({ name: '', image: '', color: '#F1F8E9' });
   const [categoryLoading, setCategoryLoading] = useState(false);
@@ -1464,6 +1494,20 @@ const Admin = () => {
         // Each product can have its separate image, but if not provided, default to first product's image!
         const itemImage = (itemDraft.image || firstProductImage || '').trim();
 
+        const itemVariants = (itemDraft.variants || []).filter(v => v.label && (v.price || v.price === 0)).map(v => ({
+          id: v.id || `var-${Date.now()}-${Math.random()}`,
+          label: v.label,
+          packSize: v.packSize || '',
+          unit: v.unit || itemDraft.unit || productDraft.unit || 'g',
+          price: Number(v.price) || 0,
+          mrp: Number(v.mrp) || Number(v.price) || 0,
+          costPrice: Number(v.costPrice) || 0,
+          stock: Number(v.stock) || 0,
+          sku: v.sku || '',
+          barcode: v.barcode || '',
+          inStock: v.inStock !== false
+        }));
+
         const addPayload = {
           name: itemDraft.name.trim(),
           category: sharedCategory,
@@ -1485,7 +1529,8 @@ const Admin = () => {
           bulkPackLabel: itemDraft.bulkPackLabel || '',
           bulkPackPrice: Number(itemDraft.bulkPackPrice) || 0,
           wholesaleCaseLabel: itemDraft.wholesaleCaseLabel || '',
-          wholesaleCasePrice: Number(itemDraft.wholesaleCasePrice) || 0
+          wholesaleCasePrice: Number(itemDraft.wholesaleCasePrice) || 0,
+          variants: itemVariants
         };
 
         try {
@@ -5892,7 +5937,7 @@ const Admin = () => {
                               <h4 style={{ fontSize: '12.5px', fontWeight: 700, margin: '0 0 10px', color: '#2D5016', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <FiLayers /> 3. Wholesale & Bulk Pricing Options
                               </h4>
-                              <div className="admin-form__grid">
+                              <div className="admin-form__grid" style={{ marginBottom: '14px' }}>
                                 <div>
                                   <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Bulk Pack Label</label>
                                   <input
@@ -5931,6 +5976,45 @@ const Admin = () => {
                                     placeholder="e.g. 3600"
                                   />
                                 </div>
+                              </div>
+
+                              <h4 style={{ fontSize: '12.5px', fontWeight: 700, margin: '12px 0 6px', color: '#2D5016' }}>Custom Wholesale Price Ranges / Tiers</h4>
+                              {(item.variants || []).map((v, vIdx) => (
+                                <div key={v.id || vIdx} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                                  <input
+                                    className="admin-input-box"
+                                    style={{ flex: 2 }}
+                                    placeholder="e.g. 5 kg bulk"
+                                    value={v.label || ''}
+                                    onChange={(e) => updateAdditionalVariantRow(idx, vIdx, 'label', e.target.value)}
+                                  />
+                                  <input
+                                    className="admin-input-box"
+                                    style={{ flex: 1 }}
+                                    type="number"
+                                    placeholder="Price ₹"
+                                    value={v.price || ''}
+                                    onChange={(e) => updateAdditionalVariantRow(idx, vIdx, 'price', e.target.value)}
+                                  />
+                                  <button type="button" className="admin-danger" style={{ padding: '8px', flexShrink: 0 }} onClick={() => removeAdditionalVariantRow(idx, vIdx)}>
+                                    <FiTrash2 size={12} />
+                                  </button>
+                                </div>
+                              ))}
+
+                              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                                <button type="button" className="admin__ghost" onClick={() => addAdditionalVariantRow(idx, `${item.weight || '1'} ${item.unit || 'kg'}`, item.price)}>
+                                  <FiPlus /> Base ({item.weight || '1'}{item.unit || 'kg'})
+                                </button>
+                                <button type="button" className="admin__ghost" onClick={() => addAdditionalVariantRow(idx, `5 ${item.unit || 'kg'} bulk`, '')}>
+                                  <FiPlus /> 5{item.unit || 'kg'} Bulk
+                                </button>
+                                <button type="button" className="admin__ghost" onClick={() => addAdditionalVariantRow(idx, `10 ${item.unit || 'kg'} bulk`, '')}>
+                                  <FiPlus /> 10{item.unit || 'kg'} Bulk
+                                </button>
+                                <button type="button" className="admin__primary" onClick={() => addAdditionalVariantRow(idx, '', '')}>
+                                  <FiPlus /> Custom Price Range
+                                </button>
                               </div>
                             </div>
                           </div>
