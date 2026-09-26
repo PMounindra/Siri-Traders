@@ -73,7 +73,8 @@ const Checkout = () => {
     appliedCouponCode, applyCouponCode, removeCoupon: contextRemoveCoupon, getAppliedCoupon, couponError, setCouponError
   } = useCart();
   const { user, isAuthenticated, isLoaded, getToken, customerType } = useAuth();
-  const { deliveryZones, retailCoupons, wholesaleCoupons, allCoupons = [], deliverySettings } = useSiteData();
+  const { deliveryZones, retailCoupons, wholesaleCoupons, allCoupons = [], deliverySettings, homeSections } = useSiteData();
+  const storeClosed = homeSections?.storeOpen === false;
   const coupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
   const navigate = useNavigate();
   const addressStorageKey = getUserStorageKey(user, 'addresses');

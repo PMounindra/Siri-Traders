@@ -19,7 +19,8 @@ const Cart = () => {
     appliedCouponCode, applyCouponCode, removeCoupon, getAppliedCoupon, couponError, setCouponError
   } = useCart();
   const { user, customerType } = useAuth();
-  const { retailCoupons, wholesaleCoupons, allCoupons = [], deliveryZones } = useSiteData();
+  const { retailCoupons, wholesaleCoupons, allCoupons = [], deliveryZones, homeSections } = useSiteData();
+  const storeClosed = homeSections?.storeOpen === false;
   const { getProductsForType } = useProducts();
   const coupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
   const navigate = useNavigate();
@@ -48,6 +49,7 @@ const Cart = () => {
   };
 
   const handleCheckout = () => {
+    if (storeClosed) return;
     if (requireAuth()) {
       navigate('/checkout');
     }
@@ -252,8 +254,8 @@ const Cart = () => {
               <span className="cart__cta-label">Total</span>
               <span className="cart__cta-amount">{formatPrice(grandTotal)}</span>
             </div>
-            <button className="cart__cta-btn" onClick={handleCheckout} id="proceed-checkout">
-              Proceed to Checkout →
+            <button className="cart__cta-btn" onClick={handleCheckout} id="proceed-checkout" disabled={storeClosed}>
+              {storeClosed ? '🔒 Store is closed' : 'Proceed to Checkout →'}
             </button>
           </div>
         </div>

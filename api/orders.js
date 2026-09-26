@@ -1,4 +1,4 @@
-import { db, orders, orderItems, users, inventory, inventoryLogs, products, coupons } from '../db/index.js';
+import { db, orders, orderItems, users, inventory, inventoryLogs, products, coupons, settings } from '../db/index.js';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
@@ -124,6 +124,13 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
       const { items, total, deliveryAddress, paymentMethod } = body;
+
+      // Admin can close the store (settings.homeSections.storeOpen === false).
+      // Enforced here so a stale page or direct API call can't place orders.
+      const [siteRow] = await db.select({ homeSections: settings.homeSections }).from(settings).where(eq(settings.id, 'default'));
+      if (siteRow?.homeSections?.storeOpen === false) {
+        return res.status(403).json({ error: 'The store is closed right now. Please try again when we reopen.', storeClosed: true });
+      }
 
       if (!Array.isArray(items) || items.length === 0 || !total) {
         return res.status(400).json({ error: 'Missing order details' });
