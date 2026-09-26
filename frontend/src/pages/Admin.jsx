@@ -2306,6 +2306,15 @@ const Admin = () => {
             </div>
             
             <div className="admin-main-header__actions">
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginRight: '12px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: homeSections?.storeOpen === false ? '#C0392B' : '#1C4B12' }}>
+                  Store open?
+                </span>
+                <button type="button" disabled={apiLoading || homeSections?.storeOpen !== false} onClick={() => setStoreOpen(true)}
+                  style={{ padding: '6px 16px', borderRadius: '8px', border: '1px solid #2D5016', fontWeight: 800, cursor: 'pointer', background: homeSections?.storeOpen !== false ? '#2D5016' : '#fff', color: homeSections?.storeOpen !== false ? '#fff' : '#2D5016' }}>Yes</button>
+                <button type="button" disabled={apiLoading || homeSections?.storeOpen === false} onClick={() => setStoreOpen(false)}
+                  style={{ padding: '6px 16px', borderRadius: '8px', border: '1px solid #C0392B', fontWeight: 800, cursor: 'pointer', background: homeSections?.storeOpen === false ? '#C0392B' : '#fff', color: homeSections?.storeOpen === false ? '#fff' : '#C0392B' }}>No</button>
+              </div>
               <a href="/home" target="_blank" rel="noopener noreferrer" className="admin-main-header__btn">
                 Launch Site →
               </a>

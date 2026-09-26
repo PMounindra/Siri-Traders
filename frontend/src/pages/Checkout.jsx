@@ -375,7 +375,7 @@ const Checkout = () => {
   };
 
   const handlePlaceOrder = () => {
-    if (placingOrder) return;
+    if (placingOrder || storeClosed) return;
 
     let addressForOrder = selectedAddress;
 
@@ -732,12 +732,13 @@ const Checkout = () => {
                   </div>
                 </div>
 
+                {storeClosed && <p className="checkout__address-error">🔒 The store is closed right now. Orders can't be placed until we reopen.</p>}
                 {orderError && <p className="checkout__address-error">{orderError}</p>}
                 <button
                   className="checkout__place-btn"
                   onClick={handlePlaceOrder}
                   id="place-order-btn"
-                  disabled={placingOrder}
+                  disabled={placingOrder || storeClosed}
                   aria-busy={placingOrder}
                 >
                   <span>{placingOrder ? 'Placing Order…' : 'Place Order (COD) →'}</span>
