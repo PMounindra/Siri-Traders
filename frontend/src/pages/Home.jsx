@@ -469,7 +469,7 @@ const Home = () => {
 
   const getProductsForCategory = (cat) => {
     const catIdLower = String(cat.id).toLowerCase();
-    const catNameLower = String(cat.name).toLowerCase();
+    const catNameLower = String(cat.name || '').toLowerCase();
     return catalog.filter(p => {
       if (!p.category) return false;
       const pCatLower = String(p.category).toLowerCase();

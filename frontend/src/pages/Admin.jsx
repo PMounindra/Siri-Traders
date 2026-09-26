@@ -992,7 +992,7 @@ const Admin = () => {
     if (inventorySearch.trim()) {
       const q = inventorySearch.toLowerCase();
       list = list.filter(i =>
-        i.name.toLowerCase().includes(q) ||
+        (i.name || '').toLowerCase().includes(q) ||
         (i.brand || '').toLowerCase().includes(q) ||
         (i.batchNumber || '').toLowerCase().includes(q) ||
         String(i.productId).includes(q)
@@ -3915,7 +3915,7 @@ const Admin = () => {
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span className={`admin-order-status-pill admin-order-status-pill--${order.status.toLowerCase().replace(/\s+/g, '-')}`}>
+                        <span className={`admin-order-status-pill admin-order-status-pill--${(order.status || 'pending').toLowerCase().replace(/\s+/g, '-')}`}>
                           {order.status}
                         </span>
                         <span className={`admin-payment-pill admin-payment-pill--${(order.paymentStatus || 'pending').toLowerCase().replace(/\s+/g, '-')}`}>
@@ -4653,7 +4653,7 @@ const Admin = () => {
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
                                   <strong style={{ fontSize: '13px', display: 'block' }}>{formatPrice(order.total)}</strong>
-                                  <span className={`admin-order-status-pill admin-order-status-pill--${order.status.toLowerCase().replace(/\s+/g, '-')}`} style={{ fontSize: '10px', padding: '1px 6px' }}>
+                                  <span className={`admin-order-status-pill admin-order-status-pill--${(order.status || 'pending').toLowerCase().replace(/\s+/g, '-')}`} style={{ fontSize: '10px', padding: '1px 6px' }}>
                                     {order.status}
                                   </span>
                                 </div>
@@ -6349,7 +6349,7 @@ const Admin = () => {
                   .filter(product => {
                     const q = promoTagSearch.trim().toLowerCase();
                     if (!q) return true;
-                    return product.name.toLowerCase().includes(q) || (product.brand || '').toLowerCase().includes(q);
+                    return (product.name || '').toLowerCase().includes(q) || (product.brand || '').toLowerCase().includes(q);
                   })
                   .map(product => (
                     <div key={product.id} className="admin-row admin-row--plain" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>

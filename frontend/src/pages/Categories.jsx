@@ -21,9 +21,9 @@ const Categories = () => {
 
   const filteredProducts = searchQuery
     ? allProducts.filter(p =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (p.brand || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (p.category || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (p.description || '').toLowerCase().includes(searchQuery.toLowerCase())
       )
     : activeCat

@@ -17,8 +17,8 @@ export const extractVariantLabel = (p) => {
   if (!p) return 'Standard';
   const weightStr = (p.weight ? `${p.weight} ${p.unit || 'g'}` : '').trim();
   
-  const qtyMatch = p.name.match(/(\d+(?:\.\d+)?\s*(?:g|gm|grams|kg|ml|l|liter|litres|pcs|pieces|pads|oz))\b/i);
-  const priceMatch = p.name.match(/(?:rs\.?|\u20b9)\s*(\d+)|\b(\d+)\s*(?:rs\.?|\u20b9)/i);
+  const qtyMatch = (p.name || '').match(/(\d+(?:\.\d+)?\s*(?:g|gm|grams|kg|ml|l|liter|litres|pcs|pieces|pads|oz))\b/i);
+  const priceMatch = (p.name || '').match(/(?:rs\.?|\u20b9)\s*(\d+)|\b(\d+)\s*(?:rs\.?|\u20b9)/i);
   
   if (qtyMatch) {
     const qty = qtyMatch[1].trim();
@@ -43,7 +43,7 @@ export const extractVariantLabel = (p) => {
   }
   
   const base = extractBaseName(p.name);
-  let rem = p.name.toLowerCase();
+  let rem = (p.name || '').toLowerCase();
   if (base) {
     rem = rem.replace(base, '').replace(/[^a-z0-9\s]/gi, ' ').replace(/\s+/g, ' ').trim();
   }
