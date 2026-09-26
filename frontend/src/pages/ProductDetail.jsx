@@ -17,6 +17,7 @@ import { toWholesaleProduct } from "../data/products";
 import { formatPrice } from "../utils/format";
 import { toWebpImage } from "../utils/images";
 import ProductCard from "../components/ProductCard";
+import ProductImage from "../components/ProductImage";
 import Loading from "../components/Loading";
 import "./ProductDetail.css";
 
@@ -449,18 +450,11 @@ const ProductDetail = () => {
 
           <section className="pd__hero">
             <div className="pd__media">
-              {!imageFailed && product.image ? (
-                <img
-                  src={toWebpImage(product.image)}
-                  alt={product.name}
-                  className="pd__image"
-                  onError={() => setImageFailed(true)}
-                />
-              ) : (
-                <div className="pd__image pd__image-fallback">
-                  {productInitials}
-                </div>
-              )}
+              <ProductImage
+                src={product.image}
+                name={product.name}
+                className="pd__image"
+              />
 
               <div className="pd__tags">
                 {isOrganic && (
