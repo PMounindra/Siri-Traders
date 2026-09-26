@@ -1805,9 +1805,14 @@ const Admin = () => {
   const saveCoupon = async (event) => {
     event.preventDefault();
     const isEdit = Boolean(couponDraft.id);
+    const codeUpper = String(couponDraft.code || '').trim().toUpperCase();
+    if (!codeUpper) {
+      alert('Please enter a valid coupon code.');
+      return;
+    }
     const payload = {
       ...couponDraft,
-      code: couponDraft.code.trim().toUpperCase(),
+      code: codeUpper,
       value: Number(couponDraft.value) || 0,
       minOrder: Number(couponDraft.minOrder) || 0,
       maxDiscount: couponDraft.maxDiscount ? Number(couponDraft.maxDiscount) : null,
@@ -1824,14 +1829,14 @@ const Admin = () => {
     };
     try {
       const saved = isEdit ? await adminApi.updateCoupon(couponDraft.id, payload) : await adminApi.saveCoupon(payload);
-      setCoupons(prev => [saved, ...prev.filter(coupon => coupon.id !== saved.id)]);
+      setCoupons(prev => [saved, ...prev.filter(coupon => coupon.id !== saved.id && coupon.code !== saved.code)]);
       setCouponDraft(blankCoupon);
       setSaveToast({ type: 'success', msg: isEdit ? `✏️ Coupon "${saved.code}" updated successfully!` : `🎟️ Coupon "${saved.code}" saved and active!` });
       setTimeout(() => setSaveToast(null), 4000);
       broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
       refreshSiteData();
     } catch (err) {
-      alert(err.message);
+      alert(err.message || 'Failed to save coupon.');
     }
   };
 

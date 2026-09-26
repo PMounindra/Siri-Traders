@@ -103,12 +103,15 @@ export default async function handler(req, res) {
       };
 
       const [saved] = await db.insert(coupons).values(values).onConflictDoUpdate({
-        target: coupons.id,
+        target: coupons.code,
         set: values
       }).returning();
 
       return res.status(201).json(saved || values);
     } catch (err) {
+      if (err.message?.includes('coupons_code_unique') || err.code === '23505') {
+        return res.status(400).json({ error: `Coupon code "${code}" already exists. Please choose a unique coupon code or edit the existing coupon.` });
+      }
       return res.status(500).json({ error: err.message });
     }
   }

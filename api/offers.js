@@ -118,16 +118,26 @@ export default async function handler(req, res) {
           let saved;
           try {
             saved = await db.insert(coupons).values(values).onConflictDoUpdate({
-              target: coupons.id,
+              target: coupons.code,
               set: values
             }).returning();
           } catch (insertErr) {
+            if (insertErr.message?.includes('coupons_code_unique') || insertErr.code === '23505') {
+              return res.status(400).json({ error: `Coupon code "${code}" already exists. Please choose a unique coupon code or edit the existing coupon.` });
+            }
             console.warn("Retrying coupon insert after schema migration...", insertErr.message);
             await autoMigrateCouponsSchema();
-            saved = await db.insert(coupons).values(values).onConflictDoUpdate({
-              target: coupons.id,
-              set: values
-            }).returning();
+            try {
+              saved = await db.insert(coupons).values(values).onConflictDoUpdate({
+                target: coupons.code,
+                set: values
+              }).returning();
+            } catch (err2) {
+              if (err2.message?.includes('coupons_code_unique') || err2.code === '23505') {
+                return res.status(400).json({ error: `Coupon code "${code}" already exists. Please choose a unique coupon code or edit the existing coupon.` });
+              }
+              throw err2;
+            }
           }
 
           return res.status(201).json(saved[0]);
