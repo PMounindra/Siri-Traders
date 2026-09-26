@@ -30,6 +30,23 @@ async function autoMigrateDeliveryZonesSchema() {
   }
 }
 
+const DEFAULT_14_ZONES = [
+  { id: 'zone-1', area: 'Isnapur', pincode: '502307', time: '15-30 mins', distance: '0-3 km', active: true, deliveryFee: 0, freeDeliveryThreshold: 299, handlingCharge: 5, minOrderValue: 100 },
+  { id: 'zone-2', area: 'Chitkul', pincode: '502307', time: '15-30 mins', distance: '0-3 km', active: true, deliveryFee: 0, freeDeliveryThreshold: 299, handlingCharge: 5, minOrderValue: 100 },
+  { id: 'zone-3', area: 'Muttangi', pincode: '502307', time: '20-35 mins', distance: '2-5 km', active: true, deliveryFee: 0, freeDeliveryThreshold: 399, handlingCharge: 5, minOrderValue: 150 },
+  { id: 'zone-4', area: 'Rudraram', pincode: '502307', time: '25-40 mins', distance: '3-6 km', active: true, deliveryFee: 0, freeDeliveryThreshold: 399, handlingCharge: 5, minOrderValue: 150 },
+  { id: 'zone-5', area: 'Indrakaran', pincode: '502307', time: '25-40 mins', distance: '4-7 km', active: true, deliveryFee: 0, freeDeliveryThreshold: 499, handlingCharge: 5, minOrderValue: 200 },
+  { id: 'zone-6', area: 'Lakdaram', pincode: '502307', time: '30-45 mins', distance: '5-8 km', active: true, deliveryFee: 25, freeDeliveryThreshold: 499, handlingCharge: 5, minOrderValue: 200 },
+  { id: 'zone-7', area: 'Bachuguda', pincode: '502307', time: '20-35 mins', distance: '2-4 km', active: true, deliveryFee: 0, freeDeliveryThreshold: 399, handlingCharge: 5, minOrderValue: 150 },
+  { id: 'zone-8', area: 'Indresham', pincode: '502334', time: '25-40 mins', distance: '3-6 km', active: true, deliveryFee: 0, freeDeliveryThreshold: 399, handlingCharge: 5, minOrderValue: 150 },
+  { id: 'zone-9', area: 'Pocharam', pincode: '502307', time: '30-45 mins', distance: '5-8 km', active: true, deliveryFee: 25, freeDeliveryThreshold: 499, handlingCharge: 5, minOrderValue: 200 },
+  { id: 'zone-10', area: 'Patancheru', pincode: '502319', time: '30-45 mins', distance: '6-9 km', active: true, deliveryFee: 25, freeDeliveryThreshold: 499, handlingCharge: 5, minOrderValue: 200 },
+  { id: 'zone-11', area: 'Beeramguda', pincode: '502032', time: '35-50 mins', distance: '8-12 km', active: true, deliveryFee: 30, freeDeliveryThreshold: 599, handlingCharge: 5, minOrderValue: 250 },
+  { id: 'zone-12', area: 'Ameenpur', pincode: '502032', time: '35-50 mins', distance: '9-13 km', active: true, deliveryFee: 30, freeDeliveryThreshold: 599, handlingCharge: 5, minOrderValue: 250 },
+  { id: 'zone-13', area: 'Ramachandrapuram (RC Puram)', pincode: '502032', time: '40-55 mins', distance: '10-14 km', active: true, deliveryFee: 35, freeDeliveryThreshold: 699, handlingCharge: 5, minOrderValue: 300 },
+  { id: 'zone-14', area: 'Kandi / Sangareddy', pincode: '502285', time: '45-60 mins', distance: '12-16 km', active: true, deliveryFee: 40, freeDeliveryThreshold: 799, handlingCharge: 5, minOrderValue: 350 }
+];
+
 export default async function handler(req, res) {
   setCorsHeaders(req, res);
   if (req.method === 'OPTIONS') {
@@ -40,9 +57,16 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      const zones = await db.select().from(deliveryZones);
+      let zones = await db.select().from(deliveryZones);
+      if (!zones || zones.length === 0) {
+        // Auto-seed 14 default delivery zones if table is empty
+        for (const zone of DEFAULT_14_ZONES) {
+          await db.insert(deliveryZones).values(zone).onConflictDoNothing();
+        }
+        zones = await db.select().from(deliveryZones);
+      }
       res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
-      return res.status(200).json(zones || []);
+      return res.status(200).json(zones || DEFAULT_14_ZONES);
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
