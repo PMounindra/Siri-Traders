@@ -140,6 +140,7 @@ const blankMultipleRow = () => ({
   unit: 'g',
   price: '',
   mrp: '',
+  wholesalePrice: '',
   costPrice: '',
   image: ''
 });
@@ -1511,6 +1512,7 @@ const Admin = () => {
 
         const price = Number(row.price) || 0;
         const mrp = Number(row.mrp) || price;
+        const wholesalePrice = Number(row.wholesalePrice) || (multipleShared.targetType === 'wholesale' ? price : 0);
         const costPrice = Number(row.costPrice) || Math.round(price * 0.78);
 
         const payload = {
@@ -1522,6 +1524,7 @@ const Admin = () => {
           unit: unitStr,
           price: price,
           mrp: mrp,
+          wholesalePrice: wholesalePrice,
           costPrice: costPrice,
           image: (row.image || multipleShared.image || '').trim(),
           description: multipleShared.description || '',
@@ -5724,7 +5727,7 @@ const Admin = () => {
                                 borderRadius: '8px',
                                 padding: '12px',
                                 display: 'grid',
-                                gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 34px',
+                                gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 34px',
                                 gap: '8px',
                                 alignItems: 'end'
                               }}
@@ -5773,15 +5776,28 @@ const Admin = () => {
 
                               <div>
                                 <label style={{ display: 'block', fontSize: '10.5px', fontWeight: 700, color: '#4B5563', marginBottom: '2px' }}>
-                                  Price (₹) *
+                                  Retail Price (₹) *
                                 </label>
                                 <input
                                   className="admin-input-box"
                                   type="number"
-                                  placeholder="₹ Price"
+                                  placeholder="₹ Retail"
                                   value={row.price}
                                   onChange={(e) => updateMultipleRow(idx, 'price', e.target.value)}
                                   required
+                                />
+                              </div>
+
+                              <div>
+                                <label style={{ display: 'block', fontSize: '10.5px', fontWeight: 700, color: '#166534', marginBottom: '2px' }}>
+                                  Wholesale Price (₹)
+                                </label>
+                                <input
+                                  className="admin-input-box"
+                                  type="number"
+                                  placeholder="₹ Wholesale"
+                                  value={row.wholesalePrice}
+                                  onChange={(e) => updateMultipleRow(idx, 'wholesalePrice', e.target.value)}
                                 />
                               </div>
 
