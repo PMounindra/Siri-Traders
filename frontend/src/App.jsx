@@ -38,20 +38,21 @@ const lazyWithRetry = (componentImport) =>
     }
   });
 
-const AdminLogin = lazyWithRetry(() => import("./pages/AdminLogin"));
-const Categories = lazyWithRetry(() => import("./pages/Categories"));
-const TodaysDeals = lazyWithRetry(() => import("./pages/TodaysDeals"));
-const Bestsellers = lazyWithRetry(() => import("./pages/Bestsellers"));
-const FestiveOffers = lazyWithRetry(() => import("./pages/FestiveOffers"));
-const FestiveOfferDetail = lazyWithRetry(() => import("./pages/FestiveOfferDetail"));
-const ProductDetail = lazyWithRetry(() => import("./pages/ProductDetail"));
-const Cart = lazyWithRetry(() => import("./pages/Cart"));
-const Checkout = lazyWithRetry(() => import("./pages/Checkout"));
-const Orders = lazyWithRetry(() => import("./pages/Orders"));
-const Profile = lazyWithRetry(() => import("./pages/Profile"));
-const Admin        = lazyWithRetry(() => import("./pages/Admin"));
-const TrackOrder   = lazyWithRetry(() => import("./pages/TrackOrder"));
-const Info         = lazyWithRetry(() => import("./pages/Info"));
+import AdminLogin from "./pages/AdminLogin";
+import Categories from "./pages/Categories";
+import TodaysDeals from "./pages/TodaysDeals";
+import Bestsellers from "./pages/Bestsellers";
+import FestiveOffers from "./pages/FestiveOffers";
+import FestiveOfferDetail from "./pages/FestiveOfferDetail";
+import ProductDetail from "./pages/ProductDetail";
+import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
+import Orders from "./pages/Orders";
+import Profile from "./pages/Profile";
+import TrackOrder from "./pages/TrackOrder";
+import Info from "./pages/Info";
+
+const Admin = lazyWithRetry(() => import("./pages/Admin"));
 import "./App.css";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;

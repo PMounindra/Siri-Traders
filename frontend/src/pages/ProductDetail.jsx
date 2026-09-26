@@ -138,18 +138,40 @@ const ProductDetail = () => {
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-    setLoading(true);
     setLocalQuantity(1);
     setImageFailed(false);
+
+    const allProducts = getProductsForType(customerType) || [];
+    const foundLocal = allProducts.find((p) => String(p.id) === String(id));
+
+    if (foundLocal) {
+      setProduct(foundLocal);
+      const categoryProducts = allProducts.filter(
+        (item) =>
+          item.category &&
+          foundLocal.category &&
+          String(item.category).toLowerCase() === String(foundLocal.category).toLowerCase() &&
+          String(item.id) !== String(foundLocal.id)
+      );
+      setRelatedProducts(categoryProducts.slice(0, 8));
+
+      const defaultWeightLabel = `${foundLocal.weight || ''} ${foundLocal.unit || ''}`.trim() || 'Standard Pack';
+      const defaultVars = (customerType === 'wholesale' && Array.isArray(foundLocal.variants) && foundLocal.variants.length > 0)
+        ? foundLocal.variants
+        : [{ label: defaultWeightLabel, price: Number(foundLocal.price) || 0, mrp: Number(foundLocal.mrp) || Number(foundLocal.price) || 0 }];
+
+      setSelectedVariant(defaultVars[0]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
 
     if (productsLoading) return;
 
     let isCancelled = false;
     async function loadProduct() {
-      const allProducts = getProductsForType(customerType) || [];
-      let found = allProducts.find(
-        (p) => String(p.id) === String(id)
-      );
+      let found = foundLocal;
 
       // Direct fallback fetch if product not present in local context
       if (!found && id) {

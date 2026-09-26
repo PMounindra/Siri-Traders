@@ -117,23 +117,12 @@ export const SiteDataProvider = ({ children }) => {
       }
     );
 
-    // Auto-refresh when tab regains focus
-    const onFocus = () => {
-      fetchSiteData(false);
-    };
-    window.addEventListener('focus', onFocus);
-
-    // Periodic sync in background — long interval on purpose: categories and
-    // offers carry base64-encoded images too, and refetching them every 25s
-    // per open tab is what blew through the Neon data-transfer quota. Focus
-    // refetch + cross-tab sync above cover real updates; this is a safety net.
     const interval = setInterval(() => {
       fetchSiteData(false);
     }, 5 * 60 * 1000);
 
     return () => {
       unsubscribe();
-      window.removeEventListener('focus', onFocus);
       clearInterval(interval);
     };
   }, [fetchSiteData]);

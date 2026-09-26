@@ -48,19 +48,12 @@ export const ProductProvider = ({ children }) => {
       }
     );
 
-    // Auto-refresh when tab regains focus
-    const onFocus = () => {
-      fetchProducts(false);
-    };
-    window.addEventListener('focus', onFocus);
-
     const interval = setInterval(() => {
       fetchProducts(false);
     }, 5 * 60 * 1000);
 
     return () => {
       unsubscribe();
-      window.removeEventListener('focus', onFocus);
       clearInterval(interval);
     };
   }, [fetchProducts]);
