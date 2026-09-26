@@ -461,6 +461,46 @@ const Admin = () => {
     }
   };
 
+  // ── Featured section editor (edit built-ins, add/edit/remove custom sections) ──
+  // Everything lives in homeSections: sectionMeta[key] = { title, icon, removed }
+  // for built-in sections and customSections = [{ id, title, icon, productIds }].
+  const [sectionEditor, setSectionEditor] = useState(null);
+  const [sectionProductSearch, setSectionProductSearch] = useState('');
+
+  const openBuiltinEditor = (item) => setSectionEditor({ mode: 'builtin', key: item.key, title: item.title, icon: item.icon, productIds: [] });
+  const openCustomEditor = (sec) => setSectionEditor(sec
+    ? { mode: 'custom', id: sec.id, title: sec.title, icon: sec.icon || '✨', productIds: sec.productIds || [] }
+    : { mode: 'custom', id: null, title: '', icon: '✨', productIds: [] });
+
+  const saveSectionEditor = () => {
+    if (!sectionEditor) return;
+    const title = sectionEditor.title.trim();
+    if (!title) { alert('Please enter a section title.'); return; }
+    const icon = sectionEditor.icon.trim() || '✨';
+    setLocalHomeSections(prev => {
+      if (sectionEditor.mode === 'builtin') {
+        return { ...prev, sectionMeta: { ...(prev.sectionMeta || {}), [sectionEditor.key]: { ...(prev.sectionMeta?.[sectionEditor.key] || {}), title, icon } } };
+      }
+      const list = prev.customSections || [];
+      const entry = { id: sectionEditor.id || `cs-${Date.now().toString(36)}`, title, icon, productIds: sectionEditor.productIds, enabled: true };
+      const exists = list.some(x => x.id === entry.id);
+      return { ...prev, customSections: exists ? list.map(x => (x.id === entry.id ? { ...x, ...entry, enabled: x.enabled !== false } : x)) : [...list, entry] };
+    });
+    setSectionEditor(null);
+    setSectionProductSearch('');
+  };
+
+  const removeBuiltinSection = (item) => {
+    if (!window.confirm(`Remove "${item.title}" from the homepage? You can restore it later.`)) return;
+    setLocalHomeSections(prev => ({ ...prev, sectionMeta: { ...(prev.sectionMeta || {}), [item.key]: { ...(prev.sectionMeta?.[item.key] || {}), removed: true } } }));
+  };
+  const restoreBuiltinSection = (key) => setLocalHomeSections(prev => ({ ...prev, sectionMeta: { ...(prev.sectionMeta || {}), [key]: { ...(prev.sectionMeta?.[key] || {}), removed: false } } }));
+  const removeCustomSection = (sec) => {
+    if (!window.confirm(`Delete the "${sec.title}" section?`)) return;
+    setLocalHomeSections(prev => ({ ...prev, customSections: (prev.customSections || []).filter(x => x.id !== sec.id) }));
+  };
+  const toggleCustomSection = (id, enabled) => setLocalHomeSections(prev => ({ ...prev, customSections: (prev.customSections || []).map(x => (x.id === id ? { ...x, enabled } : x)) }));
+
   const toggleSectionKey = (key, enabled) => {
     setLocalHomeSections(prev => ({
       ...prev,
@@ -6252,7 +6292,9 @@ const Admin = () => {
                     { key: 'dailyOffers', title: 'Daily Offers', desc: 'Curated savings spotlight banner', icon: '⚡' },
                     { key: 'festiveOffers', title: 'Festive Offers', desc: 'Seasonal festive deals spotlight banner', icon: '🎉' },
                     { key: 'shopByCategory', title: 'Shop by Category Grid', desc: 'Top category icon scroll row', icon: '📦' }
-                  ].map(item => {
+                  ].map(it => ({ ...it, title: localHomeSections.sectionMeta?.[it.key]?.title || it.title, icon: localHomeSections.sectionMeta?.[it.key]?.icon || it.icon }))
+                    .filter(it => !localHomeSections.sectionMeta?.[it.key]?.removed)
+                    .map(item => {
                     const isEnabled = localHomeSections[item.key] !== false;
                     return (
                       <div
@@ -6274,6 +6316,10 @@ const Admin = () => {
                             <strong style={{ fontSize: '14px', color: isEnabled ? '#166534' : '#374151' }}>{item.title}</strong>
                           </div>
                           <p style={{ margin: 0, fontSize: '11.5px', color: '#6B7280' }}>{item.desc}</p>
+                          <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                            <button type="button" onClick={() => openBuiltinEditor(item)} style={{ fontSize: '11.5px', fontWeight: 700, padding: '3px 10px', borderRadius: '6px', border: '1px solid #D1D5DB', background: '#fff', cursor: 'pointer' }}>✏️ Edit</button>
+                            <button type="button" onClick={() => removeBuiltinSection(item)} style={{ fontSize: '11.5px', fontWeight: 700, padding: '3px 10px', borderRadius: '6px', border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#B91C1C', cursor: 'pointer' }}>🗑 Remove</button>
+                          </div>
                         </div>
                         <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', flexShrink: 0, cursor: 'pointer' }}>
                           <input
@@ -6298,7 +6344,75 @@ const Admin = () => {
                       </div>
                     );
                   })}
+                  {(localHomeSections.customSections || []).map(sec => {
+                    const on = sec.enabled !== false;
+                    return (
+                      <div key={sec.id} style={{ border: on ? '1.5px solid #BBF7D0' : '1.5px solid #E5E7EB', background: on ? '#F0FDF4' : '#F9FAFB', borderRadius: '12px', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ flex: 1, paddingRight: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                            <span style={{ fontSize: '16px' }}>{sec.icon || '✨'}</span>
+                            <strong style={{ fontSize: '14px', color: on ? '#166534' : '#374151' }}>{sec.title}</strong>
+                          </div>
+                          <p style={{ margin: 0, fontSize: '11.5px', color: '#6B7280' }}>Custom section · {(sec.productIds || []).length} product(s)</p>
+                          <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                            <button type="button" onClick={() => openCustomEditor(sec)} style={{ fontSize: '11.5px', fontWeight: 700, padding: '3px 10px', borderRadius: '6px', border: '1px solid #D1D5DB', background: '#fff', cursor: 'pointer' }}>✏️ Edit</button>
+                            <button type="button" onClick={() => removeCustomSection(sec)} style={{ fontSize: '11.5px', fontWeight: 700, padding: '3px 10px', borderRadius: '6px', border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#B91C1C', cursor: 'pointer' }}>🗑 Delete</button>
+                          </div>
+                        </div>
+                        <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', flexShrink: 0, cursor: 'pointer' }}>
+                          <input type="checkbox" checked={on} onChange={(e) => toggleCustomSection(sec.id, e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
+                          <span style={{ position: 'absolute', inset: 0, backgroundColor: on ? '#2D5016' : '#D1D5DB', transition: '.2s', borderRadius: '24px', display: 'flex', alignItems: 'center', padding: '2px' }}>
+                            <span style={{ height: '20px', width: '20px', borderRadius: '50%', backgroundColor: 'white', transition: '.2s', transform: on ? 'translateX(20px)' : 'translateX(0px)', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+                          </span>
+                        </label>
+                      </div>
+                    );
+                  })}
                 </div>
+
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginTop: '14px' }}>
+                  <button type="button" className="admin__primary" style={{ padding: '8px 18px', fontSize: '13px' }} onClick={() => openCustomEditor(null)}>+ Add New Section</button>
+                  {['todaysDeals', 'bestsellers', 'dailyOffers', 'festiveOffers', 'shopByCategory'].filter(k => localHomeSections.sectionMeta?.[k]?.removed).map(k => (
+                    <button key={k} type="button" onClick={() => restoreBuiltinSection(k)} style={{ fontSize: '12px', fontWeight: 700, padding: '6px 12px', borderRadius: '8px', border: '1px dashed #9CA3AF', background: '#fff', cursor: 'pointer' }}>↩ Restore "{localHomeSections.sectionMeta?.[k]?.title || k}"</button>
+                  ))}
+                  <span style={{ fontSize: '12px', color: '#687466' }}>Changes go live after you press <strong>Save Settings</strong>.</span>
+                </div>
+
+                {sectionEditor && (
+                  <div style={{ marginTop: '16px', padding: '18px', border: '2px solid #2D5016', borderRadius: '12px', background: '#fff' }}>
+                    <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 800, color: '#1C4B12' }}>
+                      {sectionEditor.mode === 'builtin' ? 'Edit section' : (sectionEditor.id ? 'Edit custom section' : 'New custom section')}
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '10px', marginBottom: '12px' }}>
+                      <input className="admin-input-box" value={sectionEditor.icon} maxLength={4} onChange={(e) => setSectionEditor(p => ({ ...p, icon: e.target.value }))} placeholder="Emoji" aria-label="Section emoji" />
+                      <input className="admin-input-box" value={sectionEditor.title} onChange={(e) => setSectionEditor(p => ({ ...p, title: e.target.value }))} placeholder="Section title, e.g. New Arrivals" aria-label="Section title" />
+                    </div>
+                    {sectionEditor.mode === 'custom' && (
+                      <>
+                        <input className="admin-input-box" value={sectionProductSearch} onChange={(e) => setSectionProductSearch(e.target.value)} placeholder={`Search products to show in this section (${sectionEditor.productIds.length} selected)`} style={{ marginBottom: '8px' }} />
+                        <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #E1E6DC', borderRadius: '8px' }}>
+                          {(allProducts || [])
+                            .filter(p => !p.isArchived && (!sectionProductSearch.trim() || String(p.name || '').toLowerCase().includes(sectionProductSearch.trim().toLowerCase())))
+                            .slice(0, 200)
+                            .map(p => {
+                              const checked = sectionEditor.productIds.includes(p.id);
+                              return (
+                                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderBottom: '1px solid #F1F3EE', cursor: 'pointer', background: checked ? '#F0FDF4' : '#fff' }}>
+                                  <input type="checkbox" checked={checked} onChange={() => setSectionEditor(prev => ({ ...prev, productIds: checked ? prev.productIds.filter(id => id !== p.id) : [...prev.productIds, p.id] }))} />
+                                  <span style={{ fontSize: '13px', fontWeight: 600 }}>{p.name}</span>
+                                  <span style={{ fontSize: '11.5px', color: '#687466', marginLeft: 'auto' }}>{p.category}</span>
+                                </label>
+                              );
+                            })}
+                        </div>
+                      </>
+                    )}
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+                      <button type="button" className="admin__primary" style={{ padding: '8px 18px', fontSize: '13px' }} onClick={saveSectionEditor}>{sectionEditor.mode === 'builtin' || sectionEditor.id ? 'Apply' : 'Add Section'}</button>
+                      <button type="button" style={{ padding: '8px 18px', fontSize: '13px', borderRadius: '8px', border: '1px solid #D1D5DB', background: '#fff', cursor: 'pointer' }} onClick={() => { setSectionEditor(null); setSectionProductSearch(''); }}>Cancel</button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Category Sections */}

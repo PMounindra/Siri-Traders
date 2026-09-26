@@ -298,8 +298,8 @@ const OffersSection = ({ customerType }) => {
   const dailySpotlights = dailyOffers.slice(0, 6);
   const festivalSpotlights = festivalOffers.slice(0, 14);
 
-  const showDaily = dailySpotlights.length > 0 && homeSections?.dailyOffers !== false;
-  const showFestive = festivalSpotlights.length > 0 && homeSections?.festiveOffers !== false;
+  const showDaily = dailySpotlights.length > 0 && homeSections?.dailyOffers !== false && !homeSections?.sectionMeta?.dailyOffers?.removed;
+  const showFestive = festivalSpotlights.length > 0 && homeSections?.festiveOffers !== false && !homeSections?.sectionMeta?.festiveOffers?.removed;
 
   if (!showDaily && !showFestive) return null;
 
@@ -361,7 +361,7 @@ const OffersSection = ({ customerType }) => {
             <div>
               <span>Curated savings</span>
               <Link to="/todays-deals">
-                <h2 className="home__section-title-link">Daily Offers</h2>
+                <h2 className="home__section-title-link">{homeSections?.sectionMeta?.dailyOffers?.title || 'Daily Offers'}</h2>
               </Link>
             </div>
             <Link to="/todays-deals" className="section-link">View all <FiArrowRight /></Link>
@@ -391,7 +391,7 @@ const OffersSection = ({ customerType }) => {
             <div>
               <span>Seasonal savings</span>
               <Link to="/festive-offers">
-                <h2 className="home__section-title-link">Festive Offers</h2>
+                <h2 className="home__section-title-link">{homeSections?.sectionMeta?.festiveOffers?.title || 'Festive Offers'}</h2>
               </Link>
             </div>
             <Link to="/festive-offers" className="section-link">View all <FiArrowRight /></Link>
@@ -486,8 +486,21 @@ const Home = () => {
   const isSectionVisible = (key, count) => {
     if (!count || count <= 0) return false;
     if (homeSections && homeSections[key] === false) return false;
+    if (homeSections?.sectionMeta?.[key]?.removed) return false;
     return true;
   };
+  const sectionTitle = (key, fallback) => homeSections?.sectionMeta?.[key]?.title || fallback;
+  const sectionIcon = (key, fallbackNode) => homeSections?.sectionMeta?.[key]?.icon || fallbackNode;
+
+  // Admin-defined featured sections: a titled row of hand-picked products.
+  const customSections = (homeSections?.customSections || [])
+    .filter(sec => sec.enabled !== false)
+    .map(sec => {
+      const ids = new Set((sec.productIds || []).map(String));
+      const items = catalog.filter(p => ids.has(String(p.id)) || (p.groupedIds || []).some(id => ids.has(String(id))));
+      return { ...sec, items };
+    })
+    .filter(sec => sec.items.length > 0);
 
   const isCatVisible = (catId, count) => {
     if (!count || count <= 0) return false;
@@ -546,7 +559,7 @@ const Home = () => {
             <section className="home__section home__section--categories">
               <div className="section-header">
                 <Link to="/categories">
-                  <h2 className="section-title home__section-title-link">Shop by Category</h2>
+                  <h2 className="section-title home__section-title-link">{sectionTitle('shopByCategory', 'Shop by Category')}</h2>
                 </Link>
                 <Link to="/categories" className="section-link">
                   See All <FiChevronRight />
@@ -565,7 +578,7 @@ const Home = () => {
             <section className="home__section" id="section-todays-deals">
               <div className="section-header">
                 <Link to="/todays-deals">
-                  <h2 className="section-title home__section-title-link"><FiTag /> Today's Deals</h2>
+                  <h2 className="section-title home__section-title-link">{sectionIcon('todaysDeals', <FiTag />)} {sectionTitle('todaysDeals', "Today's Deals")}</h2>
                 </Link>
                 <Link to="/todays-deals" className="section-link">
                   See All <FiChevronRight />
@@ -586,7 +599,7 @@ const Home = () => {
             <section className="home__section" id="section-bestsellers">
               <div className="section-header">
                 <Link to="/bestsellers">
-                  <h2 className="section-title home__section-title-link"><FiStar /> Bestsellers</h2>
+                  <h2 className="section-title home__section-title-link">{sectionIcon('bestsellers', <FiStar />)} {sectionTitle('bestsellers', 'Bestsellers')}</h2>
                 </Link>
                 <Link to="/bestsellers" className="section-link">
                   See All <FiChevronRight />
@@ -601,6 +614,22 @@ const Home = () => {
               </ScrollRow>
             </section>
           )}
+
+          {/* Custom featured sections (admin-defined) */}
+          {customSections.map(sec => (
+            <section className="home__section" id={`section-${sec.id}`} key={sec.id}>
+              <div className="section-header">
+                <h2 className="section-title">{sec.icon || '✨'} {sec.title}</h2>
+              </div>
+              <ScrollRow className="home__deals-scroll">
+                {sec.items.map(product => (
+                  <div key={product.id} className="home__deals-item">
+                    <ProductCard key={`${customerType}-${product.id}`} product={product} />
+                  </div>
+                ))}
+              </ScrollRow>
+            </section>
+          ))}
 
           {/* Dynamic Homepage Category Rows */}
           {allDisplayCategories.map(cat => {

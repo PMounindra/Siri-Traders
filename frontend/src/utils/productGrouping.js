@@ -83,7 +83,7 @@ export const groupProductsByBase = (productList) => {
     if (items.length === 1) {
       result.push(items[0]);
     } else {
-      const primary = { ...items[0] };
+      const primary = { ...items[0], groupedIds: items.map(i => i.id) };
       const combinedVariants = [];
       const seenLabels = new Set();
 
