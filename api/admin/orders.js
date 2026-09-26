@@ -7,7 +7,7 @@ import { sendCustomerOrderStatusSMS, sendBulkPromotionalSMS } from '../_sms.js';
 import nodemailer from 'nodemailer';
 
 const VALID_STATUSES = ['Pending', 'Preparing', 'In Transit', 'Delivered', 'Paid', 'Cancelled'];
-const VALID_PAYMENT_STATUSES = ['Pending', 'Paid', 'Failed', 'Refunded', 'Partially Refunded'];
+const VALID_PAYMENT_STATUSES = ['Pending', 'Paid', 'Unpaid', 'Failed', 'Refunded', 'Partially Refunded'];
 const VALID_RETURN_STATUSES = ['None', 'Requested', 'Approved', 'Picked Up', 'Refunded', 'Rejected'];
 
 export default async function handler(req, res) {
