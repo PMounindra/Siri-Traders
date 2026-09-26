@@ -4930,8 +4930,8 @@ const Admin = () => {
                           className="admin__primary"
                           style={{ height: '38px', padding: '0 14px', fontSize: '12px' }}
                           onClick={() => {
-                            setProductDraft(blankProduct);
-                            setProductModalMode('all');
+                            setProductDraft({ ...blankProduct, isPublished: false });
+                            setProductModalMode('inventory');
                             setDetailedVariants([]);
                             setShowProductModal(true);
                           }}
@@ -5034,6 +5034,25 @@ const Admin = () => {
                                 }}
                               >
                                 Update Stock
+                              </button>
+                              <button
+                                style={{
+                                  height: '32px', padding: '0 10px', fontSize: '11px', borderRadius: '6px',
+                                  display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                  background: isPublished ? '#FEF3C7' : '#DCFCE7',
+                                  color: isPublished ? '#92400E' : '#166534',
+                                  border: `1px solid ${isPublished ? '#FCD34D' : '#86EFAC'}`,
+                                  cursor: 'pointer', fontWeight: 600
+                                }}
+                                title={isPublished ? 'Remove from website' : 'Upload to website'}
+                                onClick={() => {
+                                  const target = dbProd
+                                    ? { ...dbProd, isPublished }
+                                    : { id: item.productId, name: item.name, isPublished };
+                                  togglePublishProduct(target);
+                                }}
+                              >
+                                {isPublished ? '🌐 Remove from Website' : '🌐 Upload to Website'}
                               </button>
                               <button
                                 className="admin-danger"
@@ -5626,6 +5645,61 @@ const Admin = () => {
                   </div>
 
 
+
+                  {/* Status toggle card — shown when adding/editing item in Inventory Hub */}
+                  {(productModalMode === 'inventory' || activeTab === 'inventory') && (
+                    <div style={{
+                      background: productDraft.isPublished ? '#F0FDF4' : '#FFFBEB',
+                      border: `2px solid ${productDraft.isPublished ? '#86EFAC' : '#FCD34D'}`,
+                      borderRadius: '12px',
+                      padding: '14px 18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '16px',
+                      flexWrap: 'wrap',
+                      marginBottom: '12px'
+                    }}>
+                      <div>
+                        <strong style={{ fontSize: '13px', color: productDraft.isPublished ? '#166534' : '#92400E' }}>
+                          {productDraft.isPublished ? '🟢 Upload to Website' : '🟡 Inventory Only'}
+                        </strong>
+                        <p style={{ margin: '2px 0 0', fontSize: '11.5px', color: '#687466' }}>
+                          {productDraft.isPublished
+                            ? 'This item will be visible to customers on the website after saving.'
+                            : "This item will be saved to inventory only. Customers won't see it yet."}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          style={{
+                            padding: '8px 18px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                            border: '2px solid #86EFAC',
+                            background: productDraft.isPublished ? '#16A34A' : 'transparent',
+                            color: productDraft.isPublished ? '#fff' : '#16A34A',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => setProductDraft(prev => ({ ...prev, isPublished: true }))}
+                        >
+                          ✅ Yes, Upload
+                        </button>
+                        <button
+                          type="button"
+                          style={{
+                            padding: '8px 18px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                            border: '2px solid #FCD34D',
+                            background: !productDraft.isPublished ? '#D97706' : 'transparent',
+                            color: !productDraft.isPublished ? '#fff' : '#92400E',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => setProductDraft(prev => ({ ...prev, isPublished: false }))}
+                        >
+                          📦 No, Keep in Inventory
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="inventory-modal__footer">
                     <button type="button" className="admin__ghost" onClick={() => setShowProductModal(false)}>Cancel</button>
