@@ -221,7 +221,8 @@ const festiveOffers = [
 
 const WelcomeBanner = ({ customerType }) => {
   const isWholesale = customerType === 'wholesale';
-  const { retailCoupons, wholesaleCoupons } = useSiteData();
+  const { retailCoupons, wholesaleCoupons, homeSections } = useSiteData();
+  const storeClosed = homeSections?.storeOpen === false;
   const coupons = (isWholesale ? wholesaleCoupons : retailCoupons).map(c => ({ ...c, icon: couponIconForType(c.type) }));
   const welcomeText = 'WELCOME';
   // Subtle rotation + vertical lift for gentle bend
