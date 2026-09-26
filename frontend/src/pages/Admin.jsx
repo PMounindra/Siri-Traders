@@ -924,9 +924,9 @@ const Admin = () => {
   const filteredOrders = useMemo(() => {
     if (!liveOrders) return [];
     return liveOrders.filter(order => {
-      if (orderStatusFilter === 'pending' && !['Pending', 'Preparing'].includes(order.status)) return false;
-      if (orderStatusFilter === 'in-transit' && order.status !== 'In Transit') return false;
-      if (orderStatusFilter === 'delivered' && !['Delivered', 'Paid'].includes(order.status)) return false;
+      if (orderStatusFilter === 'pending' && order.status !== 'Pending') return false;
+      if (orderStatusFilter === 'preparing' && order.status !== 'Preparing') return false;
+      if (orderStatusFilter === 'delivered' && order.status !== 'Delivered') return false;
       if (orderStatusFilter === 'cancelled' && order.status !== 'Cancelled') return false;
       if (orderStatusFilter === 'returns' && (!order.returnStatus || order.returnStatus === 'None')) return false;
 
@@ -3828,19 +3828,19 @@ const Admin = () => {
                       className={`inventory-filter-btn ${orderStatusFilter === 'pending' ? 'inventory-filter-btn--active' : ''}`}
                       onClick={() => setOrderStatusFilter('pending')}
                     >
-                      🟡 Pending / Preparing <span className="inventory-badge-count">{liveOrders?.filter(o => ['Pending', 'Preparing'].includes(o.status)).length || 0}</span>
+                      🟡 Pending (Placed) <span className="inventory-badge-count">{liveOrders?.filter(o => o.status === 'Pending').length || 0}</span>
                     </button>
                     <button
-                      className={`inventory-filter-btn ${orderStatusFilter === 'in-transit' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setOrderStatusFilter('in-transit')}
+                      className={`inventory-filter-btn ${orderStatusFilter === 'preparing' ? 'inventory-filter-btn--active' : ''}`}
+                      onClick={() => setOrderStatusFilter('preparing')}
                     >
-                      🚚 In Transit <span className="inventory-badge-count">{liveOrders?.filter(o => o.status === 'In Transit').length || 0}</span>
+                      📦 Preparing (Confirmed) <span className="inventory-badge-count">{liveOrders?.filter(o => o.status === 'Preparing').length || 0}</span>
                     </button>
                     <button
                       className={`inventory-filter-btn ${orderStatusFilter === 'delivered' ? 'inventory-filter-btn--active' : ''}`}
                       onClick={() => setOrderStatusFilter('delivered')}
                     >
-                      ✅ Delivered <span className="inventory-badge-count">{liveOrders?.filter(o => ['Delivered', 'Paid'].includes(o.status)).length || 0}</span>
+                      ✅ Delivered <span className="inventory-badge-count">{liveOrders?.filter(o => o.status === 'Delivered').length || 0}</span>
                     </button>
                     <button
                       className={`inventory-filter-btn ${orderStatusFilter === 'cancelled' ? 'inventory-filter-btn--active' : ''}`}
@@ -4002,34 +4002,63 @@ const Admin = () => {
                         )}
                       </div>
 
-                      <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Grand Total</span>
-                        <strong style={{ display: 'block', fontSize: '16px', color: '#111827', marginTop: '2px' }}>
-                          {formatPrice(order.total)}
-                        </strong>
-                        <select
-                          value={order.status}
-                          className="admin-status-select"
-                          style={{ marginTop: '6px', height: '32px', fontSize: '11.5px' }}
-                          onChange={(e) => {
-                            const newStatus = e.target.value;
-                            const payload = { status: newStatus };
-                            // "Paid" as a status is payment-complete by definition, and COD
-                            // payment is only actually collected on delivery — flip paymentStatus
-                            // to Paid in both cases so the payment pill/filter stay truthful
-                            // instead of sitting on "Pending" forever after the fact.
-                            const isCod = (order.paymentMethod || '').toLowerCase().includes('cod');
-                            const impliesPaid = newStatus === 'Paid' || (newStatus === 'Delivered' && isCod);
-                            if (impliesPaid && order.paymentStatus !== 'Paid') {
-                              payload.paymentStatus = 'Paid';
-                            }
-                            handleUpdateOrder(order.id, payload);
-                          }}
-                        >
-                          {['Pending', 'Preparing', 'In Transit', 'Delivered', 'Paid', 'Cancelled'].map(s => (
-                            <option key={s} value={s}>{s}</option>
-                          ))}
-                        </select>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                        <div>
+                          <span style={{ fontSize: '11px', color: '#687466', textTransform: 'uppercase', fontWeight: 800 }}>Grand Total: </span>
+                          <strong style={{ fontSize: '15px', color: '#111827' }}>
+                            {formatPrice(order.total)}
+                          </strong>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                            <span style={{ fontSize: '10px', fontWeight: 800, color: '#687466', textTransform: 'uppercase', marginBottom: '2px' }}>Order Status</span>
+                            <select
+                              value={order.status}
+                              className="admin-status-select"
+                              style={{ height: '30px', fontSize: '11.5px', borderRadius: '6px' }}
+                              onChange={(e) => {
+                                const newStatus = e.target.value;
+                                const payload = { status: newStatus };
+                                const isCod = (order.paymentMethod || '').toLowerCase().includes('cod');
+                                if (newStatus === 'Delivered' && isCod && order.paymentStatus !== 'Paid') {
+                                  payload.paymentStatus = 'Paid';
+                                }
+                                handleUpdateOrder(order.id, payload);
+                              }}
+                            >
+                              <option value="Pending">Pending (Placed)</option>
+                              <option value="Preparing">Preparing (Confirmed)</option>
+                              <option value="Delivered">Delivered</option>
+                              <option value="Cancelled">Cancelled</option>
+                            </select>
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                            <span style={{ fontSize: '10px', fontWeight: 800, color: '#687466', textTransform: 'uppercase', marginBottom: '2px' }}>Payment Status</span>
+                            <select
+                              value={order.paymentStatus || 'Pending'}
+                              className="admin-status-select"
+                              style={{
+                                height: '30px',
+                                fontSize: '11.5px',
+                                borderRadius: '6px',
+                                fontWeight: 700,
+                                borderColor: order.paymentStatus === 'Paid' ? '#86EFAC' : (order.paymentStatus === 'Refunded' ? '#D8B4FE' : '#FCD34D'),
+                                background: order.paymentStatus === 'Paid' ? '#F0FDF4' : (order.paymentStatus === 'Refunded' ? '#FAF5FF' : '#FFFBEB'),
+                                color: order.paymentStatus === 'Paid' ? '#166534' : (order.paymentStatus === 'Refunded' ? '#6B21A8' : '#92400E')
+                              }}
+                              onChange={(e) => {
+                                const newPayment = e.target.value;
+                                handleUpdateOrder(order.id, { paymentStatus: newPayment }, `Payment status updated to ${newPayment}`);
+                              }}
+                            >
+                              <option value="Paid">🟢 Paid</option>
+                              <option value="Pending">🟡 Pending</option>
+                              <option value="Refunded">🟣 Refunded</option>
+                            </select>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -4112,24 +4141,54 @@ const Admin = () => {
                           <div>Refunded: <strong style={{ color: '#7E22CE' }}>{formatPrice(selectedOrderModal.refundAmount || 0)}</strong></div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '8px', marginTop: '12px', alignItems: 'center' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#687466' }}>Update Payment Status:</span>
-                          <button
-                            type="button"
-                            className="admin__ghost"
-                            style={{ height: '28px', fontSize: '11px', padding: '0 8px' }}
-                            onClick={() => handleUpdateOrder(selectedOrderModal.id, { paymentStatus: 'Paid' }, 'Marked payment as Paid')}
-                          >
-                            Mark Paid
-                          </button>
-                          <button
-                            type="button"
-                            className="admin__ghost"
-                            style={{ height: '28px', fontSize: '11px', padding: '0 8px' }}
-                            onClick={() => handleUpdateOrder(selectedOrderModal.id, { paymentStatus: 'Pending' }, 'Marked payment as Pending')}
-                          >
-                            Mark Pending
-                          </button>
+                        <div style={{ display: 'flex', gap: '16px', marginTop: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#687466' }}>Order Status:</span>
+                            <select
+                              value={selectedOrderModal.status}
+                              className="admin-status-select"
+                              style={{ height: '32px', fontSize: '12px', borderRadius: '6px' }}
+                              onChange={(e) => {
+                                const newStatus = e.target.value;
+                                const payload = { status: newStatus };
+                                const isCod = (selectedOrderModal.paymentMethod || '').toLowerCase().includes('cod');
+                                if (newStatus === 'Delivered' && isCod && selectedOrderModal.paymentStatus !== 'Paid') {
+                                  payload.paymentStatus = 'Paid';
+                                }
+                                handleUpdateOrder(selectedOrderModal.id, payload);
+                              }}
+                            >
+                              <option value="Pending">Pending (Order Placed)</option>
+                              <option value="Preparing">Preparing (Order Confirmed)</option>
+                              <option value="Delivered">Delivered</option>
+                              <option value="Cancelled">Cancelled</option>
+                            </select>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#687466' }}>Payment Status:</span>
+                            <select
+                              value={selectedOrderModal.paymentStatus || 'Pending'}
+                              className="admin-status-select"
+                              style={{
+                                height: '32px',
+                                fontSize: '12px',
+                                borderRadius: '6px',
+                                fontWeight: 700,
+                                borderColor: selectedOrderModal.paymentStatus === 'Paid' ? '#86EFAC' : (selectedOrderModal.paymentStatus === 'Refunded' ? '#D8B4FE' : '#FCD34D'),
+                                background: selectedOrderModal.paymentStatus === 'Paid' ? '#F0FDF4' : (selectedOrderModal.paymentStatus === 'Refunded' ? '#FAF5FF' : '#FFFBEB'),
+                                color: selectedOrderModal.paymentStatus === 'Paid' ? '#166534' : (selectedOrderModal.paymentStatus === 'Refunded' ? '#6B21A8' : '#92400E')
+                              }}
+                              onChange={(e) => {
+                                const newPayment = e.target.value;
+                                handleUpdateOrder(selectedOrderModal.id, { paymentStatus: newPayment }, `Payment status updated to ${newPayment}`);
+                              }}
+                            >
+                              <option value="Paid">🟢 Paid</option>
+                              <option value="Pending">🟡 Pending</option>
+                              <option value="Refunded">🟣 Refunded</option>
+                            </select>
+                          </div>
                         </div>
                       </div>
 

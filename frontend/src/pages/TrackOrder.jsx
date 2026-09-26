@@ -7,23 +7,21 @@ import { formatPrice } from '../utils/format';
 import './TrackOrder.css';
 
 const STEPS = [
-  { id: 'placed',    icon: FiCheckCircle, label: 'Order Placed',     sub: 'We received your order' },
-  { id: 'confirmed', icon: FiPackage,     label: 'Order Confirmed',  sub: 'Store is preparing your items' },
-  { id: 'packed',    icon: FiPackage,     label: 'Order Packed',     sub: 'Your order is packed and ready' },
-  { id: 'transit',   icon: FiTruck,       label: 'Out for Delivery', sub: 'Delivery partner is on the way' },
-  { id: 'delivered', icon: FiHome,        label: 'Delivered',        sub: 'Order delivered successfully!' },
+  { id: 'placed',    icon: FiCheckCircle, label: 'Order Placed',    sub: 'We received your order' },
+  { id: 'confirmed', icon: FiPackage,     label: 'Order Confirmed', sub: 'Store is preparing your items' },
+  { id: 'delivered', icon: FiHome,        label: 'Order Delivered', sub: 'Order delivered successfully!' },
 ];
 
 const STATUS_TO_STEP = {
   pending:      0,
   placed:       0,
-  confirmed:    1,
   preparing:    1,
-  packed:       2,
+  confirmed:    1,
+  packed:       1,
   paid:         1,
-  transit:      3,
-  'in transit': 3,
-  delivered:    4,
+  transit:      1,
+  'in transit': 1,
+  delivered:    2,
 };
 
 const computeEta = (deliveryTime) => {

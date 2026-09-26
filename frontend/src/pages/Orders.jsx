@@ -178,13 +178,15 @@ const Orders = () => {
   });
 
   const getStatusStyle = (status) => {
-    switch (status) {
-      case 'delivered': return { bg: '#D8F3DC', color: '#1B4332', label: 'Delivered' };
-      case 'transit': return { bg: '#FFF3CD', color: '#856404', label: 'In Transit' };
-      case 'preparing': return { bg: '#D1ECF1', color: '#0C5460', label: 'Preparing' };
+    switch (status?.toLowerCase()) {
+      case 'delivered': return { bg: '#D8F3DC', color: '#1B4332', label: 'Order Delivered' };
+      case 'preparing':
+      case 'confirmed': return { bg: '#D1ECF1', color: '#0C5460', label: 'Order Confirmed' };
+      case 'pending':
+      case 'placed': return { bg: '#FEF3C7', color: '#92400E', label: 'Order Placed' };
       case 'paid': return { bg: '#D8F3DC', color: '#1B4332', label: 'Paid' };
       case 'cancelled': return { bg: '#FEE2E2', color: '#991B1B', label: 'Cancelled' };
-      default: return { bg: '#E5E7EB', color: '#6B7280', label: status };
+      default: return { bg: '#E5E7EB', color: '#6B7280', label: status || 'Order Placed' };
     }
   };
 
