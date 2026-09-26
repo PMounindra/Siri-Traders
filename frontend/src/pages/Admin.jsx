@@ -345,15 +345,24 @@ const Admin = () => {
     setAdditionalItems(prev => prev.map((item, idx) => idx === index ? { ...item, [field]: value } : item));
   };
 
-  const handleAdditionalImageUpload = (index, event) => {
+  const handleAdditionalImageUpload = async (index, event) => {
     const file = event.target.files?.[0];
     if (!file) return;
     event.target.value = '';
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      updateAdditionalItem(index, 'image', reader.result);
-    };
-    reader.readAsDataURL(file);
+    // Show preview immediately
+    const previewUrl = URL.createObjectURL(file);
+    updateAdditionalItem(index, 'image', previewUrl);
+    setImageUploading(true);
+    try {
+      const compressed = await compressImageFile(file);
+      const url = await adminApi.uploadImage(compressed);
+      updateAdditionalItem(index, 'image', url);
+      URL.revokeObjectURL(previewUrl);
+    } catch (err) {
+      alert(err.message || 'Failed to upload image');
+    } finally {
+      setImageUploading(false);
+    }
   };
 
   const addAdditionalVariantRow = (itemIdx, label = '', price = '') => {
@@ -1264,13 +1273,12 @@ const Admin = () => {
   };
   const removeVariantRow = (idx) => setDetailedVariants(prev => prev.filter((_, i) => i !== idx));
 
-  // Downscales/re-encodes large phone-camera photos before upload — a raw
-  // 4-8MB photo could take a very long time to upload over a slow mobile
-  // connection (or hit the server's size cap outright). Falls back to the
-  // original file untouched on anything unexpected (small file, unusual
-  // type, decode error) rather than risk blocking the upload entirely.
-  const compressImageFile = (file, maxDimension = 1280, quality = 0.8) => new Promise((resolve) => {
-    if (file.size < 300 * 1024 || !/^image\/(jpeg|png|webp)$/.test(file.type)) {
+  // Downscales and re-encodes any image to WebP before upload.
+  // WebP is 25-35% smaller than JPEG and 60-80% smaller than PNG at same quality.
+  // Falls back to the original file if canvas/WebP is unsupported or the output
+  // would be larger than the original.
+  const compressImageFile = (file, maxDimension = 1200, quality = 0.82) => new Promise((resolve) => {
+    if (!file || !file.type.startsWith('image/')) {
       resolve(file);
       return;
     }
@@ -1285,12 +1293,15 @@ const Admin = () => {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       canvas.toBlob((blob) => {
-        if (!blob || blob.size >= file.size) {
+        if (!blob) { resolve(file); return; }
+        // Only use WebP output if it's smaller than original
+        if (blob.size >= file.size && file.size < 200 * 1024) {
           resolve(file);
           return;
         }
-        resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
-      }, 'image/jpeg', quality);
+        const webpName = file.name.replace(/\.[^.]+$/, '.webp');
+        resolve(new File([blob], webpName, { type: 'image/webp' }));
+      }, 'image/webp', quality);
     };
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
