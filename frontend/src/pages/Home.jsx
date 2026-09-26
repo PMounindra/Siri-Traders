@@ -256,21 +256,25 @@ const WelcomeBanner = ({ customerType }) => {
         </div>
         <p>{isWholesale ? 'Bulk prices, bigger savings for your business' : 'Order now and enjoy great offers'}</p>
       </div>
-      <div className="home-hero__offers-pill">
-        <span>✦ OFFERS FOR YOU ✦</span>
-      </div>
-      <div className="home-hero__coupons">
-        {coupons.map((coupon, i) => (
-          <div className="home-hero__coupon-card" key={i}>
-            <div className="home-hero__coupon-icon">{coupon.icon}</div>
-            <div className="home-hero__coupon-info">
-              <strong>{coupon.title}</strong>
-              <span>{coupon.description}</span>
-            </div>
-            <div className="home-hero__coupon-code">Code: <strong>{coupon.code}</strong></div>
+      {coupons.length > 0 && (
+        <>
+          <div className="home-hero__offers-pill">
+            <span>✦ OFFERS FOR YOU ✦</span>
           </div>
-        ))}
-      </div>
+          <div className="home-hero__coupons">
+            {coupons.map((coupon, i) => (
+              <div className="home-hero__coupon-card" key={i}>
+                <div className="home-hero__coupon-icon">{coupon.icon}</div>
+                <div className="home-hero__coupon-info">
+                  <strong>{coupon.title}</strong>
+                  <span>{coupon.description}</span>
+                </div>
+                <div className="home-hero__coupon-code">Code: <strong>{coupon.code}</strong></div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </section>
   );
 };

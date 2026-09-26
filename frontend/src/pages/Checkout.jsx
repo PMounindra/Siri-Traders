@@ -72,16 +72,8 @@ const Checkout = () => {
     appliedCouponCode, applyCouponCode, removeCoupon: contextRemoveCoupon, getAppliedCoupon, couponError, setCouponError
   } = useCart();
   const { user, isAuthenticated, isLoaded, getToken, customerType } = useAuth();
-  const { deliveryZones, retailCoupons, wholesaleCoupons, deliverySettings } = useSiteData();
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const rawCoupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
-  const coupons = rawCoupons.filter(c => {
-    if (c.active === false) return false;
-    if (c.startDate && todayStr < c.startDate) return false;
-    if (c.endDate && todayStr > c.endDate) return false;
-    if (c.usageLimit && Number(c.timesUsed || 0) >= Number(c.usageLimit)) return false;
-    return true;
-  });
+  const { deliveryZones, retailCoupons, wholesaleCoupons, allCoupons = [], deliverySettings } = useSiteData();
+  const coupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
   const navigate = useNavigate();
   const addressStorageKey = getUserStorageKey(user, 'addresses');
   const orderStorageKey = getUserStorageKey(user, 'orders');
@@ -103,7 +95,7 @@ const Checkout = () => {
   const [placingOrder, setPlacingOrder] = useState(false);
   const [orderError, setOrderError] = useState('');
 
-  const appliedCoupon = getAppliedCoupon(coupons);
+  const appliedCoupon = getAppliedCoupon(coupons, allCoupons);
 
   useEffect(() => {
     if (appliedCouponCode) {
@@ -195,7 +187,7 @@ const Checkout = () => {
   };
 
   const handleApplyCoupon = () => {
-    const success = applyCouponCode(couponInput, coupons);
+    const success = applyCouponCode(couponInput, coupons, allCoupons);
     if (success) {
       setCouponInput('');
     }

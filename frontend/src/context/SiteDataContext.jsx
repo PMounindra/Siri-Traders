@@ -138,10 +138,30 @@ export const SiteDataProvider = ({ children }) => {
     };
   }, [fetchSiteData]);
 
+  const isCouponValid = (c) => {
+    if (!c || c.active === false) return false;
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    if (c.startDate) {
+      const startDateStr = String(c.startDate).slice(0, 10);
+      if (todayStr < startDateStr) return false;
+    }
+    if (c.endDate) {
+      const endDateStr = String(c.endDate).slice(0, 10);
+      if (todayStr > endDateStr) return false;
+      if (String(c.endDate).includes('T')) {
+        const endDateTime = new Date(c.endDate);
+        if (!isNaN(endDateTime.getTime()) && now > endDateTime) return false;
+      }
+    }
+    if (c.usageLimit && Number(c.timesUsed || 0) >= Number(c.usageLimit)) return false;
+    return true;
+  };
+
   const dailyOffers = offers.filter(o => o.active !== false && o.group === 'daily');
   const festivalOffers = offers.filter(o => o.active !== false && o.group === 'festival');
-  const retailCoupons = coupons.filter(c => c.active !== false && (c.customerType === 'retail' || c.customerType === 'all' || !c.customerType));
-  const wholesaleCoupons = coupons.filter(c => c.active !== false && (c.customerType === 'wholesale' || c.customerType === 'all' || !c.customerType));
+  const retailCoupons = coupons.filter(c => isCouponValid(c) && (c.customerType === 'retail' || c.customerType === 'all' || !c.customerType));
+  const wholesaleCoupons = coupons.filter(c => isCouponValid(c) && (c.customerType === 'wholesale' || c.customerType === 'all' || !c.customerType));
 
   const getCmsPage = (slug) => cmsPages.find(p => p.slug === slug && p.isPublished !== false) || null;
 
@@ -151,6 +171,8 @@ export const SiteDataProvider = ({ children }) => {
     festivalOffers,
     retailCoupons,
     wholesaleCoupons,
+    allCoupons: coupons,
+    isCouponValid,
     deliveryZones,
     deliverySettings,
     homeSections,
@@ -163,3 +185,4 @@ export const SiteDataProvider = ({ children }) => {
 
   return <SiteDataContext.Provider value={value}>{children}</SiteDataContext.Provider>;
 };
+

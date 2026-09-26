@@ -158,14 +158,14 @@ export const CartProvider = ({ children }) => {
     (sum, item) => sum + (item.mrp - item.price) * item.quantity, 0
   );
 
-  const applyCouponCode = useCallback((code, couponList = []) => {
+  const applyCouponCode = useCallback((code, couponList = [], allCoupons = []) => {
     const rawCode = String(code || '').trim().toUpperCase();
     if (!rawCode) {
       setCouponError('Enter a coupon code.');
       return false;
     }
 
-    const result = evaluateCoupon(rawCode, cartTotal, couponList, { cartItems, userEmail: user?.email });
+    const result = evaluateCoupon(rawCode, cartTotal, couponList, { cartItems, userEmail: user?.email, allCoupons });
     if (!result.valid) {
       setCouponError(result.error);
       return false;
@@ -176,9 +176,9 @@ export const CartProvider = ({ children }) => {
     return true;
   }, [cartTotal, cartItems, user?.email]);
 
-  const getAppliedCoupon = useCallback((couponList = []) => {
+  const getAppliedCoupon = useCallback((couponList = [], allCoupons = []) => {
     if (!appliedCouponCode) return null;
-    const result = evaluateCoupon(appliedCouponCode, cartTotal, couponList, { cartItems, userEmail: user?.email });
+    const result = evaluateCoupon(appliedCouponCode, cartTotal, couponList, { cartItems, userEmail: user?.email, allCoupons });
     if (!result.valid) return null;
     return {
       code: result.coupon.code,

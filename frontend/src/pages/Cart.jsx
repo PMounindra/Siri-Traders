@@ -18,21 +18,13 @@ const Cart = () => {
     appliedCouponCode, applyCouponCode, removeCoupon, getAppliedCoupon, couponError, setCouponError
   } = useCart();
   const { user, customerType } = useAuth();
-  const { retailCoupons, wholesaleCoupons, deliveryZones } = useSiteData();
+  const { retailCoupons, wholesaleCoupons, allCoupons = [], deliveryZones } = useSiteData();
   const { getProductsForType } = useProducts();
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const rawCoupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
-  const coupons = rawCoupons.filter(c => {
-    if (c.active === false) return false;
-    if (c.startDate && todayStr < c.startDate) return false;
-    if (c.endDate && todayStr > c.endDate) return false;
-    if (c.usageLimit && Number(c.timesUsed || 0) >= Number(c.usageLimit)) return false;
-    return true;
-  });
+  const coupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
   const navigate = useNavigate();
   const [coupon, setCoupon] = useState(appliedCouponCode || '');
 
-  const appliedCoupon = getAppliedCoupon(coupons);
+  const appliedCoupon = getAppliedCoupon(coupons, allCoupons);
 
   const savedAddress = getSavedAddresses(user)[0];
   const activeZone = savedAddress ? deliveryZones.find(z => z.area.toLowerCase() === savedAddress.area.toLowerCase()) : null;
@@ -48,7 +40,7 @@ const Cart = () => {
   const suggestions = getProductsForType(customerType).filter(p => p.isBestseller && !cartItems.find(i => i.productId === p.id || i.id === p.id)).slice(0, 6);
 
   const applyCoupon = (code = coupon) => {
-    const success = applyCouponCode(code, coupons);
+    const success = applyCouponCode(code, coupons, allCoupons);
     if (success) {
       setCoupon(code.toUpperCase());
     }
