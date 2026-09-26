@@ -39,7 +39,8 @@ const productSchema = z.object({
   wholesaleCaseLabel: z.string().optional().nullable(),
   wholesaleCasePrice: z.number().nonnegative().optional().nullable(),
   targetType: z.string().optional().nullable().default('retail_and_wholesale'),
-  variants: z.array(z.any()).optional().nullable()
+  variants: z.array(z.any()).optional().nullable(),
+  siblingGroup: z.string().max(64).optional().nullable()
 });
 
 const productUpdateSchema = productSchema.partial();

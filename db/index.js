@@ -55,6 +55,14 @@ const schema = {
 const client = postgres(process.env.DATABASE_URL, { prepare: false });
 export const db = drizzle(client, { schema });
 
+// products.sibling_group must exist before any query that selects all product
+// columns (products/inventory APIs). Idempotent; runs once per cold start.
+try {
+  await client`ALTER TABLE products ADD COLUMN IF NOT EXISTS sibling_group TEXT`;
+} catch (err) {
+  console.warn('sibling_group column check failed:', err.message);
+}
+
 // Export everything from schemas for clean single-entry imports
 export { products } from './schema/products.js';
 export { categories } from './schema/categories.js';

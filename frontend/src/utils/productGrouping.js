@@ -65,7 +65,11 @@ export const groupProductsByBase = (productList) => {
     const catKey = (prod.category || '').toLowerCase().trim();
     const baseKey = extractBaseName(prod.name);
     
-    const groupKey = (baseKey && baseKey.length >= 3) ? `${catKey}::${baseKey}` : `id::${prod.id}`;
+    // Items saved together via "Add another item" carry an explicit siblingGroup;
+    // otherwise fall back to matching on category + base name.
+    const groupKey = prod.siblingGroup
+      ? `sg::${prod.siblingGroup}`
+      : (baseKey && baseKey.length >= 3) ? `${catKey}::${baseKey}` : `id::${prod.id}`;
     
     if (!groups.has(groupKey)) {
       groups.set(groupKey, []);

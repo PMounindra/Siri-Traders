@@ -1480,11 +1480,16 @@ const Admin = () => {
     
     setApiLoading(true);
     setSaveToast(null);
+    // Items added together share a group id so the storefront links them as siblings.
+    const siblingGroupId = additionalItems.some(a => a.name && a.name.trim())
+      ? `sg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
+      : null;
     const numericId = Number(productDraft.id);
     const isEdit = Boolean(productDraft.id != null && String(productDraft.id).trim() !== '' && !isNaN(numericId) && numericId > 0);
     try {
       const targetId = isEdit ? numericId : null;
       const { stockNote, id: _id, ...apiPayload } = nextProduct;
+      if (!isEdit && siblingGroupId) apiPayload.siblingGroup = siblingGroupId;
       if (isEdit) {
         const saved = await adminApi.updateProduct(targetId, apiPayload);
         nextProduct = { ...nextProduct, ...saved };
@@ -1560,7 +1565,8 @@ const Admin = () => {
           bulkPackPrice: Number(itemDraft.bulkPackPrice) || 0,
           wholesaleCaseLabel: itemDraft.wholesaleCaseLabel || '',
           wholesaleCasePrice: Number(itemDraft.wholesaleCasePrice) || 0,
-          variants: itemVariants
+          variants: itemVariants,
+          siblingGroup: siblingGroupId
         };
 
         try {

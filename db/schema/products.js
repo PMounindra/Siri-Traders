@@ -35,5 +35,8 @@ export const products = pgTable('products', {
   wholesaleCaseLabel: text('wholesale_case_label'),
   wholesaleCasePrice: integer('wholesale_case_price'),
   targetType: text('target_type').default('retail_and_wholesale'),
-  variants: jsonb('variants')
+  variants: jsonb('variants'),
+  // Items added together in the admin "Add another item" flow share this id so
+  // the storefront shows them as one product with selectable variants.
+  siblingGroup: text('sibling_group')
 });
