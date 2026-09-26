@@ -157,7 +157,7 @@ const ProductDetail = () => {
       setRelatedProducts(categoryProducts.slice(0, 8));
 
       const defaultWeightLabel = `${foundLocal.weight || ''} ${foundLocal.unit || ''}`.trim() || 'Standard Pack';
-      const defaultVars = (customerType === 'wholesale' && Array.isArray(foundLocal.variants) && foundLocal.variants.length > 0)
+      const defaultVars = (Array.isArray(foundLocal.variants) && foundLocal.variants.length > (customerType === 'wholesale' ? 0 : 1))
         ? foundLocal.variants
         : [{ label: defaultWeightLabel, price: Number(foundLocal.price) || 0, mrp: Number(foundLocal.mrp) || Number(foundLocal.price) || 0 }];
 
@@ -209,7 +209,7 @@ const ProductDetail = () => {
       setRelatedProducts(categoryProducts.slice(0, 8));
 
       const defaultWeightLabel = `${found.weight || ''} ${found.unit || ''}`.trim() || 'Standard Pack';
-      const defaultVars = (customerType === 'wholesale' && Array.isArray(found.variants) && found.variants.length > 0)
+      const defaultVars = (Array.isArray(found.variants) && found.variants.length > (customerType === 'wholesale' ? 0 : 1))
         ? found.variants
         : [{ label: defaultWeightLabel, price: Number(found.price) || 0, mrp: Number(found.mrp) || Number(found.price) || 0 }];
 
@@ -311,7 +311,7 @@ const ProductDetail = () => {
 
   const productPackVariants = useMemo(() => {
     if (!product) return [];
-    if (customerType === 'wholesale' && Array.isArray(product.variants) && product.variants.length > 0) {
+    if (Array.isArray(product.variants) && product.variants.length > (customerType === 'wholesale' ? 0 : 1)) {
       return product.variants.map((v, idx) => ({
         id: `pack-${idx}-${v.label}`,
         label: String(v.label || `${product.weight || ''} ${product.unit || ''}`).trim() || 'Standard Pack',
@@ -328,7 +328,7 @@ const ProductDetail = () => {
       mrp: Number(product.mrp) || Number(product.price) || 0,
       rawVariant: { label: labelStr, price: Number(product.price) || 0, mrp: Number(product.mrp) || Number(product.price) || 0 }
     }];
-  }, [product]);
+  }, [product, customerType]);
 
   const variants = productPackVariants;
 
