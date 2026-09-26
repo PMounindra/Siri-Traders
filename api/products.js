@@ -23,7 +23,9 @@ const productSchema = z.object({
   batchNumber: z.string().optional().nullable(),
   mfgDate: z.string().optional().nullable(),
   expiryDate: z.string().optional().nullable(),
-  image: z.string().optional().nullable(),
+  // Images must be uploaded to Blob storage and referenced by URL. An inline
+  // data: URI bloats every /api/products response for every visitor.
+  image: z.string().refine(v => !v.startsWith('data:'), 'Upload the image instead of pasting image data').optional().nullable(),
   description: z.string().optional().nullable(),
   inStock: z.boolean().optional(),
   isArchived: z.boolean().optional(),
@@ -113,7 +115,7 @@ export default async function handler(req, res) {
       if (!id) {
         if (req.method === 'GET') {
           const allCategories = await db.select().from(categories);
-          res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+          res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=300');
           return res.status(200).json(allCategories);
         }
 
@@ -124,6 +126,9 @@ export default async function handler(req, res) {
           const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
           const name = String(body.name || '').trim();
           if (!name) return res.status(400).json({ error: 'name is required' });
+          if (String(body.image || '').startsWith('data:')) {
+            return res.status(400).json({ error: 'Upload the image instead of pasting image data' });
+          }
 
           const catId = body.id || name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
           const saved = await db.insert(categories).values({
@@ -194,7 +199,12 @@ export default async function handler(req, res) {
         }
 
         const allProducts = await query.limit(parsedLimit).offset(parsedOffset);
-        res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+        // Storefront lists are cached at Vercel's edge (stale for at most ~30s);
+        // admin lists (archived/unpublished included) always hit the DB.
+        const isAdminList = includeArchived === 'true' || includeUnpublished === 'true';
+        res.setHeader('Cache-Control', isAdminList
+          ? 'private, no-store'
+          : 'public, max-age=0, s-maxage=30, stale-while-revalidate=300');
         return res.status(200).json(allProducts);
       }
 

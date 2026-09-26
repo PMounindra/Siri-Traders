@@ -3,16 +3,48 @@
   "outputDirectory": "frontend/dist",
   "framework": null,
   "rewrites": [
-    { "source": "/api/categories", "destination": "/api/products?resource=categories" },
-    { "source": "/api/coupons", "destination": "/api/offers?resource=coupons" },
-    { "source": "/api/delivery_zones", "destination": "/api/settings?resource=delivery_zones" },
-    { "source": "/api/admin/broadcast", "destination": "/api/admin/orders?resource=broadcast" },
-    { "source": "/api/admin/users", "destination": "/api/admin/orders?resource=users" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/api/categories",
+      "destination": "/api/products?resource=categories"
+    },
+    {
+      "source": "/api/coupons",
+      "destination": "/api/offers?resource=coupons"
+    },
+    {
+      "source": "/api/delivery_zones",
+      "destination": "/api/settings?resource=delivery_zones"
+    },
+    {
+      "source": "/api/admin/broadcast",
+      "destination": "/api/admin/orders?resource=broadcast"
+    },
+    {
+      "source": "/api/admin/users",
+      "destination": "/api/admin/orders?resource=users"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ],
   "build": {
     "env": {
       "NODE_VERSION": "20"
     }
-  }
+  },
+  "regions": [
+    "syd1"
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ]
 }

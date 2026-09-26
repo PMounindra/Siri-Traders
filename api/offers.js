@@ -215,6 +215,9 @@ export default async function handler(req, res) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const title = String(body.title || '').trim();
         if (!title) return res.status(400).json({ error: 'title is required' });
+        if (String(body.image || '').startsWith('data:')) {
+          return res.status(400).json({ error: 'Upload the image instead of pasting image data' });
+        }
 
         const offerId = body.id || `offer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const rawCombo = body.comboItems || body.combo_items;
@@ -281,7 +284,12 @@ export default async function handler(req, res) {
       if (body.price !== undefined) patch.price = safeInt(body.price, 0);
       if (body.mrp !== undefined) patch.mrp = safeInt(body.mrp, 0);
       if (body.badge !== undefined) patch.badge = body.badge;
-      if (body.image !== undefined) patch.image = body.image;
+      if (body.image !== undefined) {
+        if (String(body.image || '').startsWith('data:')) {
+          return res.status(400).json({ error: 'Upload the image instead of pasting image data' });
+        }
+        patch.image = body.image;
+      }
       if (body.link !== undefined) patch.link = body.link;
       if (body.group !== undefined) patch.groupType = body.group;
       if (body.groupType !== undefined) patch.groupType = body.groupType;

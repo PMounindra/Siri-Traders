@@ -57,7 +57,7 @@ const TrackOrder      = lazyWithRetry(() => import("./pages/TrackOrder"));
 const Info            = lazyWithRetry(() => import("./pages/Info"));
 
 // Prefetch all customer-facing page chunks in background after app mounts.
-// This fires silent dynamic imports ~1.5s after first load so chunks are already
+// This fires silent dynamic imports ~4s after first load (after the product list) so chunks are already
 // cached in the browser when the user taps a nav link — giving instant navigation
 // without a large initial bundle.
 function usePrefetchPages() {
@@ -75,8 +75,7 @@ function usePrefetchPages() {
       import("./pages/FestiveOfferDetail");
       import("./pages/TrackOrder");
       import("./pages/Info");
-      import("./pages/AdminLogin");
-    }, 1500);
+    }, 4000);
     return () => clearTimeout(timer);
   }, []);
 }
