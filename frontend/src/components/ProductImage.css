@@ -12,11 +12,13 @@
   overflow: hidden;
   flex-shrink: 0;
   box-sizing: border-box;
+  container-type: size;
 }
 
 .product-img-initial span {
   color: #2D5016; /* logo green */
-  font-size: clamp(28px, 60%, 140px);
+  font-size: 72px; /* fallback for standard containers */
+  font-size: 50cqh; /* 50% of box height */
   font-weight: 800;
   font-family: 'Poppins', sans-serif;
   line-height: 1;
