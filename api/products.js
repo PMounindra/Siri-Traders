@@ -100,6 +100,15 @@ function normalizeProductPayload(body) {
   return payload;
 }
 
+// Legacy rows may still hold an inline data: URI image. Never ship those inside
+// JSON lists (one row was 83% of the whole payload); point at a cacheable
+// binary image endpoint instead.
+const slimImage = (p) => (
+  typeof p.image === 'string' && p.image.startsWith('data:')
+    ? { ...p, image: `/api/products?resource=image&id=${p.id}` }
+    : p
+);
+
 export default async function handler(req, res) {
   setCorsHeaders(req, res);
 
@@ -110,6 +119,16 @@ export default async function handler(req, res) {
   const { id, resource, action } = req.query;
 
   try {
+    // ── Product image as binary: /api/products?resource=image&id=:id
+    if (resource === 'image' && id && req.method === 'GET') {
+      const row = (await db.select({ image: products.image }).from(products).where(eq(products.id, parseInt(id, 10))))[0];
+      const m = /^data:([^;]+);base64,(.+)$/s.exec(row?.image || '');
+      if (!m) return res.status(404).end();
+      res.setHeader('Content-Type', m[1]);
+      res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800');
+      return res.status(200).send(Buffer.from(m[2], 'base64'));
+    }
+
     // ── Categories sub-resource: /api/categories or /api/products?resource=categories
     if (resource === 'categories' || action === 'categories') {
       if (!id) {
@@ -205,7 +224,7 @@ export default async function handler(req, res) {
         res.setHeader('Cache-Control', isAdminList
           ? 'private, no-store'
           : 'public, max-age=0, s-maxage=30, stale-while-revalidate=300');
-        return res.status(200).json(allProducts);
+        return res.status(200).json(allProducts.map(slimImage));
       }
 
 
@@ -250,7 +269,7 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: 'Product not found' });
       }
       res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
-      return res.status(200).json(result[0]);
+      return res.status(200).json(slimImage(result[0]));
     }
 
     if (req.method === 'PUT') {

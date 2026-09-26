@@ -14,9 +14,19 @@ export const useProducts = () => {
   return context;
 };
 
+const CACHE_KEY = 'siri_products_cache_v1';
+const readCache = () => {
+  try {
+    const v = JSON.parse(localStorage.getItem(CACHE_KEY));
+    return Array.isArray(v) && v.length ? v : null;
+  } catch { return null; }
+};
+
 export const ProductProvider = ({ children }) => {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Paint instantly from the last good copy; the network fetch below refreshes it.
+  const [cached] = useState(readCache);
+  const [products, setProducts] = useState(cached || []);
+  const [loading, setLoading] = useState(!cached);
   const { getToken } = useAuth();
 
   const fetchProducts = useCallback(async (showLoading = false) => {
@@ -25,10 +35,11 @@ export const ProductProvider = ({ children }) => {
       const res = await fetch('/api/products?limit=500');
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
-      setProducts(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      setProducts(list);
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify(list)); } catch { /* quota/private mode */ }
     } catch (err) {
       console.warn("Could not fetch products from database.", err);
-      setProducts([]);
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -36,8 +47,8 @@ export const ProductProvider = ({ children }) => {
 
   // Initial load
   useEffect(() => {
-    fetchProducts(true);
-  }, [fetchProducts]);
+    fetchProducts(!cached);
+  }, [fetchProducts, cached]);
 
   // Real-time synchronization: listen for admin changes across all tabs
   useEffect(() => {

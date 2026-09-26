@@ -39,11 +39,18 @@ const normalizeCoupon = (dbCoupon) => {
   };
 };
 
+const CACHE_KEY = 'siri_sitedata_cache_v1';
+const readCache = () => {
+  try { return JSON.parse(localStorage.getItem(CACHE_KEY)) || null; } catch { return null; }
+};
+
 export const SiteDataProvider = ({ children }) => {
-  const [categories, setCategories] = useState([]);
-  const [offers, setOffers] = useState([]);
-  const [coupons, setCoupons] = useState([]);
-  const [deliveryZones, setDeliveryZones] = useState([]);
+  // Paint instantly from the last good copy; the network fetch refreshes it.
+  const [cached] = useState(readCache);
+  const [categories, setCategories] = useState(() => (Array.isArray(cached?.cat) ? cached.cat : []));
+  const [offers, setOffers] = useState(() => (Array.isArray(cached?.offer) ? cached.offer.map(normalizeOffer) : []));
+  const [coupons, setCoupons] = useState(() => (Array.isArray(cached?.coupon) ? cached.coupon.map(normalizeCoupon) : []));
+  const [deliveryZones, setDeliveryZones] = useState(cached?.zone || []);
   const [deliverySettings, setDeliverySettings] = useState({ deliveryFee: 25, freeDeliveryThreshold: 500, handlingCharge: 5 });
   const [homeSections, setHomeSections] = useState({
     todaysDeals: true,
@@ -53,8 +60,8 @@ export const SiteDataProvider = ({ children }) => {
     shopByCategory: true,
     categories: {}
   });
-  const [cmsPages, setCmsPages] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [cmsPages, setCmsPages] = useState(cached?.page || []);
+  const [loading, setLoading] = useState(!cached);
 
   // ok:false means the request itself failed (network/5xx) — keep whatever's
   // on screen (static fallback or last good fetch). ok:true with an empty
@@ -81,6 +88,14 @@ export const SiteDataProvider = ({ children }) => {
         fetchJson('/api/settings?action=page'),
       ]);
 
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          cat: catRes.ok ? catRes.data : cached?.cat, offer: offerRes.ok ? offerRes.data : cached?.offer,
+          coupon: couponRes.ok ? couponRes.data : cached?.coupon, zone: zoneRes.ok ? zoneRes.data : cached?.zone,
+          page: pageRes.ok ? pageRes.data : cached?.page,
+        }));
+      } catch { /* quota/private mode */ }
+
       if (catRes.ok && Array.isArray(catRes.data)) setCategories(catRes.data);
       if (offerRes.ok && Array.isArray(offerRes.data)) setOffers(offerRes.data.map(normalizeOffer));
       if (couponRes.ok && Array.isArray(couponRes.data)) setCoupons(couponRes.data.map(normalizeCoupon));
@@ -101,12 +116,12 @@ export const SiteDataProvider = ({ children }) => {
     } finally {
       if (showLoading) setLoading(false);
     }
-  }, []);
+  }, [cached]);
 
   // Initial load
   useEffect(() => {
-    fetchSiteData(true);
-  }, [fetchSiteData]);
+    fetchSiteData(!cached);
+  }, [fetchSiteData, cached]);
 
   // Real-time synchronization: listen for admin changes across all tabs
   useEffect(() => {
