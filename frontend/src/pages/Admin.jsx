@@ -5887,6 +5887,52 @@ const Admin = () => {
                                 placeholder="Description for item..."
                               />
                             </div>
+
+                            <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+                              <h4 style={{ fontSize: '12.5px', fontWeight: 700, margin: '0 0 10px', color: '#2D5016', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <FiLayers /> 3. Wholesale & Bulk Pricing Options
+                              </h4>
+                              <div className="admin-form__grid">
+                                <div>
+                                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Bulk Pack Label</label>
+                                  <input
+                                    className="admin-input-box"
+                                    value={item.bulkPackLabel || ''}
+                                    onChange={(e) => updateAdditionalItem(idx, 'bulkPackLabel', e.target.value)}
+                                    placeholder="e.g. 5 kg bulk"
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Bulk Pack Price (₹)</label>
+                                  <input
+                                    className="admin-input-box"
+                                    type="number"
+                                    value={item.bulkPackPrice || ''}
+                                    onChange={(e) => updateAdditionalItem(idx, 'bulkPackPrice', e.target.value)}
+                                    placeholder="e.g. 1850"
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Wholesale Case Label</label>
+                                  <input
+                                    className="admin-input-box"
+                                    value={item.wholesaleCaseLabel || ''}
+                                    onChange={(e) => updateAdditionalItem(idx, 'wholesaleCaseLabel', e.target.value)}
+                                    placeholder="e.g. 10 kg case"
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Wholesale Case Price (₹)</label>
+                                  <input
+                                    className="admin-input-box"
+                                    type="number"
+                                    value={item.wholesaleCasePrice || ''}
+                                    onChange={(e) => updateAdditionalItem(idx, 'wholesaleCasePrice', e.target.value)}
+                                    placeholder="e.g. 3600"
+                                  />
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         ))}
 
