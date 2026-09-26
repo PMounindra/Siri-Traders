@@ -4986,14 +4986,6 @@ const Admin = () => {
                                 <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>
                                   {item.brand ? `${item.brand} · ` : ''}{item.weight}{item.unit}
                                 </span>
-                                <span style={{
-                                  fontSize: '10px', fontWeight: 700, display: 'inline-block', marginTop: '3px',
-                                  padding: '1px 7px', borderRadius: '20px',
-                                  background: isPublished ? '#DCFCE7' : '#FEF3C7',
-                                  color: isPublished ? '#166534' : '#92400E'
-                                }}>
-                                  {isPublished ? '🟢 Live on Website' : '🟡 Inventory Only'}
-                                </span>
                               </div>
                             </div>
                           </td>
@@ -5042,27 +5034,6 @@ const Admin = () => {
                                 }}
                               >
                                 Update Stock
-                              </button>
-                              <button
-                                style={{
-                                  height: '32px', padding: '0 10px', fontSize: '11px', borderRadius: '6px',
-                                  display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                  background: isPublished ? '#FEF3C7' : '#DCFCE7',
-                                  color: isPublished ? '#92400E' : '#166534',
-                                  border: `1px solid ${isPublished ? '#FCD34D' : '#86EFAC'}`,
-                                  cursor: 'pointer', fontWeight: 600
-                                }}
-                                title={isPublished ? 'Remove from website' : 'Upload to website'}
-                                onClick={() => {
-                                  const target = dbProd
-                                    ? { ...dbProd, isPublished }
-                                    : { id: item.productId, name: item.name, isPublished };
-                                  togglePublishProduct(target);
-                                }}
-
-
-                              >
-                                {isPublished ? '🌐 Remove from Website' : '🌐 Upload to Website'}
                               </button>
                               <button
                                 className="admin-danger"
