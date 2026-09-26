@@ -1550,6 +1550,7 @@ const Admin = () => {
     loadInventory();
     broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED);
 
+    const failedAdds = [];
     // Save additional chained sibling items if adding a new product
     if (!isEdit && additionalItems.length > 0) {
       const firstProductImage = (nextProduct.image || '').trim();
@@ -1614,6 +1615,7 @@ const Admin = () => {
           setDbProductsList(prev => [{ ...addPayload, ...savedAdd }, ...prev]);
         } catch (addErr) {
           console.warn(`Failed to save additional item #${i + 1}:`, addErr.message);
+          failedAdds.push(`${itemDraft.name.trim()} (${addErr.message})`);
         }
       }
     }
@@ -1625,7 +1627,10 @@ const Admin = () => {
 
     const validAddsCount = !isEdit ? additionalItems.filter(a => a.name && a.name.trim()).length : 0;
     const totalCount = 1 + validAddsCount;
-    if (!isEdit) {
+    if (!isEdit && failedAdds.length > 0) {
+      setSaveToast({ type: 'error', msg: `⚠️ "${nextProduct.name}" was saved, but these items FAILED to save: ${failedAdds.join('; ')}` });
+      setTimeout(() => setSaveToast(null), 15000);
+    } else if (!isEdit) {
       setSaveToast({
         type: 'success',
         msg: totalCount > 1

@@ -284,6 +284,8 @@ const ProductDetail = () => {
 
       // 2. Match by brand within the same product form (e.g. Cinthol Lime, Cinthol Original, Cinthol Cool)
       const pBrand = (p.brand || p.name.split(" ")[0] || "").trim().toLowerCase();
+      // Products explicitly grouped as siblings elsewhere never match by brand.
+      if (p.siblingGroup && p.siblingGroup !== product.siblingGroup) return false;
       if (currentBrand && currentBrand.length > 1 && pBrand === currentBrand) {
         return true;
       }
