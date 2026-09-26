@@ -1641,7 +1641,7 @@ const Admin = () => {
       endDate: offerDraft.endDate || null,
       usageLimit: offerDraft.usageLimit ? Number(offerDraft.usageLimit) : null,
       active: offerDraft.active !== false,
-      image: offerDraft.image || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=700&q=80'
+      image: (offerDraft.image || '').trim()
     };
     try {
       const saved = normalizeOffer(await adminApi.saveOffer(payload));
@@ -1700,7 +1700,7 @@ const Admin = () => {
         title: prev.title || `Festive Combo Pack (${updatedList.length} Items)`,
         badge: discVal > 0 ? `SAVE ₹${discVal} ON COMBO` : (prev.badge || 'FESTIVE COMBO DEAL'),
         itemsIncluded: autoItemsText,
-        image: prev.image || prod.image
+        image: prev.image || ''
       };
     });
   };
