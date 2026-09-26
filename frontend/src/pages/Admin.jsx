@@ -61,6 +61,7 @@ import { useAdminApi } from '../hooks/useAdminApi';
 import { useSiteData } from '../context/SiteDataContext';
 import { formatPrice, getOrderBillBreakdown } from '../utils/format';
 import { toWebpImage } from '../utils/images';
+import ProductImage from '../components/ProductImage';
 import { broadcastSync, subscribeSync, SYNC_EVENTS } from '../utils/syncChannel';
 
 import './Admin.css';
@@ -3278,7 +3279,7 @@ const Admin = () => {
                         {offerDraft.comboItems.map((item) => (
                           <div key={item.productId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#FFFFFF', border: '1px solid #BBF7D0', borderRadius: '8px', padding: '8px 12px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <img src={toWebpImage(item.image)} alt={item.name} style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '4px', background: '#F9FAFB' }} />
+                              <ProductImage src={item.image} name={item.name} style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '4px', flexShrink: 0 }} />
                               <div>
                                 <strong style={{ fontSize: '12.5px', color: '#111827', display: 'block' }}>{item.name}</strong>
                                 <span style={{ fontSize: '11px', color: '#6B7280' }}>{item.weight} • MRP ₹{item.mrp || item.price} (Regular ₹{item.price})</span>
@@ -5178,7 +5179,7 @@ const Admin = () => {
                         <tr key={item.productId}>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <img src={toWebpImage(item.image)} alt={item.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', background: '#F7F4EE' }} />
+                              <ProductImage src={item.image} name={item.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
                               <div>
                                 <strong style={{ fontSize: '13px', color: '#111827' }}>{item.name}</strong>
                                 <span style={{ fontSize: '11px', color: '#687466', display: 'block' }}>
@@ -5545,7 +5546,7 @@ const Admin = () => {
                     <div key={product.id} className="admin-product-card-enhanced">
                       <div className="admin-product-top-row">
                         <div className="admin-product-info">
-                          <img src={toWebpImage(product.image)} alt={product.name} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                          <ProductImage src={product.image} name={product.name} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
                           <div style={{ minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                               <strong className="admin-product-info__name">{product.name}</strong>

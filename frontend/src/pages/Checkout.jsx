@@ -14,6 +14,7 @@ import { getDeliveryTimeForAddress, detectCurrentDeliveryZone } from '../utils/d
 import { applyCoupon } from '../data/coupons';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
+import ProductImage from '../components/ProductImage';
 import Loading from '../components/Loading';
 import './Checkout.css';
 
@@ -632,7 +633,7 @@ const Checkout = () => {
                 <div className="checkout__summary-items">
                   {cartItems.map(item => (
                     <div key={item.id} className="checkout__summary-item">
-                      <img src={toWebpImage(item.image)} alt={item.name} className="checkout__summary-item-img" />
+                      <ProductImage src={item.image} name={item.name} className="checkout__summary-item-img" style={{ width: '44px', height: '44px', borderRadius: '6px', objectFit: 'contain', flexShrink: 0 }} />
                       <div className="checkout__summary-item-info">
                         <strong>{item.name}</strong>
                         <span>{[item.weight, item.unit].filter(Boolean).join(' ')} {item.quantity > 1 ? `× ${item.quantity}` : ''}</span>

@@ -5,13 +5,13 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
+import ProductImage from './ProductImage';
 import './ProductCard.css';
 
 const ProductCard = ({ product, compact = false }) => {
   const { addToCart, removeFromCart, updateQuantity, getItemQuantity } = useCart();
   const { customerType } = useAuth();
   const navigate = useNavigate();
-  const [imageFailed, setImageFailed] = useState(false);
   const isWholesale = customerType === 'wholesale';
   const isOutOfStock = product.stockNote === 'Out of stock' || product.inStock === false;
   const stockNote = product.stockNote && product.stockNote !== 'In stock' ? product.stockNote : '';
@@ -21,7 +21,6 @@ const ProductCard = ({ product, compact = false }) => {
       ? product.variants
       : [{ label: `${product.weight || ''} ${product.unit || ''}`.trim() || 'Standard Pack', price: Number(product.price) || 0, mrp: Number(product.mrp) || Number(product.price) || 0 }];
   const [selectedVariant, setSelectedVariant] = useState(() => {
-    // Auto-select the variant that's already in cart (if any), scoped by customerType
     const inCart = priceVariants.find(v => getItemQuantity(`${customerType}-${product.id}-${v.label}`) > 0);
     return inCart || priceVariants[0];
   });
@@ -31,11 +30,6 @@ const ProductCard = ({ product, compact = false }) => {
   const selectedMrp = Math.max(selectedPrice, baseMrp);
   const selectedDiscount = selectedMrp > selectedPrice ? Math.max(0, Math.round(((selectedMrp - selectedPrice) / selectedMrp) * 100)) : 0;
   const quantity = getItemQuantity(selectedProductId);
-  const productInitials = product.name
-    .split(' ')
-    .slice(0, 2)
-    .map(word => word[0])
-    .join('');
 
   const unitRate = (variant) => {
     const match = variant.label.match(/([\d.]+)\s*(kg|l)\b/i);
@@ -86,19 +80,11 @@ const ProductCard = ({ product, compact = false }) => {
       id={`product-card-${product.id}`}
     >
       <div className="product-card__image-container">
-        {!imageFailed ? (
-          <img
-            src={toWebpImage(product.image)}
-            alt={product.name}
-            className="product-card__image"
-            loading="lazy"
-            onError={() => setImageFailed(true)}
-          />
-        ) : (
-          <div className="product-card__image-fallback" aria-label={product.name}>
-            <span>{productInitials}</span>
-          </div>
-        )}
+        <ProductImage
+          src={product.image}
+          name={product.name}
+          className="product-card__image"
+        />
         {selectedDiscount > 0 && (
           <span className="product-card__discount-badge">
             {selectedDiscount}% OFF

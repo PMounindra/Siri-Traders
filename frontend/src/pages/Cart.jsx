@@ -9,6 +9,7 @@ import { applyCoupon as evaluateCoupon } from '../data/coupons';
 import ProductCard from '../components/ProductCard';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
+import ProductImage from '../components/ProductImage';
 import { getSavedAddresses } from '../utils/userStorage';
 import './Cart.css';
 
@@ -85,12 +86,12 @@ const Cart = () => {
 
               return (
                 <div key={item.id} className="cart__item">
-                  <img
-                    src={toWebpImage(item.image)}
-                    alt={item.name}
-                    className="cart__item-img" 
+                  <ProductImage
+                    src={item.image}
+                    name={item.name}
+                    className="cart__item-img"
+                    style={{ cursor: item.productId ? 'pointer' : 'default', width: '72px', height: '72px', borderRadius: '8px', objectFit: 'contain', flexShrink: 0 }}
                     onClick={() => item.productId && navigate(`/product/${item.productId}`)}
-                    style={{ cursor: item.productId ? 'pointer' : 'default' }}
                   />
                   <div className="cart__item-info">
                     {isOfferItem && (

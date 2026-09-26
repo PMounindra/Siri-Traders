@@ -1,0 +1,19 @@
+/* ProductImage — initial letter fallback */
+.product-img-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border-radius: inherit;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.product-img-initial span {
+  color: #2D5016; /* logo green */
+  font-size: clamp(20px, 30%, 48px);
+  font-weight: 800;
+  font-family: 'Poppins', sans-serif;
+  line-height: 1;
+  user-select: none;
+}
