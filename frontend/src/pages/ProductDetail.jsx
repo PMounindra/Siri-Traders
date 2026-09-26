@@ -566,17 +566,11 @@ const ProductDetail = () => {
                             </div>
                           )}
                           <div className="pd__amazon-card-media">
-                            {v.image ? (
-                              <img
-                                src={toWebpImage(v.image)}
-                                alt={v.label}
-                                className="pd__amazon-card-img"
-                              />
-                            ) : (
-                              <div className="pd__amazon-card-fallback">
-                                {v.label.substring(0, 3)}
-                              </div>
-                            )}
+                            <ProductImage
+                              src={v.image || product.image}
+                              name={product.name}
+                              className="pd__amazon-card-img"
+                            />
                           </div>
                           <div className="pd__amazon-card-details">
                             <span className="pd__amazon-card-label">{v.label}</span>
