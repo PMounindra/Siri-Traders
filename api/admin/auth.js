@@ -209,28 +209,27 @@ async function handleReviews(req, res) {
     }
 
     // Only reviewable if this user actually has a delivered order containing this item.
+    // A specific purchased line item (orderItemId) is preferred so each order
+    // can be reviewed separately; productId alone falls back to the first match.
     const deliveredOrders = await db.select().from(orders)
       .where(and(eq(orders.userId, userId), eq(orders.status, 'Delivered')));
     const purchasedItem = deliveredOrders.length
       ? (await db.select().from(orderItems)
           .where(and(
             inArray(orderItems.orderId, deliveredOrders.map(o => o.id)),
-            productId ? eq(orderItems.productId, productId) : eq(orderItems.id, orderItemId)
+            orderItemId ? eq(orderItems.id, orderItemId) : eq(orderItems.productId, productId)
           )))[0]
       : null;
     if (!purchasedItem) {
       return res.status(403).json({ error: 'You can only review items from your delivered orders.' });
     }
 
-    // Product reviews stay scoped by product (one review covers every order
-    // of that product); offer/combo items are scoped by the specific line
-    // item purchased, since they have no shared product identity.
+    // One review per purchased line item, so re-ordering the same product
+    // later lets the customer review that new order too.
     const alreadyReviewed = await db.select().from(reviews)
-      .where(productId
-        ? and(eq(reviews.userId, userId), eq(reviews.productId, productId))
-        : and(eq(reviews.userId, userId), eq(reviews.orderItemId, orderItemId)));
+      .where(and(eq(reviews.userId, userId), eq(reviews.orderItemId, purchasedItem.id)));
     if (alreadyReviewed.length) {
-      return res.status(409).json({ error: 'You have already reviewed this item.' });
+      return res.status(409).json({ error: 'You have already reviewed this item from this order.' });
     }
 
     let userName = 'Customer';
@@ -242,8 +241,8 @@ async function handleReviews(req, res) {
     } catch { /* keep default name */ }
 
     const inserted = await db.insert(reviews).values({
-      productId,
-      orderItemId: productId ? null : orderItemId,
+      productId: productId || purchasedItem.productId || null,
+      orderItemId: purchasedItem.id,
       productName: purchasedItem.name || (productId ? `Product #${productId}` : 'Item'),
       userId,
       userName,

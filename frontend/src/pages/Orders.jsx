@@ -37,7 +37,8 @@ const Orders = () => {
         if (!active) return;
         const mine = allReviews
           .filter(r => r.userId === user.id)
-          .map(r => r.productId ? `p:${r.productId}` : `oi:${r.orderItemId}`);
+          .filter(r => r.orderItemId)
+          .map(r => `oi:${r.orderItemId}`);
         setReviewedKeys(new Set(mine));
       })
       .catch(() => {});
@@ -72,7 +73,7 @@ const Orders = () => {
         setReviewError(data.error || 'Failed to submit review.');
         return;
       }
-      const key = reviewModal.productId ? `p:${reviewModal.productId}` : `oi:${reviewModal.orderItemId}`;
+      const key = `oi:${reviewModal.orderItemId}`;
       setReviewedKeys(prev => new Set(prev).add(key));
       setReviewModal(null);
     } catch {
