@@ -334,7 +334,7 @@ const Admin = () => {
   const [liveOrders, setLiveOrders] = useState(null);
   const [liveCustomers, setLiveCustomers] = useState(null);
   const adminApi = useAdminApi();
-  const { homeSections, setHomeSections, categories: siteCategories } = useSiteData();
+  const { homeSections, setHomeSections, categories: siteCategories, refreshSiteData } = useSiteData();
   const [localHomeSections, setLocalHomeSections] = useState({
     todaysDeals: true,
     bestsellers: true,
