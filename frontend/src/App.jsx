@@ -20,7 +20,9 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import SsoCallback from "./pages/SsoCallback";
 import Home from "./pages/Home/index.jsx";
+import "./App.css";
 
+// lazyWithRetry: wraps dynamic import with an auto-reload fallback for chunk errors
 const lazyWithRetry = (componentImport) =>
   lazy(async () => {
     const pageHasBeenRefreshed = sessionStorage.getItem("page_has_been_refreshed");
@@ -38,22 +40,46 @@ const lazyWithRetry = (componentImport) =>
     }
   });
 
-import AdminLogin from "./pages/AdminLogin";
-import Categories from "./pages/Categories";
-import TodaysDeals from "./pages/TodaysDeals";
-import Bestsellers from "./pages/Bestsellers";
-import FestiveOffers from "./pages/FestiveOffers";
-import FestiveOfferDetail from "./pages/FestiveOfferDetail";
-import ProductDetail from "./pages/ProductDetail";
-import Cart from "./pages/Cart";
-import Checkout from "./pages/Checkout";
-import Orders from "./pages/Orders";
-import Profile from "./pages/Profile";
-import TrackOrder from "./pages/TrackOrder";
-import Info from "./pages/Info";
+// All pages lazy-loaded for fast initial bundle (Admin is the heaviest at 200KB)
+const AdminLogin      = lazyWithRetry(() => import("./pages/AdminLogin"));
+const Categories      = lazyWithRetry(() => import("./pages/Categories"));
+const TodaysDeals     = lazyWithRetry(() => import("./pages/TodaysDeals"));
+const Bestsellers     = lazyWithRetry(() => import("./pages/Bestsellers"));
+const FestiveOffers   = lazyWithRetry(() => import("./pages/FestiveOffers"));
+const FestiveOfferDetail = lazyWithRetry(() => import("./pages/FestiveOfferDetail"));
+const ProductDetail   = lazyWithRetry(() => import("./pages/ProductDetail"));
+const Cart            = lazyWithRetry(() => import("./pages/Cart"));
+const Checkout        = lazyWithRetry(() => import("./pages/Checkout"));
+const Orders          = lazyWithRetry(() => import("./pages/Orders"));
+const Profile         = lazyWithRetry(() => import("./pages/Profile"));
+const Admin           = lazyWithRetry(() => import("./pages/Admin"));
+const TrackOrder      = lazyWithRetry(() => import("./pages/TrackOrder"));
+const Info            = lazyWithRetry(() => import("./pages/Info"));
 
-const Admin = lazyWithRetry(() => import("./pages/Admin"));
-import "./App.css";
+// Prefetch all customer-facing page chunks in background after app mounts.
+// This fires silent dynamic imports ~1.5s after first load so chunks are already
+// cached in the browser when the user taps a nav link — giving instant navigation
+// without a large initial bundle.
+function usePrefetchPages() {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      import("./pages/Categories");
+      import("./pages/TodaysDeals");
+      import("./pages/Bestsellers");
+      import("./pages/Cart");
+      import("./pages/Orders");
+      import("./pages/ProductDetail");
+      import("./pages/Checkout");
+      import("./pages/Profile");
+      import("./pages/FestiveOffers");
+      import("./pages/FestiveOfferDetail");
+      import("./pages/TrackOrder");
+      import("./pages/Info");
+      import("./pages/AdminLogin");
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
+}
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -67,9 +93,13 @@ const AppLayout = () => {
     location.pathname,
   );
 
+  // Scroll to top on every route change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [location.pathname]);
+
+  // Prefetch all page chunks silently after initial render
+  usePrefetchPages();
 
   return (
     <div className="app">
