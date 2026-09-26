@@ -26,7 +26,7 @@ const Orders = () => {
   // Real products are reviewed once per product (covers every order); combo/
   // festive-offer items have no shared product identity, so they're keyed by
   // the specific purchased line item instead.
-  const reviewKey = (item) => item.productId ? `p:${item.productId}` : `oi:${item.id}`;
+  const reviewKey = (item) => `oi:${item.id || item.orderItemId}`;
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
