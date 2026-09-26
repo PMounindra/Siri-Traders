@@ -133,6 +133,17 @@ const blankProduct = {
   variants: []
 };
 
+const blankMultipleRow = () => ({
+  id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+  variantName: '',
+  weight: '',
+  unit: 'g',
+  price: '',
+  mrp: '',
+  costPrice: '',
+  image: ''
+});
+
 const blankWholesaleProduct = {
   id: '',
   name: '',
@@ -319,6 +330,31 @@ const Admin = () => {
   // (which stays on its own tab) and still know whether to save/show as
   // retail or wholesale.
   const [productModalMode, setProductModalMode] = useState('retail');
+  const [productModalTab, setProductModalTab] = useState('single'); // 'single' | 'multiple'
+  const [multipleShared, setMultipleShared] = useState({
+    category: '',
+    brand: '',
+    targetType: 'retail_and_wholesale',
+    image: '',
+    description: ''
+  });
+  const [multipleRows, setMultipleRows] = useState([
+    blankMultipleRow(),
+    blankMultipleRow()
+  ]);
+
+  const addMultipleRow = () => {
+    setMultipleRows(prev => [...prev, blankMultipleRow()]);
+  };
+
+  const removeMultipleRow = (index) => {
+    setMultipleRows(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  const updateMultipleRow = (index, field, value) => {
+    setMultipleRows(prev => prev.map((r, idx) => idx === index ? { ...r, [field]: value } : r));
+  };
+
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categoryDraft, setCategoryDraft] = useState({ name: '', image: '', color: '#F1F8E9' });
   const [categoryLoading, setCategoryLoading] = useState(false);
@@ -1427,7 +1463,97 @@ const Admin = () => {
       setSaveToast({ type: 'success', msg: '"' + nextProduct.name + '" updated successfully' });
       setTimeout(() => setSaveToast(null), 4000);
     }
-    };
+  };
+
+  const saveMultipleProducts = async (event) => {
+    event.preventDefault();
+    const matchedCategory = dbCategories.find(c => c.id === multipleShared.category || c.name === multipleShared.category);
+    const targetCatId = matchedCategory ? matchedCategory.id : (multipleShared.category || dbCategories[0]?.id || '');
+
+    if (!targetCatId) {
+      setSaveToast({ type: 'error', msg: '⚠️ Please select a Category for the sibling items.' });
+      setTimeout(() => setSaveToast(null), 5000);
+      return;
+    }
+
+    const brandClean = (multipleShared.brand || '').trim();
+    if (!brandClean) {
+      setSaveToast({ type: 'error', msg: '⚠️ Please enter a Brand / Company Name so the items link as siblings.' });
+      setTimeout(() => setSaveToast(null), 5000);
+      return;
+    }
+
+    const validRows = multipleRows.filter(r => r.variantName && r.variantName.trim() && (r.price || r.price === 0));
+    if (validRows.length === 0) {
+      setSaveToast({ type: 'error', msg: '⚠️ Please enter at least one valid variety item with a name and price.' });
+      setTimeout(() => setSaveToast(null), 5000);
+      return;
+    }
+
+    setApiLoading(true);
+    setSaveToast(null);
+
+    let createdProducts = [];
+    try {
+      for (const row of validRows) {
+        const varName = row.variantName.trim();
+        const weightStr = (row.weight || '').trim();
+        const unitStr = row.unit || 'g';
+        const sizeLabel = weightStr ? `${weightStr}${unitStr}` : '';
+        
+        let fullName = varName;
+        if (!varName.toLowerCase().startsWith(brandClean.toLowerCase())) {
+          fullName = `${brandClean} ${varName}`;
+        }
+        if (sizeLabel && !fullName.toLowerCase().includes(sizeLabel.toLowerCase())) {
+          fullName = `${fullName} ${sizeLabel}`;
+        }
+
+        const price = Number(row.price) || 0;
+        const mrp = Number(row.mrp) || price;
+        const costPrice = Number(row.costPrice) || Math.round(price * 0.78);
+
+        const payload = {
+          name: fullName,
+          brand: brandClean,
+          category: targetCatId,
+          targetType: multipleShared.targetType || 'retail_and_wholesale',
+          weight: weightStr,
+          unit: unitStr,
+          price: price,
+          mrp: mrp,
+          costPrice: costPrice,
+          image: (row.image || multipleShared.image || '').trim(),
+          description: multipleShared.description || '',
+          inStock: true,
+          isPublished: true,
+          sku: genSku(targetCatId),
+          barcode: genBarcode(),
+          batchNumber: `BAT-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`
+        };
+
+        const saved = await adminApi.createProduct(payload);
+        createdProducts.push({ ...payload, ...saved });
+      }
+
+      setSaveToast({ type: 'success', msg: `🎉 Created ${createdProducts.length} sibling items! They are now linked under "${brandClean}"!` });
+      setTimeout(() => setSaveToast(null), 6000);
+
+      loadInventory();
+      broadcastSync(SYNC_EVENTS.PRODUCTS_CHANGED);
+      refreshSiteData();
+
+      setDbProductsList(prev => [...createdProducts, ...prev]);
+      setShowProductModal(false);
+      setMultipleRows([blankMultipleRow(), blankMultipleRow()]);
+      setProductModalTab('single');
+    } catch (err) {
+      setSaveToast({ type: 'error', msg: `⚠️ Error saving sibling items: ${err.message}` });
+      setTimeout(() => setSaveToast(null), 8000);
+    } finally {
+      setApiLoading(false);
+    }
+  };
 
   const editProduct = (product) => {
     const isWholesale = Boolean(product.wholesalePrice);
@@ -5481,7 +5607,241 @@ const Admin = () => {
                   <button className="inventory-modal__close" onClick={() => setShowProductModal(false)}>✕</button>
                 </div>
 
-                <form onSubmit={saveProduct}>
+                {!productDraft.id && (
+                  <div style={{ display: 'flex', gap: '8px', padding: '10px 16px', background: '#FAF9F5', borderBottom: '1px solid #E1E6DC' }}>
+                    <button
+                      type="button"
+                      style={{
+                        padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 700,
+                        border: '1px solid #1C4D12',
+                        background: productModalTab === 'single' ? '#1C4D12' : '#FFF',
+                        color: productModalTab === 'single' ? '#FFF' : '#1C4D12',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => setProductModalTab('single')}
+                    >
+                      Single Product
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 700,
+                        border: '1px solid #1C4D12',
+                        background: productModalTab === 'multiple' ? '#1C4D12' : '#FFF',
+                        color: productModalTab === 'multiple' ? '#FFF' : '#1C4D12',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => setProductModalTab('multiple')}
+                    >
+                      ✨ Add Multiple Sibling Varieties / Flavors
+                    </button>
+                  </div>
+                )}
+
+                {productModalTab === 'multiple' && !productDraft.id ? (
+                  <form onSubmit={saveMultipleProducts}>
+                    <div className="inventory-modal__body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                      <div className="admin-form-section" style={{ background: '#F4F7F2', border: '1px solid #D1E2C4', borderRadius: '10px', padding: '14px' }}>
+                        <h3 className="admin-form-section__title" style={{ color: '#1C4D12', marginTop: 0 }}>
+                          <FiPackage /> 1. Shared Sibling Group Settings
+                        </h3>
+                        <p style={{ fontSize: '11.5px', color: '#4B5563', margin: '-4px 0 12px' }}>
+                          Items sharing the same Brand and Category will automatically link as siblings under "VARIETY / FLAVOR OPTIONS" on the product detail page!
+                        </p>
+
+                        <div className="admin-form__grid">
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Shared Category *</label>
+                            <select
+                              className="admin-input-box"
+                              value={multipleShared.category}
+                              onChange={(e) => setMultipleShared(prev => ({ ...prev, category: e.target.value }))}
+                              required
+                            >
+                              <option value="" disabled>Select a category…</option>
+                              {dbCategories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Brand / Company Name *</label>
+                            <input
+                              className="admin-input-box"
+                              value={multipleShared.brand}
+                              onChange={(e) => setMultipleShared(prev => ({ ...prev, brand: e.target.value }))}
+                              placeholder="e.g. GPA, Cinthol, Heritage, Daawat"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Target Availability *</label>
+                            <select
+                              className="admin-input-box"
+                              value={multipleShared.targetType || 'retail_and_wholesale'}
+                              onChange={(e) => setMultipleShared(prev => ({ ...prev, targetType: e.target.value }))}
+                            >
+                              <option value="retail_and_wholesale">Retail and Wholesale</option>
+                              <option value="retail">Retail Only</option>
+                              <option value="wholesale">Wholesale Only</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '4px' }}>Shared Default Image URL (Optional)</label>
+                            <input
+                              className="admin-input-box"
+                              value={multipleShared.image}
+                              onChange={(e) => setMultipleShared(prev => ({ ...prev, image: e.target.value }))}
+                              placeholder="https://..."
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="admin-form-section" style={{ marginTop: '16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                          <h3 className="admin-form-section__title" style={{ margin: 0 }}>
+                            <FiLayers /> 2. Flavors / Size Varieties List ({multipleRows.length})
+                          </h3>
+                          <button
+                            type="button"
+                            className="admin__ghost"
+                            onClick={addMultipleRow}
+                            style={{ padding: '4px 10px', fontSize: '12px' }}
+                          >
+                            <FiPlus /> Add Variety Row
+                          </button>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {multipleRows.map((row, idx) => (
+                            <div
+                              key={row.id || idx}
+                              style={{
+                                background: '#FFFFFF',
+                                border: '1px solid #E5E7EB',
+                                borderRadius: '8px',
+                                padding: '12px',
+                                display: 'grid',
+                                gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 34px',
+                                gap: '8px',
+                                alignItems: 'end'
+                              }}
+                            >
+                              <div>
+                                <label style={{ display: 'block', fontSize: '10.5px', fontWeight: 700, color: '#4B5563', marginBottom: '2px' }}>
+                                  Flavor / Variety Name #{idx + 1} *
+                                </label>
+                                <input
+                                  className="admin-input-box"
+                                  placeholder="e.g. Cow Ghee, Buffalo Ghee"
+                                  value={row.variantName}
+                                  onChange={(e) => updateMultipleRow(idx, 'variantName', e.target.value)}
+                                  required
+                                />
+                              </div>
+
+                              <div>
+                                <label style={{ display: 'block', fontSize: '10.5px', fontWeight: 700, color: '#4B5563', marginBottom: '2px' }}>
+                                  Pack Size
+                                </label>
+                                <input
+                                  className="admin-input-box"
+                                  placeholder="e.g. 500, 1"
+                                  value={row.weight}
+                                  onChange={(e) => updateMultipleRow(idx, 'weight', e.target.value)}
+                                />
+                              </div>
+
+                              <div>
+                                <label style={{ display: 'block', fontSize: '10.5px', fontWeight: 700, color: '#4B5563', marginBottom: '2px' }}>
+                                  Unit
+                                </label>
+                                <select
+                                  className="admin-input-box"
+                                  value={row.unit || 'g'}
+                                  onChange={(e) => updateMultipleRow(idx, 'unit', e.target.value)}
+                                >
+                                  <option value="g">g</option>
+                                  <option value="kg">kg</option>
+                                  <option value="ml">ml</option>
+                                  <option value="L">L</option>
+                                  <option value="pcs">pcs</option>
+                                </select>
+                              </div>
+
+                              <div>
+                                <label style={{ display: 'block', fontSize: '10.5px', fontWeight: 700, color: '#4B5563', marginBottom: '2px' }}>
+                                  Price (₹) *
+                                </label>
+                                <input
+                                  className="admin-input-box"
+                                  type="number"
+                                  placeholder="₹ Price"
+                                  value={row.price}
+                                  onChange={(e) => updateMultipleRow(idx, 'price', e.target.value)}
+                                  required
+                                />
+                              </div>
+
+                              <div>
+                                <label style={{ display: 'block', fontSize: '10.5px', fontWeight: 700, color: '#4B5563', marginBottom: '2px' }}>
+                                  MRP (₹)
+                                </label>
+                                <input
+                                  className="admin-input-box"
+                                  type="number"
+                                  placeholder="₹ MRP"
+                                  value={row.mrp}
+                                  onChange={(e) => updateMultipleRow(idx, 'mrp', e.target.value)}
+                                />
+                              </div>
+
+                              <div>
+                                {multipleRows.length > 1 && (
+                                  <button
+                                    type="button"
+                                    className="admin-danger"
+                                    style={{ width: '32px', height: '32px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                    onClick={() => removeMultipleRow(idx)}
+                                    title="Remove variety"
+                                  >
+                                    <FiTrash2 size={13} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <button
+                          type="button"
+                          className="admin__ghost"
+                          onClick={addMultipleRow}
+                          style={{ marginTop: '10px', width: '100%', justifyContent: 'center', borderStyle: 'dashed' }}
+                        >
+                          <FiPlus /> Add Another Flavor / Variety Row
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="inventory-modal__footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <button type="button" className="admin__ghost" onClick={() => setShowProductModal(false)}>
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="admin__primary"
+                        disabled={apiLoading}
+                        style={{ background: '#1C4D12' }}
+                      >
+                        {apiLoading ? 'Saving Sibling Items…' : `✨ Save All (${multipleRows.length}) Sibling Items`}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <form onSubmit={saveProduct}>
                   <div className="inventory-modal__body">
                     <div className="admin-form-section">
                       <h3 className="admin-form-section__title"><FiPackage /> 1. General Product Information</h3>
@@ -5713,9 +6073,10 @@ const Admin = () => {
                     </button>
                   </div>
                 </form>
-              </div>
+              )}
             </div>
-          )}
+          </div>
+        )}
 
           {/* HOME PAGE LAYOUT & SECTION VISIBILITY */}
           {activeTab === 'home-sections' && (
