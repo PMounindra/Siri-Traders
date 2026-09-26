@@ -959,7 +959,7 @@ const Admin = () => {
       if (orderStatusFilter === 'returns' && (!order.returnStatus || order.returnStatus === 'None')) return false;
 
       if (orderPaymentFilter === 'paid' && order.paymentStatus !== 'Paid') return false;
-      if (orderPaymentFilter === 'pending' && order.paymentStatus !== 'Pending') return false;
+      if (orderPaymentFilter === 'unpaid' && (order.paymentStatus === 'Paid' || ['Refunded', 'Partially Refunded'].includes(order.paymentStatus))) return false;
       if (orderPaymentFilter === 'refunded' && !['Refunded', 'Partially Refunded'].includes(order.paymentStatus)) return false;
 
       if (orderSearchQuery.trim()) {
@@ -3914,7 +3914,7 @@ const Admin = () => {
                       >
                         <option value="all">All Payments</option>
                         <option value="paid">🟢 Paid</option>
-                        <option value="pending">🟡 Payment Pending</option>
+                        <option value="unpaid">🔴 Unpaid</option>
                         <option value="refunded">🟣 Refunded</option>
                       </select>
                     </div>
@@ -3957,8 +3957,8 @@ const Admin = () => {
                         <span className={`admin-order-status-pill admin-order-status-pill--${(order.status || 'pending').toLowerCase().replace(/\s+/g, '-')}`}>
                           {order.status}
                         </span>
-                        <span className={`admin-payment-pill admin-payment-pill--${(order.paymentStatus || 'pending').toLowerCase().replace(/\s+/g, '-')}`}>
-                          {order.paymentStatus === 'Paid' ? '✓ Paid' : (order.paymentStatus || 'Pending')}
+                        <span className={`admin-payment-pill admin-payment-pill--${(order.paymentStatus || 'unpaid').toLowerCase().replace(/\s+/g, '-')}`}>
+                          {order.paymentStatus === 'Paid' ? '✓ Paid' : (order.paymentStatus === 'Refunded' ? '🟣 Refunded' : '🔴 Unpaid')}
                         </span>
                         {order.deliverySlot && (
                           <span style={{ fontSize: '11px', background: '#FAF9F5', border: '1px solid #E1E6DC', padding: '2px 7px', borderRadius: '4px', color: '#4B5563' }}>
@@ -4057,13 +4057,7 @@ const Admin = () => {
                               className="admin-status-select"
                               style={{ height: '30px', fontSize: '11.5px', borderRadius: '6px' }}
                               onChange={(e) => {
-                                const newStatus = e.target.value;
-                                const payload = { status: newStatus };
-                                const isCod = (order.paymentMethod || '').toLowerCase().includes('cod');
-                                if (newStatus === 'Delivered' && isCod && order.paymentStatus !== 'Paid') {
-                                  payload.paymentStatus = 'Paid';
-                                }
-                                handleUpdateOrder(order.id, payload);
+                                handleUpdateOrder(order.id, { status: e.target.value });
                               }}
                             >
                               <option value="Pending">Pending (Placed)</option>
@@ -4076,16 +4070,16 @@ const Admin = () => {
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                             <span style={{ fontSize: '10px', fontWeight: 800, color: '#687466', textTransform: 'uppercase', marginBottom: '2px' }}>Payment Status</span>
                             <select
-                              value={order.paymentStatus || 'Pending'}
+                              value={order.paymentStatus || 'Unpaid'}
                               className="admin-status-select"
                               style={{
                                 height: '30px',
                                 fontSize: '11.5px',
                                 borderRadius: '6px',
                                 fontWeight: 700,
-                                borderColor: order.paymentStatus === 'Paid' ? '#86EFAC' : (order.paymentStatus === 'Refunded' ? '#D8B4FE' : '#FCD34D'),
-                                background: order.paymentStatus === 'Paid' ? '#F0FDF4' : (order.paymentStatus === 'Refunded' ? '#FAF5FF' : '#FFFBEB'),
-                                color: order.paymentStatus === 'Paid' ? '#166534' : (order.paymentStatus === 'Refunded' ? '#6B21A8' : '#92400E')
+                                borderColor: order.paymentStatus === 'Paid' ? '#86EFAC' : (order.paymentStatus === 'Refunded' ? '#D8B4FE' : '#FCA5A5'),
+                                background: order.paymentStatus === 'Paid' ? '#F0FDF4' : (order.paymentStatus === 'Refunded' ? '#FAF5FF' : '#FEF2F2'),
+                                color: order.paymentStatus === 'Paid' ? '#166534' : (order.paymentStatus === 'Refunded' ? '#6B21A8' : '#991B1B')
                               }}
                               onChange={(e) => {
                                 const newPayment = e.target.value;
@@ -4093,7 +4087,7 @@ const Admin = () => {
                               }}
                             >
                               <option value="Paid">🟢 Paid</option>
-                              <option value="Pending">🟡 Pending</option>
+                              <option value="Unpaid">🔴 Unpaid</option>
                               <option value="Refunded">🟣 Refunded</option>
                             </select>
                           </div>
@@ -4169,8 +4163,8 @@ const Admin = () => {
                       <div style={{ background: '#FFFFFF', border: '1px solid #E1E6DC', borderRadius: '10px', padding: '14px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                           <strong style={{ fontSize: '13px', color: '#111827' }}>Payment & Transaction Record</strong>
-                          <span className={`admin-payment-pill admin-payment-pill--${(selectedOrderModal.paymentStatus || 'pending').toLowerCase().replace(/\s+/g, '-')}`}>
-                            {selectedOrderModal.paymentStatus || 'Pending'}
+                          <span className={`admin-payment-pill admin-payment-pill--${(selectedOrderModal.paymentStatus || 'unpaid').toLowerCase().replace(/\s+/g, '-')}`}>
+                            {selectedOrderModal.paymentStatus === 'Paid' ? '✓ Paid' : (selectedOrderModal.paymentStatus === 'Refunded' ? '🟣 Refunded' : '🔴 Unpaid')}
                           </span>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', fontSize: '12px' }}>
@@ -4188,13 +4182,7 @@ const Admin = () => {
                               className="admin-status-select"
                               style={{ height: '32px', fontSize: '12px', borderRadius: '6px' }}
                               onChange={(e) => {
-                                const newStatus = e.target.value;
-                                const payload = { status: newStatus };
-                                const isCod = (selectedOrderModal.paymentMethod || '').toLowerCase().includes('cod');
-                                if (newStatus === 'Delivered' && isCod && selectedOrderModal.paymentStatus !== 'Paid') {
-                                  payload.paymentStatus = 'Paid';
-                                }
-                                handleUpdateOrder(selectedOrderModal.id, payload);
+                                handleUpdateOrder(selectedOrderModal.id, { status: e.target.value });
                               }}
                             >
                               <option value="Pending">Pending (Order Placed)</option>
@@ -4207,16 +4195,16 @@ const Admin = () => {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#687466' }}>Payment Status:</span>
                             <select
-                              value={selectedOrderModal.paymentStatus || 'Pending'}
+                              value={selectedOrderModal.paymentStatus || 'Unpaid'}
                               className="admin-status-select"
                               style={{
                                 height: '32px',
                                 fontSize: '12px',
                                 borderRadius: '6px',
                                 fontWeight: 700,
-                                borderColor: selectedOrderModal.paymentStatus === 'Paid' ? '#86EFAC' : (selectedOrderModal.paymentStatus === 'Refunded' ? '#D8B4FE' : '#FCD34D'),
-                                background: selectedOrderModal.paymentStatus === 'Paid' ? '#F0FDF4' : (selectedOrderModal.paymentStatus === 'Refunded' ? '#FAF5FF' : '#FFFBEB'),
-                                color: selectedOrderModal.paymentStatus === 'Paid' ? '#166534' : (selectedOrderModal.paymentStatus === 'Refunded' ? '#6B21A8' : '#92400E')
+                                borderColor: selectedOrderModal.paymentStatus === 'Paid' ? '#86EFAC' : (selectedOrderModal.paymentStatus === 'Refunded' ? '#D8B4FE' : '#FCA5A5'),
+                                background: selectedOrderModal.paymentStatus === 'Paid' ? '#F0FDF4' : (selectedOrderModal.paymentStatus === 'Refunded' ? '#FAF5FF' : '#FEF2F2'),
+                                color: selectedOrderModal.paymentStatus === 'Paid' ? '#166534' : (selectedOrderModal.paymentStatus === 'Refunded' ? '#6B21A8' : '#991B1B')
                               }}
                               onChange={(e) => {
                                 const newPayment = e.target.value;
@@ -4224,7 +4212,7 @@ const Admin = () => {
                               }}
                             >
                               <option value="Paid">🟢 Paid</option>
-                              <option value="Pending">🟡 Pending</option>
+                              <option value="Unpaid">🔴 Unpaid</option>
                               <option value="Refunded">🟣 Refunded</option>
                             </select>
                           </div>

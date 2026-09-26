@@ -2074,7 +2074,8 @@
 }
 
 .admin-payment-pill--paid { background: #DCFCE7; color: #15803D; }
-.admin-payment-pill--pending { background: #FEF3C7; color: #B45309; }
+.admin-payment-pill--unpaid { background: #FEE2E2; color: #DC2626; }
+.admin-payment-pill--pending { background: #FEE2E2; color: #DC2626; }
 .admin-payment-pill--failed { background: #FEE2E2; color: #DC2626; }
 .admin-payment-pill--refunded { background: #F3E8FF; color: #7E22CE; }
 
