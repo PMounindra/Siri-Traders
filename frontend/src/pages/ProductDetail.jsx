@@ -157,7 +157,7 @@ const ProductDetail = () => {
       setRelatedProducts(categoryProducts.slice(0, 8));
 
       const defaultWeightLabel = `${foundLocal.weight || ''} ${foundLocal.unit || ''}`.trim() || 'Standard Pack';
-      const defaultVars = (Array.isArray(foundLocal.variants) && foundLocal.variants.length > (customerType === 'wholesale' ? 0 : 1))
+      const defaultVars = (!(customerType !== 'wholesale' && foundLocal.siblingGroup && (foundLocal.groupItems || []).length > 1) && Array.isArray(foundLocal.variants) && foundLocal.variants.length > (customerType === 'wholesale' ? 0 : 1))
         ? foundLocal.variants
         : [{ label: defaultWeightLabel, price: Number(foundLocal.price) || 0, mrp: Number(foundLocal.mrp) || Number(foundLocal.price) || 0 }];
 
@@ -209,7 +209,7 @@ const ProductDetail = () => {
       setRelatedProducts(categoryProducts.slice(0, 8));
 
       const defaultWeightLabel = `${found.weight || ''} ${found.unit || ''}`.trim() || 'Standard Pack';
-      const defaultVars = (Array.isArray(found.variants) && found.variants.length > (customerType === 'wholesale' ? 0 : 1))
+      const defaultVars = (!(customerType !== 'wholesale' && found.siblingGroup && (found.groupItems || []).length > 1) && Array.isArray(found.variants) && found.variants.length > (customerType === 'wholesale' ? 0 : 1))
         ? found.variants
         : [{ label: defaultWeightLabel, price: Number(found.price) || 0, mrp: Number(found.mrp) || Number(found.price) || 0 }];
 
@@ -234,6 +234,28 @@ const ProductDetail = () => {
       ""
     ).trim().toLowerCase();
     const currentForm = getProductForm(product.name, product.category);
+
+    // Items added together as siblings: list exactly that group, whatever their names.
+    if (product.siblingGroup) {
+      const source = product.groupItems
+        ? product
+        : allProducts.find(p => p.siblingGroup === product.siblingGroup && p.groupItems);
+      const members = source ? source.groupItems : [];
+      if (members.length > 1) {
+        return members
+          .map(m => ({
+            id: m.id,
+            label: String(m.name || '').trim() || extractVariantLabel(m, currentBrand),
+            fullName: m.name,
+            price: m.price,
+            mrp: m.mrp,
+            image: m.image,
+            inStock: m.inStock,
+            isCatalogItem: true,
+          }))
+          .sort((x, y) => x.price - y.price);
+      }
+    }
 
     // Match catalog siblings
     const catalogMatches = allProducts.filter((p) => {
@@ -311,7 +333,9 @@ const ProductDetail = () => {
 
   const productPackVariants = useMemo(() => {
     if (!product) return [];
-    if (Array.isArray(product.variants) && product.variants.length > (customerType === 'wholesale' ? 0 : 1)) {
+    // Sibling groups are chosen via the sibling cards below, not merged pack sizes.
+    const hasSiblingCards = customerType !== 'wholesale' && product.siblingGroup && (product.groupItems || []).length > 1;
+    if (!hasSiblingCards && Array.isArray(product.variants) && product.variants.length > (customerType === 'wholesale' ? 0 : 1)) {
       return product.variants.map((v, idx) => ({
         id: `pack-${idx}-${v.label}`,
         label: String(v.label || `${product.weight || ''} ${product.unit || ''}`).trim() || 'Standard Pack',

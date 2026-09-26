@@ -82,43 +82,71 @@ export const groupProductsByBase = (productList) => {
   for (const [key, items] of groups.entries()) {
     if (items.length === 1) {
       result.push(items[0]);
-    } else {
-      const primary = { ...items[0], groupedIds: items.map(i => i.id) };
-      const combinedVariants = [];
-      const seenLabels = new Set();
+      continue;
+    }
 
-      for (const item of items) {
-        if (Array.isArray(item.variants) && item.variants.length > 0) {
-          for (const v of item.variants) {
-            const lbl = String(v.label).trim();
-            if (lbl && !seenLabels.has(lbl.toLowerCase())) {
-              seenLabels.add(lbl.toLowerCase());
-              combinedVariants.push(v);
-            }
-          }
-        } else {
-          const lbl = extractVariantLabel(item);
+    const isSiblingGroup = key.startsWith('sg::');
+    const primary = { ...items[0], groupedIds: items.map(i => i.id) };
+    const primaryBase = extractBaseName(items[0].name);
+
+    // Items added together ("siblings") all appear on the card as selectable
+    // options (differently-named siblings are labelled by name) and are also
+    // exposed via groupItems so the product page can list them.
+    const sizeItems = items;
+    if (isSiblingGroup) {
+      primary.groupItems = items.map(i => ({
+        id: i.id,
+        name: i.name,
+        brand: i.brand,
+        category: i.category,
+        weight: i.weight,
+        unit: i.unit,
+        price: Number(i.price) || 0,
+        mrp: Number(i.mrp) || Number(i.price) || 0,
+        image: i.image,
+        inStock: i.inStock !== false,
+      }));
+    }
+
+    const combinedVariants = [];
+    const seenLabels = new Set();
+
+    for (const item of sizeItems) {
+      if (Array.isArray(item.variants) && item.variants.length > 0) {
+        for (const v of item.variants) {
+          const lbl = String(v.label).trim();
           if (lbl && !seenLabels.has(lbl.toLowerCase())) {
             seenLabels.add(lbl.toLowerCase());
-            combinedVariants.push({
-              label: lbl,
-              price: Number(item.price) || 0,
-              mrp: Number(item.mrp) || Number(item.price) || 0
-            });
+            combinedVariants.push(v);
           }
         }
+      } else {
+        let lbl = extractVariantLabel(item);
+        // Never drop a sibling: differently-named ones are labelled by name, and
+        // a size label that collides with another's falls back to the name too.
+        if (isSiblingGroup && (extractBaseName(item.name) !== primaryBase || seenLabels.has(String(lbl).toLowerCase()))) {
+          lbl = String(item.name || '').trim() || lbl;
+        }
+        if (lbl && !seenLabels.has(lbl.toLowerCase())) {
+          seenLabels.add(lbl.toLowerCase());
+          combinedVariants.push({
+            label: lbl,
+            price: Number(item.price) || 0,
+            mrp: Number(item.mrp) || Number(item.price) || 0
+          });
+        }
       }
-
-      combinedVariants.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
-
-      primary.variants = combinedVariants;
-      if (combinedVariants.length > 0) {
-        primary.price = combinedVariants[0].price;
-        primary.mrp = combinedVariants[0].mrp;
-      }
-
-      result.push(primary);
     }
+
+    combinedVariants.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+
+    primary.variants = combinedVariants;
+    if (combinedVariants.length > 0) {
+      primary.price = combinedVariants[0].price;
+      primary.mrp = combinedVariants[0].mrp;
+    }
+
+    result.push(primary);
   }
 
   return result;
