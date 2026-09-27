@@ -270,9 +270,13 @@ const FestiveOfferDetail = () => {
                       <div className="fodetail__combo-item-left">
                         <img src={toWebpImage(item.image)} alt={item.name} />
                         <div>
-                          <Link to={`/product/${item.productId}`} className="fodetail__combo-item-name">
-                            {item.name} <FiExternalLink size={11} />
-                          </Link>
+                          {item.isCustom ? (
+                            <span className="fodetail__combo-item-name">{item.name}</span>
+                          ) : (
+                            <Link to={`/product/${item.productId}`} className="fodetail__combo-item-name">
+                              {item.name} <FiExternalLink size={11} />
+                            </Link>
+                          )}
                           <span className="fodetail__combo-item-weight">{item.weight}</span>
                         </div>
                       </div>

@@ -608,6 +608,8 @@ const Admin = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const [offerDraft, setOfferDraft] = useState(blankOffer);
+  const [customComboDraft, setCustomComboDraft] = useState({ name: '', price: '', mrp: '', image: '' });
+  const [customComboImageUploading, setCustomComboImageUploading] = useState(false);
   const [couponDraft, setCouponDraft] = useState(blankCoupon);
   const [adminAccounts, setAdminAccounts] = useState([]);
   const [adminDraft, setAdminDraft] = useState(blankAdmin);
@@ -1917,6 +1919,65 @@ const Admin = () => {
         image: prev.image || ''
       };
     });
+  };
+
+  // Adds a one-off item to the combo that isn't backed by a catalog product —
+  // its own name, price/MRP and image, for a festive-only bundle add-on
+  // (e.g. a gift box, a branded mug) that never needs to be a real product.
+  const addCustomComboItem = () => {
+    const name = customComboDraft.name.trim();
+    const price = Number(customComboDraft.price);
+    if (!name || !price || price <= 0) {
+      alert('Enter a name and a price greater than 0 for the custom item.');
+      return;
+    }
+    const mrp = Number(customComboDraft.mrp) || price;
+    const customId = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    setOfferDraft(prev => {
+      const existingList = Array.isArray(prev.comboItems) ? prev.comboItems : [];
+      const updatedList = [
+        ...existingList,
+        { productId: customId, isCustom: true, name, price, mrp, weight: '', image: customComboDraft.image || '', quantity: 1 }
+      ];
+
+      const totalMrp = updatedList.reduce((sum, i) => sum + ((i.mrp || i.price) * i.quantity), 0);
+      const totalRegularPrice = updatedList.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+      const autoItemsText = updatedList.map(i => `${i.quantity}x ${i.name}${i.weight ? ` (${i.weight})` : ''}`).join(', ');
+      const discVal = (prev.discountAmount !== undefined && prev.discountAmount !== '') ? Number(prev.discountAmount) || 0 : 0;
+      const finalPrice = discVal > 0 ? Math.max(0, totalRegularPrice - discVal) : totalRegularPrice;
+
+      return {
+        ...prev,
+        comboItems: updatedList,
+        mrp: totalMrp,
+        price: finalPrice,
+        title: prev.title || `Festive Combo Pack (${updatedList.length} Items)`,
+        badge: discVal > 0 ? `SAVE ₹${discVal} ON COMBO` : (prev.badge || 'FESTIVE COMBO DEAL'),
+        itemsIncluded: autoItemsText,
+        image: prev.image || ''
+      };
+    });
+    setCustomComboDraft({ name: '', price: '', mrp: '', image: '' });
+  };
+
+  const handleCustomComboImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    const previewUrl = URL.createObjectURL(file);
+    setCustomComboDraft(prev => ({ ...prev, image: previewUrl }));
+    setCustomComboImageUploading(true);
+    try {
+      const compressed = await compressImageFile(file);
+      const url = await adminApi.uploadImage(compressed);
+      setCustomComboDraft(prev => ({ ...prev, image: url }));
+      URL.revokeObjectURL(previewUrl);
+    } catch (err) {
+      alert(err.message || 'Failed to upload image');
+    } finally {
+      setCustomComboImageUploading(false);
+    }
   };
 
   const removeComboItemFromOffer = (prodId) => {
@@ -3361,6 +3422,52 @@ const Admin = () => {
                       </select>
                     </div>
 
+                    {/* Add a one-off item that isn't in the catalog — its own name, price and image */}
+                    <div style={{ background: '#FFFFFF', border: '1px dashed #86EFAC', borderRadius: '10px', padding: '10px 12px', marginBottom: '10px' }}>
+                      <strong style={{ fontSize: '11.5px', color: '#166534', display: 'block', marginBottom: '8px' }}>
+                        ✨ Or add a custom item (not from your catalog)
+                      </strong>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <ProductImage
+                            src={customComboDraft.image}
+                            name={customComboDraft.name || 'Item'}
+                            style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0, border: '1px solid #E1E6DC' }}
+                          />
+                          <label className="admin-file-input" style={{ fontSize: '11px' }}>
+                            <span>{customComboImageUploading ? 'Uploading…' : (customComboDraft.image ? 'Change image' : 'Add image')}</span>
+                            <input type="file" accept="image/*" onChange={handleCustomComboImageUpload} disabled={customComboImageUploading} />
+                          </label>
+                        </div>
+                        <input
+                          className="admin-input-box"
+                          style={{ flex: '2 1 160px', minWidth: '140px' }}
+                          value={customComboDraft.name}
+                          onChange={(e) => setCustomComboDraft(prev => ({ ...prev, name: e.target.value }))}
+                          placeholder="Item name e.g. Diwali Gift Box"
+                        />
+                        <input
+                          className="admin-input-box"
+                          style={{ flex: '1 1 90px', maxWidth: '110px' }}
+                          type="number"
+                          value={customComboDraft.price}
+                          onChange={(e) => setCustomComboDraft(prev => ({ ...prev, price: e.target.value }))}
+                          placeholder="Price ₹"
+                        />
+                        <input
+                          className="admin-input-box"
+                          style={{ flex: '1 1 90px', maxWidth: '110px' }}
+                          type="number"
+                          value={customComboDraft.mrp}
+                          onChange={(e) => setCustomComboDraft(prev => ({ ...prev, mrp: e.target.value }))}
+                          placeholder="MRP ₹ (optional)"
+                        />
+                        <button type="button" className="admin__ghost" onClick={addCustomComboItem} disabled={customComboImageUploading}>
+                          <FiPlus /> Add
+                        </button>
+                      </div>
+                    </div>
+
                     {/* List of Added Combo Items */}
                     {Array.isArray(offerDraft.comboItems) && offerDraft.comboItems.length > 0 && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -3369,8 +3476,11 @@ const Admin = () => {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                               <ProductImage src={item.image} name={item.name} style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '4px', flexShrink: 0 }} />
                               <div>
-                                <strong style={{ fontSize: '12.5px', color: '#111827', display: 'block' }}>{item.name}</strong>
-                                <span style={{ fontSize: '11px', color: '#6B7280' }}>{item.weight} • MRP ₹{item.mrp || item.price} (Regular ₹{item.price})</span>
+                                <strong style={{ fontSize: '12.5px', color: '#111827', display: 'block' }}>
+                                  {item.name}
+                                  {item.isCustom && <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: 700, color: '#166534', background: '#DCFCE7', padding: '1px 6px', borderRadius: '8px' }}>Custom</span>}
+                                </strong>
+                                <span style={{ fontSize: '11px', color: '#6B7280' }}>{item.weight ? `${item.weight} • ` : ''}MRP ₹{item.mrp || item.price} (Regular ₹{item.price})</span>
                               </div>
                             </div>
 
