@@ -1149,7 +1149,9 @@ const Admin = () => {
         reason: adjustForm.reason,
         notes: adjustForm.notes
       });
-      await loadInventory();
+      // The save itself is already done — close the modal and show success
+      // right away instead of leaving "Saving..." up while the full
+      // inventory list (every product) refetches in the background.
       setAdjustModalItem(null);
       setAdjustForm({
         changeType: 'ADD',
@@ -1160,6 +1162,7 @@ const Admin = () => {
       });
       setSaveToast({ type: 'success', msg: `Stock adjusted successfully for ${adjustModalItem.name}` });
       setTimeout(() => setSaveToast(null), 4000);
+      loadInventory();
     } catch (err) {
       alert('Stock adjustment failed: ' + err.message);
     } finally {

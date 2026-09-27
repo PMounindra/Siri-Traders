@@ -4,6 +4,9 @@ import { setCorsHeaders } from '../_cors.js';
 import { isAdminRequest } from '../_adminAuth.js';
 import { getSessionFromRequest } from '../_adminSession.js';
 
+// Headroom for the one-time batch backfill of missing inventory rows.
+export const config = { maxDuration: 30 };
+
 export default async function handler(req, res) {
   setCorsHeaders(req, res);
 
@@ -49,9 +52,38 @@ export default async function handler(req, res) {
       const invMap = new Map();
       allInventory.forEach(inv => invMap.set(inv.productId, inv));
 
+      // Products with no inventory row yet get one auto-created — as a single
+      // batched insert, not one awaited round trip per product in the loop
+      // below (that used to make this request take minutes once dozens of
+      // products had no row yet, since every one was a separate sequential
+      // network hop to the database).
+      const missingInv = allProducts.filter(p => !invMap.has(p.id));
+      if (missingInv.length > 0) {
+        const expDate = new Date();
+        expDate.setMonth(expDate.getMonth() + 6);
+        const expiryStr = expDate.toISOString().split('T')[0];
+
+        const newRows = await db.insert(inventory).values(missingInv.map(prod => ({
+          productId: prod.id,
+          availableStock: 0,
+          reservedStock: 0,
+          damagedStock: 0,
+          returnedStock: 0,
+          expiredStock: 0,
+          incomingStock: 0,
+          reorderLevel: 10,
+          costPrice: Math.max(10, Math.round((prod.price || 50) * 0.75)),
+          expiryDate: expiryStr,
+          batchNumber: `BAT-2026-${String(prod.id).padStart(3, '0')}`,
+          location: 'Main Shelf'
+        }))).returning();
+
+        newRows.forEach(inv => invMap.set(inv.productId, inv));
+      }
+
       // Fetch active orders to calculate dynamically reserved items
       const activeOrders = await db.select().from(orders).where(
-        inArray(orders.status, ['Pending', 'Preparing', 'In Transit'])
+        inArray(orders.status, ['Preparing', 'In Transit'])
       );
 
       const reservedCountMap = new Map();
@@ -82,35 +114,7 @@ export default async function handler(req, res) {
       let expiredCount = 0;
 
       for (const prod of allProducts) {
-        let inv = invMap.get(prod.id);
-
-        // Auto-create record if missing
-        if (!inv) {
-          const cost = Math.max(10, Math.round((prod.price || 50) * 0.75));
-          const stock = 0;
-          const reorder = 10;
-          const expDate = new Date();
-          expDate.setMonth(expDate.getMonth() + 6);
-          const expiryStr = expDate.toISOString().split('T')[0];
-          const batchNo = `BAT-2026-${String(prod.id).padStart(3, '0')}`;
-
-          const [newInv] = await db.insert(inventory).values({
-            productId: prod.id,
-            availableStock: stock,
-            reservedStock: 0,
-            damagedStock: 0,
-            returnedStock: 0,
-            expiredStock: 0,
-            incomingStock: 0,
-            reorderLevel: reorder,
-            costPrice: cost,
-            expiryDate: expiryStr,
-            batchNumber: batchNo,
-            location: 'Main Shelf'
-          }).returning();
-
-          inv = newInv;
-        }
+        const inv = invMap.get(prod.id);
 
         const dynamicReserved = reservedCountMap.get(prod.id) || 0;
         const available = inv.availableStock ?? 0;
