@@ -15,6 +15,25 @@ async function asJson(res, fallbackError) {
   return json;
 }
 
+// fetch() throws a plain TypeError ("Failed to fetch") when the request never
+// got a response at all — a dropped connection, a flaky mobile network, or a
+// slow upload getting cut off right before the server could reply. In that
+// case the server may well have already finished the work (the image lands
+// in Blob storage, the row gets inserted) even though the browser saw a
+// failure. A real HTTP error (4xx/5xx) still resolves normally and is left
+// alone — only this specific "no response at all" case is retried.
+async function fetchWithRetry(url, options, retries = 2, delayMs = 800) {
+  try {
+    return await fetch(url, options);
+  } catch (err) {
+    if (retries > 0 && err instanceof TypeError) {
+      await new Promise(r => setTimeout(r, delayMs));
+      return fetchWithRetry(url, options, retries - 1, delayMs * 2);
+    }
+    throw err;
+  }
+}
+
 // ── Auth ─────────────────────────────────────────────────────────────────
 
 export async function apiAdminLogin(email, password) {
@@ -86,7 +105,7 @@ export async function apiDeleteAdminUser(id) {
 // ── Image uploads (Vercel Blob) ─────────────────────────────────────────
 
 export async function apiUploadImage(file) {
-  const res = await fetch(`/api/upload?filename=${encodeURIComponent(file.name)}`, {
+  const res = await fetchWithRetry(`/api/upload?filename=${encodeURIComponent(file.name)}`, {
     method: 'POST',
     headers: { 'Content-Type': file.type || 'application/octet-stream' },
     ...withCreds,
@@ -120,7 +139,7 @@ async function asJsonWithValidationDetails(res, fallbackError) {
 }
 
 export async function apiCreateProduct(data) {
-  const res = await fetch('/api/products', {
+  const res = await fetchWithRetry('/api/products', {
     method: 'POST',
     headers: jsonHeaders,
     ...withCreds,
@@ -130,7 +149,7 @@ export async function apiCreateProduct(data) {
 }
 
 export async function apiUpdateProduct(id, data) {
-  const res = await fetch(`/api/products?id=${id}`, {
+  const res = await fetchWithRetry(`/api/products?id=${id}`, {
     method: 'PUT',
     headers: jsonHeaders,
     ...withCreds,

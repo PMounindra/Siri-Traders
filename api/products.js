@@ -4,6 +4,10 @@ import { z } from 'zod';
 import { setCorsHeaders } from './_cors.js';
 import { isAdminRequest } from './_adminAuth.js';
 
+// A little more headroom for a batch of "add another item" saves and the
+// occasional schema auto-migration — avoids the function getting cut mid-write.
+export const config = { maxDuration: 30 };
+
 const productSchema = z.object({
   name: z.string().min(1),
   category: z.string().min(1),
@@ -134,7 +138,7 @@ export default async function handler(req, res) {
       if (!id) {
         if (req.method === 'GET') {
           const allCategories = await db.select().from(categories);
-          res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=300');
+          res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=10, stale-while-revalidate=30');
           return res.status(200).json(allCategories);
         }
 
@@ -218,12 +222,13 @@ export default async function handler(req, res) {
         }
 
         const allProducts = await query.limit(parsedLimit).offset(parsedOffset);
-        // Storefront lists are cached at Vercel's edge (stale for at most ~30s);
-        // admin lists (archived/unpublished included) always hit the DB.
+        // Storefront lists are cached at Vercel's edge for a short window so a
+        // newly-saved product shows up quickly (worst case ~40s); admin lists
+        // (archived/unpublished included) always hit the DB.
         const isAdminList = includeArchived === 'true' || includeUnpublished === 'true';
         res.setHeader('Cache-Control', isAdminList
           ? 'private, no-store'
-          : 'public, max-age=0, s-maxage=30, stale-while-revalidate=300');
+          : 'public, max-age=0, s-maxage=10, stale-while-revalidate=30');
         return res.status(200).json(allProducts.map(slimImage));
       }
 

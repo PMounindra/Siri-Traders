@@ -2,6 +2,13 @@ import { put } from '@vercel/blob';
 import { setCorsHeaders } from './_cors.js';
 import { isAdminRequest } from './_adminAuth.js';
 
+// More headroom than the platform default (10s) — a slow mobile upload plus
+// the Blob write can otherwise get killed mid-flight: the image finishes
+// uploading to Blob storage, but the function is cut before it can respond,
+// so the browser sees a network error ("Failed to fetch") for an upload that
+// actually succeeded.
+export const config = { maxDuration: 60 };
+
 const MAX_BYTES = 8 * 1024 * 1024; // 8MB
 
 // Vercel's Node.js functions only auto-parse req.body for JSON/text/

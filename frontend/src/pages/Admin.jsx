@@ -1621,6 +1621,11 @@ const Admin = () => {
     setDetailedVariants([]);
     setShowProductModal(false);
 
+    // Re-sync the on-screen list with what's actually in the database, rather
+    // than trusting the optimistic updates above — a save can succeed on the
+    // server even when the browser reports a network error for it.
+    loadProductsFromDb();
+
     const validAddsCount = !isEdit ? additionalItems.filter(a => a.name && a.name.trim()).length : 0;
     const totalCount = 1 + validAddsCount;
     if (!isEdit && failedAdds.length > 0) {
