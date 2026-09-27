@@ -90,23 +90,23 @@ export const groupProductsByBase = (productList) => {
     const primaryBase = extractBaseName(items[0].name);
 
     // Items added together ("siblings") all appear on the card as selectable
-    // options (differently-named siblings are labelled by name) and are also
-    // exposed via groupItems so the product page can list them.
+    // options (differently-named siblings are labelled by name). Every merged
+    // group — sibling or same-name-and-category — exposes groupItems so
+    // search (and the product page, for siblings) can find each member by
+    // its own name, not just the primary card's name.
     const sizeItems = items;
-    if (isSiblingGroup) {
-      primary.groupItems = items.map(i => ({
-        id: i.id,
-        name: i.name,
-        brand: i.brand,
-        category: i.category,
-        weight: i.weight,
-        unit: i.unit,
-        price: Number(i.price) || 0,
-        mrp: Number(i.mrp) || Number(i.price) || 0,
-        image: i.image,
-        inStock: i.inStock !== false,
-      }));
-    }
+    primary.groupItems = items.map(i => ({
+      id: i.id,
+      name: i.name,
+      brand: i.brand,
+      category: i.category,
+      weight: i.weight,
+      unit: i.unit,
+      price: Number(i.price) || 0,
+      mrp: Number(i.mrp) || Number(i.price) || 0,
+      image: i.image,
+      inStock: i.inStock !== false,
+    }));
 
     const combinedVariants = [];
     const seenLabels = new Set();
