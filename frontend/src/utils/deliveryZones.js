@@ -41,6 +41,20 @@ const normalizeAreaName = (name) =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 
+// We only deliver within Hyderabad and Sangareddy. Rather than hand-list every
+// locality (an ever-incomplete, ever-stale list), Indian PIN codes already
+// enumerate them: every Hyderabad-circle address is 500xxx, every Sangareddy
+// district address is 502xxx — including areas like Gachibowli/Kondapur that
+// are administratively Rangareddy district but are "Hyderabad" to everyone.
+export const isServiceablePincode = (pincode) => /^(500|502)\d{3}$/.test(String(pincode || '').trim());
+
+// Fallback when Nominatim didn't return a postcode (rare, mostly very rural
+// spots) — check the district/city text it did give us instead.
+const isHyderabadOrSangareddyText = (candidates) =>
+  candidates.some((c) => c && (c.includes('hyderabad') || c.includes('sangareddy')));
+
+export const OUT_OF_SERVICE_MESSAGE = "Sorry, we don't deliver to this area. We currently deliver only within Hyderabad and Sangareddy.";
+
 /**
  * Detects the browser's GPS position, reverse-geocodes it via OpenStreetMap's
  * free Nominatim API (no key needed), and matches the result against the
@@ -110,7 +124,20 @@ export const detectCurrentDeliveryZone = async (zones = []) => {
     if (zone) {
       return { zone: { name: zone.area, pincode: zone.pincode }, landmark, coords, error: null };
     }
-    return { zone: null, landmark, coords, error: "We don't deliver to your current location yet. Please select a serviceable area manually." };
+
+    // Not one of the admin's specifically-configured zones, but still inside
+    // Hyderabad or Sangareddy — serviceable at the default delivery fee/time,
+    // named after whatever locality Nominatim actually returned.
+    const inService = postcode
+      ? isServiceablePincode(postcode)
+      : isHyderabadOrSangareddyText(localityCandidates);
+    if (inService) {
+      const genericName = addr.suburb || addr.neighbourhood || addr.village || addr.town
+        || addr.city_district || addr.municipality || addr.city || 'Your area';
+      return { zone: { name: genericName, pincode: postcode }, landmark, coords, error: null };
+    }
+
+    return { zone: null, landmark, coords, error: OUT_OF_SERVICE_MESSAGE };
   } catch {
     return { zone: null, landmark: '', coords, error: "Couldn't detect your area right now. Please select it manually." };
   }

@@ -10,7 +10,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useSiteData } from '../context/SiteDataContext';
 import { getUserStorageKey } from '../utils/userStorage';
-import { getDeliveryTimeForAddress, detectCurrentDeliveryZone } from '../utils/deliveryZones';
+import { getDeliveryTimeForAddress, detectCurrentDeliveryZone, isServiceablePincode, OUT_OF_SERVICE_MESSAGE } from '../utils/deliveryZones';
 import { applyCoupon } from '../data/coupons';
 import { formatPrice } from '../utils/format';
 import { toWebpImage } from '../utils/images';
@@ -93,6 +93,10 @@ const Checkout = () => {
   }));
   const [addressError, setAddressError] = useState('');
   const [locatingArea, setLocatingArea] = useState(false);
+  // "Other" lets a customer type their own locality + pincode when it isn't
+  // one of the admin's specifically-priced zones — still accepted as long as
+  // the pincode is within Hyderabad (500xxx) or Sangareddy (502xxx).
+  const [useManualArea, setUseManualArea] = useState(false);
   const [couponInput, setCouponInput] = useState(appliedCouponCode || '');
   const [placingOrder, setPlacingOrder] = useState(false);
   const [orderError, setOrderError] = useState('');
@@ -162,9 +166,9 @@ const Checkout = () => {
     setAddressError('');
   };
 
-  const updateAddressArea = (areaName) => {
+  const updateAddressArea = (areaName, explicitPincode) => {
     const area = deliveryZones.find(a => a.area === areaName);
-    setAddressForm(prev => ({ ...prev, area: areaName, pincode: area ? area.pincode : '' }));
+    setAddressForm(prev => ({ ...prev, area: areaName, pincode: area ? area.pincode : (explicitPincode || '') }));
     setAddressError('');
   };
 
@@ -173,7 +177,14 @@ const Checkout = () => {
     setLocatingArea(true);
     const { zone, landmark, error } = await detectCurrentDeliveryZone(deliveryZones);
     if (zone) {
-      updateAddressArea(zone.name);
+      // Pass the detected pincode through directly — a locality GPS found
+      // that isn't one of the admin's specifically-configured zones (still
+      // serviceable, just at the default fee) has no row to look it up from.
+      // Show it as editable text too: a <select> silently shows its first
+      // option when the value doesn't match any of them, which would
+      // misrepresent whatever area GPS actually detected.
+      updateAddressArea(zone.name, zone.pincode);
+      setUseManualArea(true);
       // Precise street-level text from GPS — house/flat number still has to
       // come from the customer, so only fill landmark if they haven't typed
       // one already.
@@ -225,9 +236,13 @@ const Checkout = () => {
       return null;
     }
 
-    const isServiceable = deliveryZones.some(z => z.area.toLowerCase() === trimmed.area.toLowerCase() && z.pincode === trimmed.pincode);
+    // Serviceable if it's one of the admin's specifically-configured zones,
+    // or any Hyderabad/Sangareddy pincode (500xxx / 502xxx) — we deliver
+    // everywhere in both, not only the areas admin has individually priced.
+    const isServiceable = deliveryZones.some(z => z.area.toLowerCase() === trimmed.area.toLowerCase() && z.pincode === trimmed.pincode)
+      || isServiceablePincode(trimmed.pincode);
     if (!isServiceable) {
-      setAddressError("We can't deliver to this area.");
+      setAddressError(OUT_OF_SERVICE_MESSAGE);
       return null;
     }
 
@@ -551,25 +566,51 @@ const Checkout = () => {
                     <div className="checkout__input-row">
                       <label className="checkout__field">
                         <span>Delivery Area *</span>
-                        <select
-                          value={addressForm.area}
-                          onChange={(e) => updateAddressArea(e.target.value)}
-                          className="checkout__input checkout__select"
-                        >
-                          <option value="">Select your delivery area</option>
-                          {deliveryZones.map((zone) => (
-                            <option key={zone.id} value={zone.area}>{zone.area}</option>
-                          ))}
-                        </select>
+                        {useManualArea ? (
+                          <input
+                            type="text"
+                            placeholder="e.g. Gachibowli, Kompally, Sangareddy town..."
+                            value={addressForm.area}
+                            onChange={(e) => updateAddressField('area', e.target.value)}
+                            className="checkout__input"
+                          />
+                        ) : (
+                          <select
+                            value={addressForm.area}
+                            onChange={(e) => {
+                              if (e.target.value === '__other__') { setUseManualArea(true); return; }
+                              updateAddressArea(e.target.value);
+                            }}
+                            className="checkout__input checkout__select"
+                          >
+                            <option value="">Select your delivery area</option>
+                            {deliveryZones.map((zone) => (
+                              <option key={zone.id} value={zone.area}>{zone.area}</option>
+                            ))}
+                            <option value="__other__">Other area in Hyderabad / Sangareddy…</option>
+                          </select>
+                        )}
                       </label>
                       <label className="checkout__field">
                         <span>Pincode</span>
-                        <input type="text" placeholder="Auto-filled" value={addressForm.pincode} readOnly
-                          className="checkout__input checkout__input--readonly" />
+                        <input
+                          type="text"
+                          placeholder={useManualArea ? 'e.g. 500032' : 'Auto-filled'}
+                          value={addressForm.pincode}
+                          readOnly={!useManualArea}
+                          onChange={(e) => updateAddressField('pincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          className={`checkout__input ${useManualArea ? '' : 'checkout__input--readonly'}`}
+                        />
                       </label>
                     </div>
+                    {useManualArea && (
+                      <button type="button" className="checkout__locate-btn" style={{ marginTop: '-8px', marginBottom: '4px' }}
+                        onClick={() => { setUseManualArea(false); updateAddressArea(''); }}>
+                        ← Choose from the list instead
+                      </button>
+                    )}
                     <p className="checkout__area-note">
-                      We currently deliver only to {deliveryZones.map(z => z.area).join(', ')}.
+                      We deliver across Hyderabad and Sangareddy. Specific areas we've set up with their own delivery time: {deliveryZones.map(z => z.area).join(', ')}.
                     </p>
                     <label className="checkout__field">
                       <span>Delivery Instructions (optional)</span>

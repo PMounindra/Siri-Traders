@@ -19,7 +19,7 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useSiteData } from "../context/SiteDataContext";
 import { getUserStorageKey } from "../utils/userStorage";
-import { getDeliveryTimeForAddress, detectCurrentDeliveryZone } from "../utils/deliveryZones";
+import { getDeliveryTimeForAddress, detectCurrentDeliveryZone, isServiceablePincode, OUT_OF_SERVICE_MESSAGE } from "../utils/deliveryZones";
 import "./Navbar.css";
 
 const emptyAddress = {
@@ -44,6 +44,7 @@ const Navbar = () => {
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [deliveryError, setDeliveryError] = useState("");
   const [locating, setLocating] = useState(false);
+  const [useManualArea, setUseManualArea] = useState(false);
   const flatNoInputRef = useRef(null);
   const [addressForm, setAddressForm] = useState({
     ...emptyAddress,
@@ -135,10 +136,14 @@ const Navbar = () => {
       setDeliveryError("Please select a delivery area and fill in your door number.");
       return;
     }
-    if (!/^\d{6}$/.test(trimmed.pincode)) return;
-    const isServiceable = deliveryZones.some(z => z.area.toLowerCase() === trimmed.area.toLowerCase() && z.pincode === trimmed.pincode);
+    if (!/^\d{6}$/.test(trimmed.pincode)) {
+      setDeliveryError("Please enter a valid 6 digit pincode.");
+      return;
+    }
+    const isServiceable = deliveryZones.some(z => z.area.toLowerCase() === trimmed.area.toLowerCase() && z.pincode === trimmed.pincode)
+      || isServiceablePincode(trimmed.pincode);
     if (!isServiceable) {
-      setDeliveryError("We can't deliver to this area.");
+      setDeliveryError(OUT_OF_SERVICE_MESSAGE);
       return;
     }
     setDeliveryError("");
@@ -163,6 +168,10 @@ const Navbar = () => {
     const { zone, error } = await detectCurrentDeliveryZone(deliveryZones);
     if (zone) {
       pickArea(zone);
+      // A locality GPS found that isn't one of the admin's specifically-listed
+      // zones has no matching <option>, which would silently show the
+      // dropdown's placeholder — show it as editable text instead.
+      setUseManualArea(true);
     } else {
       setDeliveryError(error);
     }
@@ -258,19 +267,43 @@ const Navbar = () => {
                   {/* Serviceable areas — pick one, then fill in your door number below */}
                   <div className="navbar__areas">
                     <p className="navbar__areas-title">WE DELIVER HERE</p>
-                    <select
-                      className="navbar__area-select"
-                      value={addressForm.area}
-                      onChange={(e) => {
-                        const zone = deliveryZones.find((z) => z.area === e.target.value);
-                        if (zone) pickArea({ name: zone.area, pincode: zone.pincode });
-                      }}
-                    >
-                      <option value="">Select your delivery area</option>
-                      {deliveryZones.map((zone) => (
-                        <option key={zone.id} value={zone.area}>{zone.area} — {zone.pincode}</option>
-                      ))}
-                    </select>
+                    {useManualArea ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <input
+                          type="text"
+                          className="navbar__area-select"
+                          placeholder="Area, e.g. Gachibowli"
+                          value={addressForm.area}
+                          onChange={(e) => setAddressForm((p) => ({ ...p, area: e.target.value }))}
+                        />
+                        <input
+                          type="text"
+                          className="navbar__area-select"
+                          placeholder="Pincode, e.g. 500032"
+                          value={addressForm.pincode}
+                          onChange={(e) => setAddressForm((p) => ({ ...p, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                        />
+                        <button type="button" className="navbar__locate-btn" onClick={() => { setUseManualArea(false); setAddressForm((p) => ({ ...p, area: '', pincode: '' })); }}>
+                          ← Choose from the list instead
+                        </button>
+                      </div>
+                    ) : (
+                      <select
+                        className="navbar__area-select"
+                        value={addressForm.area}
+                        onChange={(e) => {
+                          if (e.target.value === '__other__') { setUseManualArea(true); return; }
+                          const zone = deliveryZones.find((z) => z.area === e.target.value);
+                          if (zone) pickArea({ name: zone.area, pincode: zone.pincode });
+                        }}
+                      >
+                        <option value="">Select your delivery area</option>
+                        {deliveryZones.map((zone) => (
+                          <option key={zone.id} value={zone.area}>{zone.area} — {zone.pincode}</option>
+                        ))}
+                        <option value="__other__">Other area in Hyderabad / Sangareddy…</option>
+                      </select>
+                    )}
                     <button
                       type="button"
                       className="navbar__locate-btn"

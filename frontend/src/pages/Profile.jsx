@@ -4,6 +4,7 @@ import {
   FiBell,
   FiCheck,
   FiChevronRight,
+  FiCrosshair,
   FiHelpCircle,
   FiInfo,
   FiLogOut,
@@ -18,6 +19,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useSiteData } from '../context/SiteDataContext';
 import { getUserStorageKey } from '../utils/userStorage';
+import { detectCurrentDeliveryZone, isServiceablePincode, OUT_OF_SERVICE_MESSAGE } from '../utils/deliveryZones';
 import Loading from '../components/Loading';
 import './Profile.css';
 
@@ -78,6 +80,8 @@ const Profile = () => {
   }));
   const [addressForm, setAddressForm] = useState({ name: user?.name || '', phone: user?.phone || '', address: '', area: '', pincode: '' });
   const [addressError, setAddressError] = useState('');
+  const [locatingArea, setLocatingArea] = useState(false);
+  const [useManualArea, setUseManualArea] = useState(false);
 
   useEffect(() => {
     if (addressKey) localStorage.setItem(addressKey, JSON.stringify(addresses));
@@ -97,10 +101,26 @@ const Profile = () => {
     navigate('/login');
   };
 
-  const updateAddressArea = (areaName) => {
+  const updateAddressArea = (areaName, explicitPincode) => {
     const area = deliveryZones.find(z => z.area === areaName);
-    setAddressForm(prev => ({ ...prev, area: areaName, pincode: area ? area.pincode : '' }));
+    setAddressForm(prev => ({ ...prev, area: areaName, pincode: area ? area.pincode : (explicitPincode || '') }));
     setAddressError('');
+  };
+
+  const useCurrentLocationProfile = async () => {
+    setAddressError('');
+    setLocatingArea(true);
+    const { zone, landmark, error } = await detectCurrentDeliveryZone(deliveryZones);
+    if (zone) {
+      updateAddressArea(zone.name, zone.pincode);
+      setUseManualArea(true);
+      if (landmark) {
+        setAddressForm(prev => (prev.address ? prev : { ...prev, address: landmark }));
+      }
+    } else {
+      setAddressError(error);
+    }
+    setLocatingArea(false);
   };
 
   const addAddress = () => {
@@ -113,9 +133,10 @@ const Profile = () => {
       setAddressError('Please enter a valid 10 digit mobile number.');
       return;
     }
-    const isServiceable = deliveryZones.some(z => z.area.toLowerCase() === trimmed.area.toLowerCase() && z.pincode === trimmed.pincode);
+    const isServiceable = deliveryZones.some(z => z.area.toLowerCase() === trimmed.area.toLowerCase() && z.pincode === trimmed.pincode)
+      || isServiceablePincode(trimmed.pincode);
     if (!isServiceable) {
-      setAddressError("We can't deliver to this area.");
+      setAddressError(OUT_OF_SERVICE_MESSAGE);
       return;
     }
     setAddressError('');
@@ -245,18 +266,33 @@ const Profile = () => {
                   </div>
                 </div>
                 <p className="profile-area-note">
-                  We currently deliver only to {deliveryZones.map(z => z.area).join(', ')}.
+                  We deliver across Hyderabad and Sangareddy. Areas we've set up with their own delivery time: {deliveryZones.map(z => z.area).join(', ')}.
                 </p>
+                <button type="button" className="profile-action-btn" onClick={useCurrentLocationProfile} disabled={locatingArea} style={{ marginBottom: '10px' }}>
+                  <FiCrosshair className={locatingArea ? 'checkout__locate-icon--spin' : ''} /> {locatingArea ? 'Detecting your location…' : 'Use my current location'}
+                </button>
                 <div className="profile-form-grid">
                   <input value={addressForm.name} onChange={(e) => setAddressForm(prev => ({ ...prev, name: e.target.value }))} placeholder="Name" />
                   <input type="tel" value={addressForm.phone} onChange={(e) => setAddressForm(prev => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))} placeholder="Phone" />
                   <input value={addressForm.address} onChange={(e) => setAddressForm(prev => ({ ...prev, address: e.target.value }))} placeholder="Flat, street, landmark" />
-                  <select className="profile-area-select" value={addressForm.area} onChange={(e) => updateAddressArea(e.target.value)}>
-                    <option value="">Select your delivery area</option>
-                    {deliveryZones.map((zone) => (
-                      <option key={zone.id} value={zone.area}>{zone.area} — {zone.pincode}</option>
-                    ))}
-                  </select>
+                  {useManualArea ? (
+                    <>
+                      <input value={addressForm.area} onChange={(e) => setAddressForm(prev => ({ ...prev, area: e.target.value }))} placeholder="Area, e.g. Gachibowli" />
+                      <input value={addressForm.pincode} onChange={(e) => setAddressForm(prev => ({ ...prev, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) }))} placeholder="Pincode, e.g. 500032" />
+                      <button type="button" className="profile-action-btn" onClick={() => { setUseManualArea(false); updateAddressArea(''); }}>← Choose from the list instead</button>
+                    </>
+                  ) : (
+                    <select className="profile-area-select" value={addressForm.area} onChange={(e) => {
+                      if (e.target.value === '__other__') { setUseManualArea(true); return; }
+                      updateAddressArea(e.target.value);
+                    }}>
+                      <option value="">Select your delivery area</option>
+                      {deliveryZones.map((zone) => (
+                        <option key={zone.id} value={zone.area}>{zone.area} — {zone.pincode}</option>
+                      ))}
+                      <option value="__other__">Other area in Hyderabad / Sangareddy…</option>
+                    </select>
+                  )}
                   <button className="profile-action-btn" onClick={addAddress}><FiPlus /> Add Address</button>
                 </div>
                 {addressError && <p className="profile-address-error">{addressError}</p>}
