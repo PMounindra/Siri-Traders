@@ -20,12 +20,19 @@ const Categories = () => {
   const allProducts = getProductsForType(customerType);
 
   const filteredProducts = searchQuery
-    ? allProducts.filter(p =>
-        (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.brand || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.category || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.description || '').toLowerCase().includes(searchQuery.toLowerCase())
-      )
+    ? allProducts.filter(p => {
+        const q = searchQuery.toLowerCase();
+        const matchesOwnFields =
+          (p.name || '').toLowerCase().includes(q) ||
+          (p.brand || '').toLowerCase().includes(q) ||
+          (p.category || '').toLowerCase().includes(q) ||
+          (p.description || '').toLowerCase().includes(q);
+        if (matchesOwnFields) return true;
+        // Sibling items added together are merged into one card under the
+        // first item's name — search their individual names too, so the
+        // second (and later) items are still findable.
+        return (p.groupItems || []).some(gi => (gi.name || '').toLowerCase().includes(q));
+      })
     : activeCat
     ? allProducts.filter(p => p.category === activeCat)
     : allProducts;
