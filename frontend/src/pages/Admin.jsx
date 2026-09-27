@@ -3357,33 +3357,6 @@ const Admin = () => {
 
                   <input value={offerDraft.title} onChange={(e) => setOfferDraft(prev => ({ ...prev, title: e.target.value }))} placeholder="Deal Title e.g. Diwali Mega Rice Fest" required />
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, marginBottom: '3px' }}>Link to Single Catalog Product (Optional)</label>
-                    <select
-                      className="admin-input-box"
-                      value={offerDraft.targetProductId || ''}
-                      onChange={(e) => {
-                        const pId = e.target.value;
-                        const selProd = dbProductsList.find(p => String(p.id) === String(pId));
-                        setOfferDraft(prev => ({
-                          ...prev,
-                          targetProductId: pId,
-                          title: prev.title || (selProd ? selProd.name : ''),
-                          price: prev.price || (selProd ? selProd.price : ''),
-                          mrp: prev.mrp || (selProd ? selProd.mrp || selProd.price : ''),
-                          image: prev.image || (selProd ? selProd.image : ''),
-                          itemsIncluded: prev.itemsIncluded || (selProd ? `${selProd.name} (${selProd.weight || ''}${selProd.unit || ''})` : '')
-                        }));
-                      }}
-                    >
-                      <option value="">-- Custom Combo / No single product --</option>
-                      {dbProductsList.map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.weight}{p.unit}) — ₹{p.price}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
 
                   {/* Multi-Product Combo Pack Builder */}
                   <div style={{ background: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)', border: '1.5px solid #86EFAC', borderRadius: '12px', padding: '14px', margin: '4px 0 10px 0' }}>
