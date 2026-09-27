@@ -39,7 +39,7 @@ const normalizeCoupon = (dbCoupon) => {
   };
 };
 
-const CACHE_KEY = 'siri_sitedata_cache_v1';
+const CACHE_KEY = 'siri_sitedata_cache_v2';
 const readCache = () => {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY)) || null; } catch { return null; }
 };

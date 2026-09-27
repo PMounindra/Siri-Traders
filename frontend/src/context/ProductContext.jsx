@@ -14,7 +14,7 @@ export const useProducts = () => {
   return context;
 };
 
-const CACHE_KEY = 'siri_products_cache_v1';
+const CACHE_KEY = 'siri_products_cache_v2';
 const readCache = () => {
   try {
     const v = JSON.parse(localStorage.getItem(CACHE_KEY));
