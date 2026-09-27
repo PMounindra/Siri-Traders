@@ -293,18 +293,6 @@ const Orders = () => {
                                 <span>Delivery Fee</span>
                                 <span>{breakdown.deliveryFee > 0 ? formatPrice(breakdown.deliveryFee) : <strong style={{ color: '#166534' }}>FREE</strong>}</span>
                               </div>
-                              {breakdown.handlingCharge > 0 && (
-                                <div className="orders__detail-item" style={{ color: '#4b5563' }}>
-                                  <span>Handling Charge</span>
-                                  <span>{formatPrice(breakdown.handlingCharge)}</span>
-                                </div>
-                              )}
-                              {breakdown.gstAmount > 0 && (
-                                <div className="orders__detail-item" style={{ color: '#4b5563' }}>
-                                  <span>GST</span>
-                                  <span>{formatPrice(breakdown.gstAmount)}</span>
-                                </div>
-                              )}
                               {(breakdown.discount > 0 || breakdown.couponCode) && (
                                 <div className="orders__detail-item" style={{ color: '#166534', fontWeight: 600 }}>
                                   <span>Coupon ({breakdown.couponCode || 'Applied'})</span>

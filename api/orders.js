@@ -187,10 +187,9 @@ export default async function handler(req, res) {
           total,
           subtotal: body.subtotal !== undefined ? Number(body.subtotal) : (computedSubtotal || total),
           deliveryFee: body.deliveryFee !== undefined ? Number(body.deliveryFee) : 0,
-          handlingCharge: body.handlingCharge !== undefined ? Number(body.handlingCharge) : 0,
+          // No handling charge or GST is charged — only the product amount and delivery fee.
           couponCode: body.couponCode || null,
           discount: body.discount !== undefined ? Number(body.discount) : 0,
-          gstAmount: body.gstAmount !== undefined ? Number(body.gstAmount) : 0,
           deliveryAddress: deliveryAddress || '',
           paymentMethod: paymentMethod || 'COD',
           status: isCod ? 'Preparing' : 'Paid',
@@ -246,8 +245,7 @@ export default async function handler(req, res) {
             quantity,
             price: item.price,
             weight: item.weight || '',
-            unit: item.unit || '',
-            gstRate: Number(item.gstRate) || 0
+            unit: item.unit || ''
           });
 
           // Deduct from tracked inventory (skip untracked/promotional items —

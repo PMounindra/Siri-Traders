@@ -7,7 +7,6 @@ const DEFAULTS = {
   id: 'default',
   deliveryFee: 25,
   freeDeliveryThreshold: 500,
-  handlingCharge: 5,
   announcementText: '⚡ Free 15-min delivery across Hyderabad on orders above ₹499!',
   announcementBg: '#1C4B12',
   announcementColor: '#FFFFFF',
@@ -68,7 +67,6 @@ export default async function handler(req, res) {
             active: body.active !== false,
             deliveryFee: Number(body.deliveryFee) || 0,
             freeDeliveryThreshold: Number(body.freeDeliveryThreshold) || 0,
-            handlingCharge: Number(body.handlingCharge) || 0,
             minOrderValue: Number(body.minOrderValue) || 0,
             deliverySlots: Array.isArray(body.deliverySlots) ? body.deliverySlots : [
               'Morning (7:00 AM - 10:00 AM)',
@@ -100,7 +98,6 @@ export default async function handler(req, res) {
           if (body.active !== undefined) patch.active = Boolean(body.active);
           if (body.deliveryFee !== undefined) patch.deliveryFee = Number(body.deliveryFee) || 0;
           if (body.freeDeliveryThreshold !== undefined) patch.freeDeliveryThreshold = Number(body.freeDeliveryThreshold) || 0;
-          if (body.handlingCharge !== undefined) patch.handlingCharge = Number(body.handlingCharge) || 0;
           if (body.minOrderValue !== undefined) patch.minOrderValue = Number(body.minOrderValue) || 0;
           if (body.deliverySlots !== undefined) patch.deliverySlots = body.deliverySlots;
           if (body.driverAssigned !== undefined) patch.driverAssigned = body.driverAssigned;
@@ -404,7 +401,6 @@ async function ensureSettingsSchema() {
         id: 'default',
         deliveryFee: body.deliveryFee !== undefined && Number.isFinite(Number(body.deliveryFee)) ? Number(body.deliveryFee) : existing.deliveryFee,
         freeDeliveryThreshold: body.freeDeliveryThreshold !== undefined && Number.isFinite(Number(body.freeDeliveryThreshold)) ? Number(body.freeDeliveryThreshold) : existing.freeDeliveryThreshold,
-        handlingCharge: body.handlingCharge !== undefined && Number.isFinite(Number(body.handlingCharge)) ? Number(body.handlingCharge) : existing.handlingCharge,
         announcementText: body.announcementText !== undefined ? body.announcementText : existing.announcementText,
         announcementBg: body.announcementBg !== undefined ? body.announcementBg : existing.announcementBg,
         announcementColor: body.announcementColor !== undefined ? body.announcementColor : existing.announcementColor,

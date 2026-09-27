@@ -18,7 +18,6 @@ const productSchema = z.object({
   mrp: z.number().nonnegative().optional().nullable(),
   costPrice: z.number().nonnegative().optional().nullable(),
   discount: z.number().nonnegative().optional().nullable(),
-  gstRate: z.number().nonnegative().optional().nullable(),
   hsnCode: z.string().optional().nullable(),
   batchNumber: z.string().optional().nullable(),
   mfgDate: z.string().optional().nullable(),
@@ -86,7 +85,7 @@ function normalizeProductPayload(body) {
   delete payload.createdAt;
   delete payload.updatedAt;
 
-  const numFields = ['price', 'mrp', 'costPrice', 'discount', 'gstRate', 'wholesalePrice', 'bulkPackPrice', 'wholesaleCasePrice'];
+  const numFields = ['price', 'mrp', 'costPrice', 'discount', 'wholesalePrice', 'bulkPackPrice', 'wholesaleCasePrice'];
   for (const field of numFields) {
     if (payload[field] !== undefined && payload[field] !== null && payload[field] !== '') {
       const parsed = Number(payload[field]);

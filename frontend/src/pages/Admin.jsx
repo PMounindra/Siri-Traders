@@ -111,7 +111,6 @@ const blankProduct = {
   mrp: '',
   costPrice: '',
   discount: '',
-  gstRate: '0',
   hsnCode: '',
   batchNumber: '',
   mfgDate: '',
@@ -149,7 +148,6 @@ const blankWholesaleProduct = {
   mrp: '',
   costPrice: '',
   discount: '',
-  gstRate: '0',
   hsnCode: '',
   batchNumber: '',
   mfgDate: '',
@@ -574,7 +572,6 @@ const Admin = () => {
     time: '30 mins',
     distance: '',
     deliveryFee: 0,
-    handlingCharge: 5,
     driverAssigned: ''
   });
   const [editingZoneModal, setEditingZoneModal] = useState(null);
@@ -1492,7 +1489,6 @@ const Admin = () => {
       mrp: baseMrp,
       costPrice: baseCost,
       discount: Number(productDraft.discount) || (baseMrp > basePrice ? Math.round(((baseMrp - basePrice) / baseMrp) * 100) : 0),
-      gstRate: Number(productDraft.gstRate) || 0,
       hsnCode: productDraft.hsnCode || '',
       batchNumber: productDraft.batchNumber || `BAT-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
       mfgDate: productDraft.mfgDate || '',
@@ -1653,7 +1649,6 @@ const Admin = () => {
       sku: product.sku || genSku(product.category),
       barcode: product.barcode || genBarcode(),
       costPrice: product.costPrice != null ? String(product.costPrice) : '',
-      gstRate: product.gstRate != null ? String(product.gstRate) : '0',
       hsnCode: product.hsnCode || '',
       batchNumber: product.batchNumber || '',
       mfgDate: product.mfgDate || '',
@@ -1701,7 +1696,6 @@ const Admin = () => {
       mrp: String(product.mrp || ''),
       costPrice: String(product.costPrice || ''),
       discount: String(product.discount || ''),
-      gstRate: String(product.gstRate || '0'),
       hsnCode: product.hsnCode || '',
       batchNumber: `BAT-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
       isPublished: true,
@@ -2140,7 +2134,7 @@ const Admin = () => {
 
   const updateProductField = (productId, field, value) => {
     const targetIdStr = String(productId);
-    const parsedVal = ['price', 'mrp', 'discount', 'costPrice', 'gstRate'].includes(field) ? Number(value) || 0 : value;
+    const parsedVal = ['price', 'mrp', 'discount', 'costPrice'].includes(field) ? Number(value) || 0 : value;
     setDbProductsList(prev => prev.map(p => {
       if (String(p.id) !== targetIdStr) return p;
       return {
@@ -4432,7 +4426,7 @@ const Admin = () => {
                       </table>
 
                       {(() => {
-                        const { subtotal, deliveryFee, handlingCharge, discount, couponCode, gstAmount, grandTotal } = getOrderBillBreakdown(invoiceModalOrder);
+                        const { subtotal, deliveryFee, discount, couponCode, grandTotal } = getOrderBillBreakdown(invoiceModalOrder);
 
                         return (
                           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
@@ -4445,22 +4439,12 @@ const Admin = () => {
                                 <span>Delivery Fee:</span>
                                 <span>{deliveryFee > 0 ? formatPrice(deliveryFee) : <strong style={{ color: '#2D5016' }}>FREE</strong>}</span>
                               </div>
-                              {handlingCharge > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                  <span>Handling Charge:</span>
-                                  <span>{formatPrice(handlingCharge)}</span>
-                                </div>
-                              )}
                               {(discount > 0 || couponCode) && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#166534', fontWeight: 600 }}>
                                   <span>Coupon ({couponCode || 'Applied'}):</span>
                                   <span>-{formatPrice(discount)}</span>
                                 </div>
                               )}
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>GST / Taxes:</span>
-                                <span>{gstAmount > 0 ? formatPrice(gstAmount) : 'None'}</span>
-                              </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1.5px solid #2D5016', paddingTop: '4px', marginTop: '4px', fontWeight: 900, fontSize: '15px', color: '#1C4B12' }}>
                                 <span>Grand Total:</span>
                                 <span>{formatPrice(grandTotal)}</span>
@@ -4780,7 +4764,6 @@ const Admin = () => {
                           time: '30 mins',
                           distance: '',
                           deliveryFee: 0,
-                          handlingCharge: 5,
                           driverAssigned: ''
                         });
                         setShowAddZoneModal(true);
@@ -5061,7 +5044,6 @@ const Admin = () => {
                               time: '30 mins',
                               distance: '',
                               deliveryFee: 0,
-                              handlingCharge: 5,
                               driverAssigned: ''
                             });
                             setShowAddZoneModal(false);

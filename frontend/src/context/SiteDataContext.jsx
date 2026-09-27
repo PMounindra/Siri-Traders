@@ -51,7 +51,7 @@ export const SiteDataProvider = ({ children }) => {
   const [offers, setOffers] = useState(() => (Array.isArray(cached?.offer) ? cached.offer.map(normalizeOffer) : []));
   const [coupons, setCoupons] = useState(() => (Array.isArray(cached?.coupon) ? cached.coupon.map(normalizeCoupon) : []));
   const [deliveryZones, setDeliveryZones] = useState(cached?.zone || []);
-  const [deliverySettings, setDeliverySettings] = useState({ deliveryFee: 25, freeDeliveryThreshold: 500, handlingCharge: 5 });
+  const [deliverySettings, setDeliverySettings] = useState({ deliveryFee: 25, freeDeliveryThreshold: 500 });
   const [homeSections, setHomeSections] = useState(cached?.home || {
     todaysDeals: true,
     bestsellers: true,
@@ -106,7 +106,6 @@ export const SiteDataProvider = ({ children }) => {
         setDeliverySettings({
           deliveryFee: settingsRes.data.deliveryFee ?? 25,
           freeDeliveryThreshold: settingsRes.data.freeDeliveryThreshold ?? 500,
-          handlingCharge: settingsRes.data.handlingCharge ?? 5,
         });
         if (settingsRes.data.homeSections) {
           setHomeSections(settingsRes.data.homeSections);

@@ -15,7 +15,7 @@ import './Cart.css';
 
 const Cart = () => {
   const {
-    cartItems, updateQuantity, removeFromCart, cartTotal, cartSavings, cartGst, cartCount, requireAuth,
+    cartItems, updateQuantity, removeFromCart, cartTotal, cartSavings, cartCount, requireAuth,
     appliedCouponCode, applyCouponCode, removeCoupon, getAppliedCoupon, couponError, setCouponError
   } = useCart();
   const { user, customerType } = useAuth();
@@ -31,13 +31,11 @@ const Cart = () => {
   const savedAddress = getSavedAddresses(user)[0];
   const activeZone = savedAddress ? deliveryZones.find(z => z.area.toLowerCase() === savedAddress.area.toLowerCase()) : null;
   const activeDeliveryFeeVal = activeZone ? activeZone.deliveryFee : 25;
-  const activeHandlingChargeVal = activeZone ? activeZone.handlingCharge : 5;
 
   const baseDeliveryFee = activeDeliveryFeeVal;
   const deliveryFee = appliedCoupon?.freeDelivery ? 0 : baseDeliveryFee;
-  const handlingCharge = cartCount > 0 ? activeHandlingChargeVal : 0;
   const couponDiscount = appliedCoupon?.discount || 0;
-  const grandTotal = Math.max(0, cartTotal + deliveryFee + handlingCharge + cartGst - couponDiscount);
+  const grandTotal = Math.max(0, cartTotal + deliveryFee - couponDiscount);
 
   const suggestions = getProductsForType(customerType).filter(p => p.isBestseller && !cartItems.find(i => i.productId === p.id || i.id === p.id)).slice(0, 6);
 
@@ -227,14 +225,6 @@ const Cart = () => {
               <span>Delivery Fee</span>
               <span>{deliveryFee === 0 ? <span className="cart__bill-free">FREE</span> : formatPrice(deliveryFee)}</span>
             </div>
-            <div className="cart__bill-row">
-              <span>Handling Charge</span><span>{formatPrice(handlingCharge)}</span>
-            </div>
-            {cartGst > 0 && (
-              <div className="cart__bill-row">
-                <span>GST</span><span>{formatPrice(cartGst)}</span>
-              </div>
-            )}
             {couponDiscount > 0 && (
               <div className="cart__bill-row cart__bill-row--green">
                 <span>Coupon Discount</span><span>-{formatPrice(couponDiscount)}</span>

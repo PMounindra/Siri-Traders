@@ -8,9 +8,10 @@ export const formatPrice = (value) => {
   }).format(safeNum);
 };
 
+// Only the product amount and delivery fee are charged — no handling charge, no GST.
 export const getOrderBillBreakdown = (order) => {
   if (!order) {
-    return { subtotal: 0, deliveryFee: 0, handlingCharge: 0, discount: 0, couponCode: '', gstAmount: 0, grandTotal: 0 };
+    return { subtotal: 0, deliveryFee: 0, discount: 0, couponCode: '', grandTotal: 0 };
   }
 
   const items = order.items || [];
@@ -29,39 +30,18 @@ export const getOrderBillBreakdown = (order) => {
     ? Number(order.deliveryFee)
     : (order.delivery_fee !== undefined ? Number(order.delivery_fee) : 0);
 
-  let handlingCharge = order.handlingCharge !== undefined
-    ? Number(order.handlingCharge)
-    : (order.handling_charge !== undefined ? Number(order.handling_charge) : 0);
-
-  // Fallback for orders where delivery_fee/handling_charge were unpopulated in DB,
-  // but grandTotal > (subtotal - discount)
-  if (deliveryFee === 0 && handlingCharge === 0 && grandTotal > (subtotal - discount)) {
-    const diff = grandTotal - (subtotal - discount);
-    if (diff >= 5) {
-      handlingCharge = 5;
-      deliveryFee = diff - 5;
-    } else {
-      deliveryFee = diff;
-    }
+  // Older orders (placed while a handling charge or GST existed) may have that
+  // amount baked into the stored total with no delivery_fee recorded for it.
+  // Attribute any such leftover difference to delivery fee so the numbers add up.
+  if (deliveryFee === 0 && grandTotal > (subtotal - discount)) {
+    deliveryFee = grandTotal - (subtotal - discount);
   }
-
-  // Orders placed before GST was tracked have no gst_amount column value;
-  // gstRate is stored per order item so it's recomputed here as a fallback.
-  const gstAmount = order.gstAmount !== undefined && Number(order.gstAmount) > 0
-    ? Number(order.gstAmount)
-    : Math.round(items.reduce((s, i) => {
-        const rate = Number(i.gstRate) || 0;
-        if (!rate) return s;
-        return s + (Number(i.price) || 0) * (Number(i.quantity || i.qty) || 1) * (rate / 100);
-      }, 0));
 
   return {
     subtotal,
     deliveryFee,
-    handlingCharge,
     discount,
     couponCode,
-    gstAmount,
     grandTotal
   };
 };
