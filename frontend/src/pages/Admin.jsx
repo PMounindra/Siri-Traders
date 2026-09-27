@@ -3909,12 +3909,6 @@ const Admin = () => {
                       All Orders <span className="inventory-badge-count">{liveOrders?.length || 0}</span>
                     </button>
                     <button
-                      className={`inventory-filter-btn ${orderStatusFilter === 'pending' ? 'inventory-filter-btn--active' : ''}`}
-                      onClick={() => setOrderStatusFilter('pending')}
-                    >
-                      🟡 Pending (Placed) <span className="inventory-badge-count">{liveOrders?.filter(o => o.status === 'Pending').length || 0}</span>
-                    </button>
-                    <button
                       className={`inventory-filter-btn ${orderStatusFilter === 'preparing' ? 'inventory-filter-btn--active' : ''}`}
                       onClick={() => setOrderStatusFilter('preparing')}
                     >
@@ -3960,7 +3954,6 @@ const Admin = () => {
                         <option value="all">All Payments</option>
                         <option value="paid">🟢 Paid</option>
                         <option value="unpaid">🔴 Unpaid</option>
-                        <option value="refunded">🟣 Refunded</option>
                       </select>
                     </div>
 
@@ -4105,7 +4098,6 @@ const Admin = () => {
                                 handleUpdateOrder(order.id, { status: e.target.value });
                               }}
                             >
-                              <option value="Pending">Pending (Placed)</option>
                               <option value="Preparing">Preparing (Confirmed)</option>
                               <option value="Delivered">Delivered</option>
                               <option value="Cancelled">Cancelled</option>
@@ -4133,7 +4125,6 @@ const Admin = () => {
                             >
                               <option value="Paid">🟢 Paid</option>
                               <option value="Unpaid">🔴 Unpaid</option>
-                              <option value="Refunded">🟣 Refunded</option>
                             </select>
                           </div>
                         </div>
@@ -4230,7 +4221,6 @@ const Admin = () => {
                                 handleUpdateOrder(selectedOrderModal.id, { status: e.target.value });
                               }}
                             >
-                              <option value="Pending">Pending (Order Placed)</option>
                               <option value="Preparing">Preparing (Order Confirmed)</option>
                               <option value="Delivered">Delivered</option>
                               <option value="Cancelled">Cancelled</option>
@@ -4258,7 +4248,6 @@ const Admin = () => {
                             >
                               <option value="Paid">🟢 Paid</option>
                               <option value="Unpaid">🔴 Unpaid</option>
-                              <option value="Refunded">🟣 Refunded</option>
                             </select>
                           </div>
                         </div>
