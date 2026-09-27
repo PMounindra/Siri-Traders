@@ -17,7 +17,12 @@ async function autoMigrateOrdersSchema() {
       ADD COLUMN IF NOT EXISTS delivery_fee INTEGER DEFAULT 0,
       ADD COLUMN IF NOT EXISTS handling_charge INTEGER DEFAULT 0,
       ADD COLUMN IF NOT EXISTS coupon_code TEXT,
-      ADD COLUMN IF NOT EXISTS discount INTEGER DEFAULT 0;
+      ADD COLUMN IF NOT EXISTS discount INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS gst_amount INTEGER DEFAULT 0;
+    `);
+    await db.execute(sql`
+      ALTER TABLE order_items
+      ADD COLUMN IF NOT EXISTS gst_rate INTEGER DEFAULT 0;
     `);
     ordersMigrated = true;
   } catch (err) {
@@ -185,6 +190,7 @@ export default async function handler(req, res) {
           handlingCharge: body.handlingCharge !== undefined ? Number(body.handlingCharge) : 0,
           couponCode: body.couponCode || null,
           discount: body.discount !== undefined ? Number(body.discount) : 0,
+          gstAmount: body.gstAmount !== undefined ? Number(body.gstAmount) : 0,
           deliveryAddress: deliveryAddress || '',
           paymentMethod: paymentMethod || 'COD',
           status: isCod ? 'Preparing' : 'Paid',
@@ -240,7 +246,8 @@ export default async function handler(req, res) {
             quantity,
             price: item.price,
             weight: item.weight || '',
-            unit: item.unit || ''
+            unit: item.unit || '',
+            gstRate: Number(item.gstRate) || 0
           });
 
           // Deduct from tracked inventory (skip untracked/promotional items —

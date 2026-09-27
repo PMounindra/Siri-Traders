@@ -15,7 +15,7 @@ import './Cart.css';
 
 const Cart = () => {
   const {
-    cartItems, updateQuantity, removeFromCart, cartTotal, cartSavings, cartCount, requireAuth,
+    cartItems, updateQuantity, removeFromCart, cartTotal, cartSavings, cartGst, cartCount, requireAuth,
     appliedCouponCode, applyCouponCode, removeCoupon, getAppliedCoupon, couponError, setCouponError
   } = useCart();
   const { user, customerType } = useAuth();
@@ -37,7 +37,7 @@ const Cart = () => {
   const deliveryFee = appliedCoupon?.freeDelivery ? 0 : baseDeliveryFee;
   const handlingCharge = cartCount > 0 ? activeHandlingChargeVal : 0;
   const couponDiscount = appliedCoupon?.discount || 0;
-  const grandTotal = Math.max(0, cartTotal + deliveryFee + handlingCharge - couponDiscount);
+  const grandTotal = Math.max(0, cartTotal + deliveryFee + handlingCharge + cartGst - couponDiscount);
 
   const suggestions = getProductsForType(customerType).filter(p => p.isBestseller && !cartItems.find(i => i.productId === p.id || i.id === p.id)).slice(0, 6);
 
@@ -230,6 +230,11 @@ const Cart = () => {
             <div className="cart__bill-row">
               <span>Handling Charge</span><span>{formatPrice(handlingCharge)}</span>
             </div>
+            {cartGst > 0 && (
+              <div className="cart__bill-row">
+                <span>GST</span><span>{formatPrice(cartGst)}</span>
+              </div>
+            )}
             {couponDiscount > 0 && (
               <div className="cart__bill-row cart__bill-row--green">
                 <span>Coupon Discount</span><span>-{formatPrice(couponDiscount)}</span>

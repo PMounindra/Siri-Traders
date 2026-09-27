@@ -11,5 +11,8 @@ export const orderItems = pgTable('order_items', {
   quantity: integer('quantity').notNull(),
   price: integer('price').notNull(),
   weight: text('weight'),
-  unit: text('unit')
+  unit: text('unit'),
+  // The product's GST rate (%) at the time of purchase, so a later change to
+  // the product doesn't rewrite the tax on past invoices.
+  gstRate: integer('gst_rate').default(0)
 });

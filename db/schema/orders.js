@@ -9,6 +9,7 @@ export const orders = pgTable('orders', {
   handlingCharge: integer('handling_charge').default(0),
   couponCode: text('coupon_code'),
   discount: integer('discount').default(0),
+  gstAmount: integer('gst_amount').default(0),
   status: text('status').default('Pending'), // 'Pending', 'Preparing', 'In Transit', 'Delivered', 'Paid', 'Cancelled'
   deliveryAddress: text('delivery_address'),
   paymentMethod: text('payment_method'),

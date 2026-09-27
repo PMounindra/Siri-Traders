@@ -69,7 +69,7 @@ const addressLine2 = (address) => {
 
 const Checkout = () => {
   const {
-    cartItems, cartTotal, cartCount, clearCart, requireAuth,
+    cartItems, cartTotal, cartGst, cartCount, clearCart, requireAuth,
     appliedCouponCode, applyCouponCode, removeCoupon: contextRemoveCoupon, getAppliedCoupon, couponError, setCouponError
   } = useCart();
   const { user, isAuthenticated, isLoaded, getToken, customerType } = useAuth();
@@ -119,7 +119,7 @@ const Checkout = () => {
   const baseDeliveryFee = activeDeliveryFeeVal;
   const deliveryFee = appliedCoupon?.freeDelivery ? 0 : baseDeliveryFee;
   const handlingCharge = activeHandlingChargeVal;
-  const grandTotal = Math.max(0, cartTotal + deliveryFee + handlingCharge - couponDiscount);
+  const grandTotal = Math.max(0, cartTotal + deliveryFee + handlingCharge + cartGst - couponDiscount);
 
   useEffect(() => {
     if (addressStorageKey) {
@@ -287,7 +287,8 @@ const Checkout = () => {
         quantity: item.quantity,
         price: item.price,
         weight: item.weight || '',
-        unit: item.unit || ''
+        unit: item.unit || '',
+        gstRate: Number(item.gstRate) || 0
       };
     });
 
@@ -308,6 +309,7 @@ const Checkout = () => {
           subtotal: cartTotal,
           deliveryFee,
           handlingCharge,
+          gstAmount: cartGst,
           couponCode: appliedCoupon?.code || null,
           discount: couponDiscount,
           deliveryAddress: `${addressLine}, ${addressForOrder.pincode}`,
@@ -678,6 +680,9 @@ const Checkout = () => {
                     <span>{deliveryFee === 0 ? <span className="checkout__bill-free">FREE</span> : formatPrice(deliveryFee)}</span>
                   </div>
                   <div className="checkout__bill-row"><span>Handling Charge</span><span>{formatPrice(handlingCharge)}</span></div>
+                  {cartGst > 0 && (
+                    <div className="checkout__bill-row"><span>GST</span><span>{formatPrice(cartGst)}</span></div>
+                  )}
                   {couponDiscount > 0 && (
                     <div className="checkout__bill-row checkout__bill-row--discount">
                       <span>Coupon ({appliedCoupon.code})</span><span>-{formatPrice(couponDiscount)}</span>

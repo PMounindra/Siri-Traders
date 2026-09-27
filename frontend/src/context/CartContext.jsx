@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { useNavigate } from 'react-router-dom';
 import { FiShoppingCart } from 'react-icons/fi';
 import { useAuth } from './AuthContext';
+import { calcGstTotal } from '../utils/gst';
 import { getUserStorageKey } from '../utils/userStorage';
 import '../components/AuthRequiredModal.css';
 
@@ -158,6 +159,8 @@ export const CartProvider = ({ children }) => {
     (sum, item) => sum + (item.mrp - item.price) * item.quantity, 0
   );
 
+  const cartGst = calcGstTotal(cartItems);
+
   const applyCouponCode = useCallback((code, couponList = [], allCoupons = []) => {
     const rawCode = String(code || '').trim().toUpperCase();
     if (!rawCode) {
@@ -208,6 +211,7 @@ export const CartProvider = ({ children }) => {
         cartCount,
         cartTotal,
         cartSavings,
+        cartGst,
         appliedCouponCode,
         applyCouponCode,
         removeCoupon,

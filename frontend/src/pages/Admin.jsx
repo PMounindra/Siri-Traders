@@ -4432,7 +4432,7 @@ const Admin = () => {
                       </table>
 
                       {(() => {
-                        const { subtotal, deliveryFee, handlingCharge, discount, couponCode, grandTotal } = getOrderBillBreakdown(invoiceModalOrder);
+                        const { subtotal, deliveryFee, handlingCharge, discount, couponCode, gstAmount, grandTotal } = getOrderBillBreakdown(invoiceModalOrder);
 
                         return (
                           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
@@ -4459,7 +4459,7 @@ const Admin = () => {
                               )}
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span>GST / Taxes:</span>
-                                <span>Included</span>
+                                <span>{gstAmount > 0 ? formatPrice(gstAmount) : 'None'}</span>
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1.5px solid #2D5016', paddingTop: '4px', marginTop: '4px', fontWeight: 900, fontSize: '15px', color: '#1C4B12' }}>
                                 <span>Grand Total:</span>

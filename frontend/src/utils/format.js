@@ -10,7 +10,7 @@ export const formatPrice = (value) => {
 
 export const getOrderBillBreakdown = (order) => {
   if (!order) {
-    return { subtotal: 0, deliveryFee: 0, handlingCharge: 0, discount: 0, couponCode: '', grandTotal: 0 };
+    return { subtotal: 0, deliveryFee: 0, handlingCharge: 0, discount: 0, couponCode: '', gstAmount: 0, grandTotal: 0 };
   }
 
   const items = order.items || [];
@@ -45,12 +45,23 @@ export const getOrderBillBreakdown = (order) => {
     }
   }
 
+  // Orders placed before GST was tracked have no gst_amount column value;
+  // gstRate is stored per order item so it's recomputed here as a fallback.
+  const gstAmount = order.gstAmount !== undefined && Number(order.gstAmount) > 0
+    ? Number(order.gstAmount)
+    : Math.round(items.reduce((s, i) => {
+        const rate = Number(i.gstRate) || 0;
+        if (!rate) return s;
+        return s + (Number(i.price) || 0) * (Number(i.quantity || i.qty) || 1) * (rate / 100);
+      }, 0));
+
   return {
     subtotal,
     deliveryFee,
     handlingCharge,
     discount,
     couponCode,
+    gstAmount,
     grandTotal
   };
 };
