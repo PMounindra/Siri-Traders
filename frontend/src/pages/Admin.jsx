@@ -4200,7 +4200,7 @@ const Admin = () => {
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                             <span style={{ fontSize: '10px', fontWeight: 800, color: '#687466', textTransform: 'uppercase', marginBottom: '2px' }}>Payment Status</span>
                             <select
-                              value={order.paymentStatus || 'Unpaid'}
+                              value={order.paymentStatus === 'Paid' ? 'Paid' : 'Unpaid'}
                               className="admin-status-select"
                               style={{
                                 height: '30px',
@@ -4328,7 +4328,7 @@ const Admin = () => {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#687466' }}>Payment Status:</span>
                             <select
-                              value={selectedOrderModal.paymentStatus || 'Unpaid'}
+                              value={selectedOrderModal.paymentStatus === 'Paid' ? 'Paid' : 'Unpaid'}
                               className="admin-status-select"
                               style={{
                                 height: '32px',

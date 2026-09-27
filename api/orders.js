@@ -196,7 +196,9 @@ export default async function handler(req, res) {
           customerName: customerName || body.customerName || 'Customer',
           customerPhone: body.customerPhone || '',
           customerEmail: customerEmail || body.customerEmail || '',
-          paymentStatus: isCod ? 'Pending' : 'Paid',
+          // 'Pending' isn't a valid payment status any more (only Paid/Unpaid/Failed) —
+          // a fresh COD order simply hasn't been paid yet.
+          paymentStatus: isCod ? 'Unpaid' : 'Paid',
           paymentGateway: isCod ? 'Cash on Delivery' : (body.paymentGateway || 'UPI / Online'),
           paymentTxnId: txnId,
           trackingNumber: trackingNumber,
