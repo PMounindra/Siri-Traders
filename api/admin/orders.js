@@ -6,8 +6,8 @@ import { sendCustomerOrderStatusUpdateEmail } from '../_email.js';
 import { sendCustomerOrderStatusSMS, sendBulkPromotionalSMS } from '../_sms.js';
 import nodemailer from 'nodemailer';
 
-const VALID_STATUSES = ['Pending', 'Preparing', 'In Transit', 'Delivered', 'Paid', 'Cancelled'];
-const VALID_PAYMENT_STATUSES = ['Pending', 'Paid', 'Unpaid', 'Failed', 'Refunded', 'Partially Refunded'];
+const VALID_STATUSES = ['Preparing', 'In Transit', 'Delivered', 'Paid', 'Cancelled'];
+const VALID_PAYMENT_STATUSES = ['Paid', 'Unpaid', 'Failed'];
 const VALID_RETURN_STATUSES = ['None', 'Requested', 'Approved', 'Picked Up', 'Refunded', 'Rejected'];
 
 export default async function handler(req, res) {
@@ -284,6 +284,11 @@ export default async function handler(req, res) {
         if (body.status === 'Cancelled' && !currentOrder.cancelledAt) {
           updateData.cancelledAt = new Date();
           if (body.cancellationReason) updateData.cancellationReason = body.cancellationReason;
+        }
+        // Delivered means payment was collected — mark it Paid too, unless
+        // this same request already sets a specific payment status.
+        if (body.status === 'Delivered' && body.paymentStatus === undefined && currentOrder.paymentStatus !== 'Paid') {
+          updateData.paymentStatus = 'Paid';
         }
       }
 

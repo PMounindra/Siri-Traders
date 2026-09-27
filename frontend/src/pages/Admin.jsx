@@ -4095,7 +4095,12 @@ const Admin = () => {
                               className="admin-status-select"
                               style={{ height: '30px', fontSize: '11.5px', borderRadius: '6px' }}
                               onChange={(e) => {
-                                handleUpdateOrder(order.id, { status: e.target.value });
+                                const newStatus = e.target.value;
+                                // Delivered means payment was collected — mark it Paid too.
+                                const payload = newStatus === 'Delivered' && order.paymentStatus !== 'Paid'
+                                  ? { status: newStatus, paymentStatus: 'Paid' }
+                                  : { status: newStatus };
+                                handleUpdateOrder(order.id, payload);
                               }}
                             >
                               <option value="Preparing">Preparing (Confirmed)</option>
@@ -4218,7 +4223,12 @@ const Admin = () => {
                               className="admin-status-select"
                               style={{ height: '32px', fontSize: '12px', borderRadius: '6px' }}
                               onChange={(e) => {
-                                handleUpdateOrder(selectedOrderModal.id, { status: e.target.value });
+                                const newStatus = e.target.value;
+                                // Delivered means payment was collected — mark it Paid too.
+                                const payload = newStatus === 'Delivered' && selectedOrderModal.paymentStatus !== 'Paid'
+                                  ? { status: newStatus, paymentStatus: 'Paid' }
+                                  : { status: newStatus };
+                                handleUpdateOrder(selectedOrderModal.id, payload);
                               }}
                             >
                               <option value="Preparing">Preparing (Order Confirmed)</option>
