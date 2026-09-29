@@ -14,6 +14,7 @@ import {
   LayoutGridIcon,
   HomeIcon,
   LocateFixedIcon,
+  PencilIcon,
 } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
@@ -42,6 +43,7 @@ const Navbar = () => {
   const [addressMenuOpen, setAddressMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState([]);
+  const [editingAddressId, setEditingAddressId] = useState(null);
   const [deliveryError, setDeliveryError] = useState("");
   const [locating, setLocating] = useState(false);
   const [useManualArea, setUseManualArea] = useState(false);
@@ -57,23 +59,32 @@ const Navbar = () => {
   const isHidden = hiddenRoutes.includes(routeLocation.pathname);
 
   useEffect(() => {
-    if (!addressStorageKey) {
-      setSavedAddresses([]);
-      return;
-    }
-    try {
-      const saved = localStorage.getItem(addressStorageKey);
-      setSavedAddresses(saved ? JSON.parse(saved) : []);
-    } catch {
-      setSavedAddresses([]);
-    }
+    const reloadAddresses = () => {
+      if (!addressStorageKey) {
+        setSavedAddresses([]);
+        return;
+      }
+      try {
+        const saved = localStorage.getItem(addressStorageKey);
+        setSavedAddresses(saved ? JSON.parse(saved) : []);
+      } catch {
+        setSavedAddresses([]);
+      }
+    };
+    reloadAddresses();
+    window.addEventListener("siri-addresses-changed", reloadAddresses);
+    window.addEventListener("storage", reloadAddresses);
+    return () => {
+      window.removeEventListener("siri-addresses-changed", reloadAddresses);
+      window.removeEventListener("storage", reloadAddresses);
+    };
   }, [addressStorageKey]);
 
   useEffect(() => {
     setAddressForm((prev) => ({
       ...prev,
-      name: user?.name || "",
-      phone: user?.phone || "",
+      name: prev.name || user?.name || "",
+      phone: prev.phone || user?.phone || "",
     }));
   }, [user]);
 
@@ -113,6 +124,7 @@ const Navbar = () => {
     setSavedAddresses(nextAddresses);
     if (addressStorageKey) {
       localStorage.setItem(addressStorageKey, JSON.stringify(nextAddresses));
+      window.dispatchEvent(new CustomEvent("siri-addresses-changed"));
     }
   };
 
@@ -126,14 +138,40 @@ const Navbar = () => {
     setAddressMenuOpen(false);
   };
 
+  const handleEditAddress = (address, e) => {
+    if (e) e.stopPropagation();
+    setEditingAddressId(address.id);
+    setAddressForm({
+      name: address.name || "",
+      phone: address.phone || "",
+      flatNo: address.flatNo || address.address || "",
+      landmark: address.landmark || "",
+      area: address.area || "",
+      pincode: address.pincode || "",
+      type: address.type || "home",
+    });
+    setDeliveryError("");
+    requestAnimationFrame(() => flatNoInputRef.current?.focus());
+  };
+
+  const cancelEditAddress = () => {
+    setEditingAddressId(null);
+    setAddressForm({ ...emptyAddress, name: user?.name || "", phone: user?.phone || "" });
+    setDeliveryError("");
+  };
+
   const saveAddress = () => {
     const trimmed = Object.fromEntries(
-      Object.entries(addressForm).map(([k, v]) => [k, v.trim()])
+      Object.entries(addressForm).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v])
     );
     const requiredFields = ["name", "phone", "flatNo", "area", "pincode"];
     const missingField = requiredFields.find((field) => !trimmed[field]);
     if (missingField) {
       setDeliveryError("Please select a delivery area and fill in your door number.");
+      return;
+    }
+    if (!/^[6-9]\d{9}$/.test(trimmed.phone)) {
+      setDeliveryError("Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.");
       return;
     }
     if (!/^\d{6}$/.test(trimmed.pincode)) {
@@ -148,8 +186,16 @@ const Navbar = () => {
     }
     setDeliveryError("");
     const address = trimmed.landmark ? `${trimmed.flatNo}, ${trimmed.landmark}` : trimmed.flatNo;
-    const nextAddress = { ...trimmed, address, id: Date.now().toString() };
-    const nextAddresses = [nextAddress, ...savedAddresses.filter((a) => a.id !== nextAddress.id)];
+    let nextAddress;
+    let nextAddresses;
+    if (editingAddressId) {
+      nextAddress = { ...trimmed, address, id: editingAddressId };
+      nextAddresses = savedAddresses.map((a) => (a.id === editingAddressId ? nextAddress : a));
+      setEditingAddressId(null);
+    } else {
+      nextAddress = { ...trimmed, address, id: Date.now().toString() };
+      nextAddresses = [nextAddress, ...savedAddresses.filter((a) => a.id !== nextAddress.id)];
+    }
     saveAddresses(nextAddresses);
     selectAddress(nextAddress);
     setAddressForm({ ...emptyAddress, name: user?.name || "", phone: user?.phone || "" });
@@ -320,22 +366,43 @@ const Navbar = () => {
                     <div className="navbar__address-list">
                       <p style={{fontSize:11,fontWeight:800,color:'#687466',marginBottom:4}}>SAVED ADDRESSES</p>
                       {savedAddresses.map((address) => (
-                        <button
+                        <div
                           key={address.id}
-                          type="button"
-                          className="navbar__address-item"
+                          className={`navbar__address-item ${editingAddressId === address.id ? 'navbar__address-item--editing' : ''}`}
                           onClick={() => selectAddress(address)}
                         >
-                          <span className="navbar__address-item-title">{address.name}</span>
-                          <span className="navbar__address-item-text">{address.address}, {address.pincode}</span>
-                        </button>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
+                              <span className="navbar__address-item-title">{address.name}</span>
+                              <span className="navbar__address-item-text">{address.address}, {address.pincode}</span>
+                              {address.phone && <span className="navbar__address-item-phone">📞 {address.phone}</span>}
+                            </div>
+                            <button
+                              type="button"
+                              className="navbar__address-edit-btn"
+                              onClick={(e) => handleEditAddress(address, e)}
+                              title="Edit address"
+                            >
+                              <PencilIcon size={13} /> Edit
+                            </button>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   )}
 
                   {/* Address details — required once an area is picked above */}
                   <div className="navbar__address-form">
-                    <p style={{fontSize:11,fontWeight:800,color:'#687466',marginBottom:4}}>YOUR ADDRESS DETAILS</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <p style={{fontSize:11,fontWeight:800,color:'#687466',margin:0}}>
+                        {editingAddressId ? 'EDIT SAVED ADDRESS' : 'YOUR ADDRESS DETAILS'}
+                      </p>
+                      {editingAddressId && (
+                        <button type="button" onClick={cancelEditAddress} style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                          Cancel Edit
+                        </button>
+                      )}
+                    </div>
                     {addressForm.area ? (
                       <div className="navbar__selected-area">
                         <MapPinIcon size={14} />
@@ -352,7 +419,9 @@ const Navbar = () => {
                       onChange={(e) => setAddressForm((p) => ({ ...p, flatNo: e.target.value }))} />
                     <input type="text" placeholder="Landmark (optional)" value={addressForm.landmark}
                       onChange={(e) => setAddressForm((p) => ({ ...p, landmark: e.target.value }))} />
-                    <button type="button" className="navbar__address-save" onClick={saveAddress}>Save Address</button>
+                    <button type="button" className="navbar__address-save" onClick={saveAddress}>
+                      {editingAddressId ? 'Update Address' : 'Save Address'}
+                    </button>
                     {deliveryError && (
                       <p className="navbar__delivery-error">{deliveryError}</p>
                     )}

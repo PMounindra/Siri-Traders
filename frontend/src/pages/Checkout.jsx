@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FiArrowLeft, FiAward, FiBriefcase, FiCheck, FiCheckCircle,
-  FiCreditCard, FiCrosshair, FiHome, FiMoreHorizontal, FiPlus,
+  FiCreditCard, FiCrosshair, FiEdit2, FiHome, FiMoreHorizontal, FiPlus,
   FiRefreshCw, FiShield, FiShoppingBag, FiTag, FiTruck, FiX
 } from 'react-icons/fi';
 import { useCart } from '../context/CartContext';
@@ -84,6 +84,7 @@ const Checkout = () => {
   const [orderId, setOrderId] = useState(() => `ORD-${Date.now().toString().slice(-6)}`);
   const [addresses, setAddresses] = useState(() => getSavedAddresses(user));
   const [selectedAddressId, setSelectedAddressId] = useState(() => getSavedAddresses(user)[0]?.id || '');
+  const [editingAddressId, setEditingAddressId] = useState(null);
   const [showAddressForm, setShowAddressForm] = useState(() => getSavedAddresses(user).length === 0);
   const [addressForm, setAddressForm] = useState(() => ({
     ...emptyAddress,
@@ -128,6 +129,22 @@ const Checkout = () => {
       localStorage.setItem(addressStorageKey, JSON.stringify(addresses));
     }
   }, [addresses, addressStorageKey]);
+
+  useEffect(() => {
+    const reloadAddresses = () => {
+      const saved = getSavedAddresses(user);
+      setAddresses(saved);
+      if (saved.length > 0 && !selectedAddressId) {
+        setSelectedAddressId(saved[0].id);
+      }
+    };
+    window.addEventListener("siri-addresses-changed", reloadAddresses);
+    window.addEventListener("storage", reloadAddresses);
+    return () => {
+      window.removeEventListener("siri-addresses-changed", reloadAddresses);
+      window.removeEventListener("storage", reloadAddresses);
+    };
+  }, [user, selectedAddressId]);
 
   useEffect(() => {
     // Wait for Clerk to finish restoring the session before treating the
@@ -209,6 +226,46 @@ const Checkout = () => {
     setCouponInput('');
   };
 
+  const handleEditAddress = (address, e) => {
+    if (e) e.stopPropagation();
+    setEditingAddressId(address.id);
+    setAddressForm({
+      ...emptyAddress,
+      name: address.name || user?.name || '',
+      phone: address.phone || user?.phone || '',
+      alternatePhone: address.alternatePhone || '',
+      email: address.email || user?.email || '',
+      flatNo: address.flatNo || address.address || '',
+      landmark: address.landmark || '',
+      area: address.area || '',
+      pincode: address.pincode || '',
+      type: address.type || 'home',
+      instructions: address.instructions || '',
+    });
+    const zone = deliveryZones.find(z => z.area.toLowerCase() === (address.area || '').toLowerCase());
+    if (!zone && address.area) {
+      setUseManualArea(true);
+    } else {
+      setUseManualArea(false);
+    }
+    setAddressError('');
+    setShowAddressForm(true);
+  };
+
+  const cancelEditAddress = () => {
+    setEditingAddressId(null);
+    setAddressForm({
+      ...emptyAddress,
+      name: user?.name || '',
+      phone: user?.phone || '',
+      email: user?.email || '',
+    });
+    setAddressError('');
+    if (addresses.length > 0) {
+      setShowAddressForm(false);
+    }
+  };
+
   const saveAddress = () => {
     const trimmed = Object.fromEntries(
       Object.entries(addressForm).map(([key, value]) => [key, typeof value === 'string' ? value.trim() : value])
@@ -222,12 +279,12 @@ const Checkout = () => {
     }
 
     if (!/^[6-9]\d{9}$/.test(trimmed.phone)) {
-      setAddressError('Please enter a valid 10 digit mobile number.');
+      setAddressError('Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.');
       return null;
     }
 
     if (trimmed.alternatePhone && !/^[6-9]\d{9}$/.test(trimmed.alternatePhone)) {
-      setAddressError('Please enter a valid 10 digit alternate mobile number.');
+      setAddressError('Please enter a valid 10-digit alternate mobile number starting with 6, 7, 8, or 9.');
       return null;
     }
 
@@ -246,20 +303,43 @@ const Checkout = () => {
       return null;
     }
 
-    const address = {
-      ...trimmed,
-      address: trimmed.landmark ? `${trimmed.flatNo}, ${trimmed.landmark}` : trimmed.flatNo,
-      id: Date.now().toString()
-    };
-    setAddresses(prev => [address, ...prev]);
-    setSelectedAddressId(address.id);
+    let nextAddress;
+    let nextAddresses;
+    const formattedAddressLine = trimmed.landmark ? `${trimmed.flatNo}, ${trimmed.landmark}` : trimmed.flatNo;
+
+    if (editingAddressId) {
+      nextAddress = {
+        ...trimmed,
+        address: formattedAddressLine,
+        id: editingAddressId,
+      };
+      nextAddresses = addresses.map((a) => (a.id === editingAddressId ? nextAddress : a));
+      setEditingAddressId(null);
+    } else {
+      nextAddress = {
+        ...trimmed,
+        address: formattedAddressLine,
+        id: Date.now().toString(),
+      };
+      nextAddresses = [nextAddress, ...addresses.filter((a) => a.id !== nextAddress.id)];
+    }
+
+    setAddresses(nextAddresses);
+    setSelectedAddressId(nextAddress.id);
     setShowAddressForm(false);
     setAddressForm({ ...emptyAddress, name: user?.name || '', phone: user?.phone || '', email: user?.email || '' });
     setAddressError('');
-    return address;
+
+    if (addressStorageKey) {
+      localStorage.setItem(addressStorageKey, JSON.stringify(nextAddresses));
+      window.dispatchEvent(new CustomEvent('siri-addresses-changed'));
+    }
+
+    return nextAddress;
   };
 
   const handleAddNewAddress = () => {
+    setEditingAddressId(null);
     setAddressForm({
       ...emptyAddress,
       name: user?.name || '',
@@ -473,13 +553,20 @@ const Checkout = () => {
                 {addresses.length > 0 && (
                   <div className="checkout__address-list">
                     {addresses.map(address => (
-                      <button
+                      <div
                         key={address.id}
-                        type="button"
-                        className={`checkout__address-card ${selectedAddressId === address.id ? 'checkout__address-card--active' : ''}`}
+                        role="button"
+                        tabIndex={0}
+                        className={`checkout__address-card ${selectedAddressId === address.id ? 'checkout__address-card--active' : ''} ${editingAddressId === address.id ? 'checkout__address-card--editing' : ''}`}
                         onClick={() => {
                           setSelectedAddressId(address.id);
                           setShowAddressForm(false);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            setSelectedAddressId(address.id);
+                            setShowAddressForm(false);
+                          }
                         }}
                       >
                         <span className="checkout__address-check">
@@ -490,7 +577,15 @@ const Checkout = () => {
                           <span>{address.phone}{address.email ? ` · ${address.email}` : ''}</span>
                           <span>{addressLine1(address)}{addressLine2(address) ? `, ${addressLine2(address)}` : ''}, {address.pincode}</span>
                         </span>
-                      </button>
+                        <button
+                          type="button"
+                          className="checkout__address-edit-btn"
+                          onClick={(e) => handleEditAddress(address, e)}
+                          title="Edit address"
+                        >
+                          <FiEdit2 size={13} /> Edit
+                        </button>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -503,7 +598,16 @@ const Checkout = () => {
 
                 {showAddressForm && (
                   <div className="checkout__address-form">
-                    <p className="checkout__form-subhead">Contact Information</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <p className="checkout__form-subhead" style={{ margin: 0 }}>
+                        {editingAddressId ? 'Edit Delivery Address' : 'Contact Information'}
+                      </p>
+                      {editingAddressId && (
+                        <button type="button" onClick={cancelEditAddress} style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                          Cancel Edit
+                        </button>
+                      )}
+                    </div>
                     <div className="checkout__input-row">
                       <label className="checkout__field">
                         <span>Full Name *</span>
@@ -624,10 +728,10 @@ const Checkout = () => {
                     </label>
 
                     <button type="button" className="checkout__save-address" onClick={saveAddress}>
-                      Save Address
+                      {editingAddressId ? 'Update Address' : 'Save Address'}
                     </button>
-                    {addresses.length > 0 && (
-                      <button type="button" className="checkout__address-cancel" onClick={() => setShowAddressForm(false)}>
+                    {(addresses.length > 0 || editingAddressId) && (
+                      <button type="button" className="checkout__address-cancel" onClick={cancelEditAddress}>
                         Cancel
                       </button>
                     )}
