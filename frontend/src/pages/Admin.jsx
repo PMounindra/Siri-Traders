@@ -6464,17 +6464,6 @@ const Admin = () => {
                           <p style={{ margin: 0, fontSize: '11.5px', color: '#6B7280' }}>Custom section · {(sec.productIds || []).length} product(s)</p>
                           <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
                             <button type="button" onClick={() => openCustomEditor(sec)} style={{ fontSize: '11.5px', fontWeight: 700, padding: '3px 10px', borderRadius: '6px', border: '1px solid #D1D5DB', background: '#fff', cursor: 'pointer' }}>✏️ Edit</button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveTab('products');
-                                window.scrollTo({ top: 0, behavior: 'smooth' });
-                              }}
-                              title="Go to Product Catalog tab"
-                              style={{ fontSize: '11.5px', fontWeight: 700, padding: '3px 10px', borderRadius: '6px', border: '1px solid #86EFAC', background: '#FFFFFF', color: '#166534', cursor: 'pointer' }}
-                            >
-                              🔗 Go to Products
-                            </button>
                             <button type="button" onClick={() => removeCustomSection(sec)} style={{ fontSize: '11.5px', fontWeight: 700, padding: '3px 10px', borderRadius: '6px', border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#B91C1C', cursor: 'pointer' }}>🗑 Delete</button>
                           </div>
                         </div>
