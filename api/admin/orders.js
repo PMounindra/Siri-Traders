@@ -285,10 +285,12 @@ export default async function handler(req, res) {
           updateData.cancelledAt = new Date();
           if (body.cancellationReason) updateData.cancellationReason = body.cancellationReason;
         }
-        // Delivered means payment was collected — mark it Paid too, unless
-        // this same request already sets a specific payment status.
-        if (body.status === 'Delivered' && body.paymentStatus === undefined && currentOrder.paymentStatus !== 'Paid') {
-          updateData.paymentStatus = 'Paid';
+        if (body.paymentStatus === undefined) {
+          if (body.status === 'Delivered' && currentOrder.paymentStatus !== 'Paid') {
+            updateData.paymentStatus = 'Paid';
+          } else if (currentOrder.status === 'Delivered' && (body.status === 'Preparing' || body.status === 'Cancelled')) {
+            updateData.paymentStatus = 'Unpaid';
+          }
         }
       }
 

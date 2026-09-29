@@ -4187,10 +4187,12 @@ const Admin = () => {
                               style={{ height: '30px', fontSize: '11.5px', borderRadius: '6px' }}
                               onChange={(e) => {
                                 const newStatus = e.target.value;
-                                // Delivered means payment was collected — mark it Paid too.
-                                const payload = newStatus === 'Delivered' && order.paymentStatus !== 'Paid'
-                                  ? { status: newStatus, paymentStatus: 'Paid' }
-                                  : { status: newStatus };
+                                let payload = { status: newStatus };
+                                if (newStatus === 'Delivered' && order.paymentStatus !== 'Paid') {
+                                  payload.paymentStatus = 'Paid';
+                                } else if (order.status === 'Delivered' && (newStatus === 'Preparing' || newStatus === 'Cancelled')) {
+                                  payload.paymentStatus = 'Unpaid';
+                                }
                                 handleUpdateOrder(order.id, payload);
                               }}
                             >
@@ -4315,10 +4317,12 @@ const Admin = () => {
                               style={{ height: '32px', fontSize: '12px', borderRadius: '6px' }}
                               onChange={(e) => {
                                 const newStatus = e.target.value;
-                                // Delivered means payment was collected — mark it Paid too.
-                                const payload = newStatus === 'Delivered' && selectedOrderModal.paymentStatus !== 'Paid'
-                                  ? { status: newStatus, paymentStatus: 'Paid' }
-                                  : { status: newStatus };
+                                let payload = { status: newStatus };
+                                if (newStatus === 'Delivered' && selectedOrderModal.paymentStatus !== 'Paid') {
+                                  payload.paymentStatus = 'Paid';
+                                } else if (selectedOrderModal.status === 'Delivered' && (newStatus === 'Preparing' || newStatus === 'Cancelled')) {
+                                  payload.paymentStatus = 'Unpaid';
+                                }
                                 handleUpdateOrder(selectedOrderModal.id, payload);
                               }}
                             >
@@ -4404,9 +4408,12 @@ const Admin = () => {
                             style={{ height: '32px', padding: '0 12px', fontSize: '11.5px', borderRadius: '6px' }}
                             onClick={() => {
                               if (window.confirm('Cancel order and restock items back into inventory?')) {
+                                const payload = selectedOrderModal.status === 'Delivered'
+                                  ? { status: 'Cancelled', paymentStatus: 'Unpaid', cancellationReason: 'Admin / Customer cancellation', restockOnCancel: true }
+                                  : { status: 'Cancelled', cancellationReason: 'Admin / Customer cancellation', restockOnCancel: true };
                                 handleUpdateOrder(
                                   selectedOrderModal.id,
-                                  { status: 'Cancelled', cancellationReason: 'Admin / Customer cancellation', restockOnCancel: true },
+                                  payload,
                                   `Order #${selectedOrderModal.id} cancelled and inventory restocked`
                                 );
                               }
