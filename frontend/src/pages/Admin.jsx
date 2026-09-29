@@ -6370,64 +6370,88 @@ const Admin = () => {
                   Featured Homepage Sections
                 </h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
-                  {[
-                    { key: 'todaysDeals', title: "Today's Deals", desc: 'Shows products marked as Today\'s Deal', icon: '🏷️' },
-                    { key: 'bestsellers', title: 'Bestsellers', desc: 'Shows products marked as Bestseller', icon: '⭐' },
-                    { key: 'dailyOffers', title: 'Daily Offers', desc: 'Curated savings spotlight banner', icon: '⚡' },
-                    { key: 'festiveOffers', title: 'Festive Offers', desc: 'Seasonal festive deals spotlight banner', icon: '🎉' },
-                    { key: 'shopByCategory', title: 'Shop by Category Grid', desc: 'Top category icon scroll row', icon: '📦' }
-                  ].map(it => ({ ...it, title: localHomeSections.sectionMeta?.[it.key]?.title || it.title, icon: localHomeSections.sectionMeta?.[it.key]?.icon || it.icon }))
-                    .filter(it => !localHomeSections.sectionMeta?.[it.key]?.removed)
-                    .map(item => {
-                    const isEnabled = localHomeSections[item.key] !== false;
-                    return (
-                      <div
-                        key={item.key}
-                        style={{
-                          border: isEnabled ? '1.5px solid #BBF7D0' : '1.5px solid #E5E7EB',
-                          background: isEnabled ? '#F0FDF4' : '#F9FAFB',
-                          borderRadius: '10px',
-                          padding: '14px 16px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-                        }}
-                      >
-                        <div style={{ flex: 1, paddingRight: '12px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
-                            <span style={{ fontSize: '16px' }}>{item.icon}</span>
-                            <strong style={{ fontSize: '14px', color: isEnabled ? '#166534' : '#374151' }}>{item.title}</strong>
+                  {(() => {
+                    const sectionRedirectMap = {
+                      todaysDeals: { tab: 'bestsellers', name: "Bestsellers & Deals" },
+                      bestsellers: { tab: 'bestsellers', name: "Bestsellers & Deals" },
+                      dailyOffers: { tab: 'offers', name: "Promos & Coupons" },
+                      festiveOffers: { tab: 'festive-offers', name: "Festive Offers" },
+                      shopByCategory: { tab: 'products', name: "Product Catalog" }
+                    };
+
+                    return [
+                      { key: 'todaysDeals', title: "Today's Deals", desc: 'Shows products marked as Today\'s Deal', icon: '🏷️' },
+                      { key: 'bestsellers', title: 'Bestsellers', desc: 'Shows products marked as Bestseller', icon: '⭐' },
+                      { key: 'dailyOffers', title: 'Daily Offers', desc: 'Curated savings spotlight banner', icon: '⚡' },
+                      { key: 'festiveOffers', title: 'Festive Offers', desc: 'Seasonal festive deals spotlight banner', icon: '🎉' },
+                      { key: 'shopByCategory', title: 'Shop by Category Grid', desc: 'Top category icon scroll row', icon: '📦' }
+                    ].map(it => ({ ...it, title: localHomeSections.sectionMeta?.[it.key]?.title || it.title, icon: localHomeSections.sectionMeta?.[it.key]?.icon || it.icon }))
+                      .filter(it => !localHomeSections.sectionMeta?.[it.key]?.removed)
+                      .map(item => {
+                        const isEnabled = localHomeSections[item.key] !== false;
+                        const redirectTarget = sectionRedirectMap[item.key];
+                        return (
+                          <div
+                            key={item.key}
+                            style={{
+                              border: isEnabled ? '1.5px solid #BBF7D0' : '1.5px solid #E5E7EB',
+                              background: isEnabled ? '#F0FDF4' : '#F9FAFB',
+                              borderRadius: '10px',
+                              padding: '14px 16px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                            }}
+                          >
+                            <div style={{ flex: 1, paddingRight: '12px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                                <span style={{ fontSize: '16px' }}>{item.icon}</span>
+                                <strong style={{ fontSize: '14px', color: isEnabled ? '#166534' : '#374151' }}>{item.title}</strong>
+                              </div>
+                              <p style={{ margin: 0, fontSize: '11.5px', color: '#6B7280' }}>{item.desc}</p>
+                              <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                                <button type="button" onClick={() => openBuiltinEditor(item)} style={{ fontSize: '11.5px', fontWeight: 700, padding: '3px 10px', borderRadius: '6px', border: '1px solid #D1D5DB', background: '#fff', cursor: 'pointer' }}>✏️ Edit</button>
+                                {redirectTarget && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveTab(redirectTarget.tab);
+                                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }}
+                                    title={`Redirect to ${redirectTarget.name} management page`}
+                                    style={{ fontSize: '11.5px', fontWeight: 700, padding: '3px 10px', borderRadius: '6px', border: '1px solid #86EFAC', background: '#FFFFFF', color: '#166534', cursor: 'pointer' }}
+                                  >
+                                    🔗 Go to Section
+                                  </button>
+                                )}
+                                <button type="button" onClick={() => removeBuiltinSection(item)} style={{ fontSize: '11.5px', fontWeight: 700, padding: '3px 10px', borderRadius: '6px', border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#B91C1C', cursor: 'pointer' }}>🗑 Remove</button>
+                              </div>
+                            </div>
+                            <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', flexShrink: 0, cursor: 'pointer' }}>
+                              <input
+                                type="checkbox"
+                                checked={isEnabled}
+                                onChange={(e) => toggleSectionKey(item.key, e.target.checked)}
+                                style={{ opacity: 0, width: 0, height: 0 }}
+                              />
+                              <span style={{
+                                position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                backgroundColor: isEnabled ? '#2D5016' : '#D1D5DB',
+                                transition: '.2s', borderRadius: '24px',
+                                display: 'flex', alignItems: 'center', padding: '2px'
+                              }}>
+                                <span style={{
+                                  height: '20px', width: '20px', borderRadius: '50%', backgroundColor: 'white',
+                                  transition: '.2s', transform: isEnabled ? 'translateX(20px)' : 'translateX(0px)',
+                                  boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                                }} />
+                              </span>
+                            </label>
                           </div>
-                          <p style={{ margin: 0, fontSize: '11.5px', color: '#6B7280' }}>{item.desc}</p>
-                          <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
-                            <button type="button" onClick={() => openBuiltinEditor(item)} style={{ fontSize: '11.5px', fontWeight: 700, padding: '3px 10px', borderRadius: '6px', border: '1px solid #D1D5DB', background: '#fff', cursor: 'pointer' }}>✏️ Edit</button>
-                            <button type="button" onClick={() => removeBuiltinSection(item)} style={{ fontSize: '11.5px', fontWeight: 700, padding: '3px 10px', borderRadius: '6px', border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#B91C1C', cursor: 'pointer' }}>🗑 Remove</button>
-                          </div>
-                        </div>
-                        <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', flexShrink: 0, cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={isEnabled}
-                            onChange={(e) => toggleSectionKey(item.key, e.target.checked)}
-                            style={{ opacity: 0, width: 0, height: 0 }}
-                          />
-                          <span style={{
-                            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                            backgroundColor: isEnabled ? '#2D5016' : '#D1D5DB',
-                            transition: '.2s', borderRadius: '24px',
-                            display: 'flex', alignItems: 'center', padding: '2px'
-                          }}>
-                            <span style={{
-                              height: '20px', width: '20px', borderRadius: '50%', backgroundColor: 'white',
-                              transition: '.2s', transform: isEnabled ? 'translateX(20px)' : 'translateX(0px)',
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
-                            }} />
-                          </span>
-                        </label>
-                      </div>
-                    );
-                  })}
+                        );
+                      });
+                  })()}
                   {(localHomeSections.customSections || []).map(sec => {
                     const on = sec.enabled !== false;
                     return (
@@ -6438,8 +6462,19 @@ const Admin = () => {
                             <strong style={{ fontSize: '14px', color: on ? '#166534' : '#374151' }}>{sec.title}</strong>
                           </div>
                           <p style={{ margin: 0, fontSize: '11.5px', color: '#6B7280' }}>Custom section · {(sec.productIds || []).length} product(s)</p>
-                          <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                          <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
                             <button type="button" onClick={() => openCustomEditor(sec)} style={{ fontSize: '11.5px', fontWeight: 700, padding: '3px 10px', borderRadius: '6px', border: '1px solid #D1D5DB', background: '#fff', cursor: 'pointer' }}>✏️ Edit</button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveTab('products');
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              title="Go to Product Catalog tab"
+                              style={{ fontSize: '11.5px', fontWeight: 700, padding: '3px 10px', borderRadius: '6px', border: '1px solid #86EFAC', background: '#FFFFFF', color: '#166534', cursor: 'pointer' }}
+                            >
+                              🔗 Go to Products
+                            </button>
                             <button type="button" onClick={() => removeCustomSection(sec)} style={{ fontSize: '11.5px', fontWeight: 700, padding: '3px 10px', borderRadius: '6px', border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#B91C1C', cursor: 'pointer' }}>🗑 Delete</button>
                           </div>
                         </div>
@@ -6462,41 +6497,112 @@ const Admin = () => {
                   <span style={{ fontSize: '12px', color: '#687466' }}>Changes go live after you press <strong>Save Settings</strong>.</span>
                 </div>
 
-                {sectionEditor && (
-                  <div style={{ marginTop: '16px', padding: '18px', border: '2px solid #2D5016', borderRadius: '12px', background: '#fff' }}>
-                    <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 800, color: '#1C4B12' }}>
-                      {sectionEditor.mode === 'builtin' ? 'Edit section' : (sectionEditor.id ? 'Edit custom section' : 'New custom section')}
-                    </h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '10px', marginBottom: '12px' }}>
-                      <input className="admin-input-box" value={sectionEditor.icon} maxLength={4} onChange={(e) => setSectionEditor(p => ({ ...p, icon: e.target.value }))} placeholder="Emoji" aria-label="Section emoji" />
-                      <input className="admin-input-box" value={sectionEditor.title} onChange={(e) => setSectionEditor(p => ({ ...p, title: e.target.value }))} placeholder="Section title, e.g. New Arrivals" aria-label="Section title" />
-                    </div>
-                    {sectionEditor.mode === 'custom' && (
-                      <>
-                        <input className="admin-input-box" value={sectionProductSearch} onChange={(e) => setSectionProductSearch(e.target.value)} placeholder={`Search products to show in this section (${sectionEditor.productIds.length} selected)`} style={{ marginBottom: '8px' }} />
-                        <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #E1E6DC', borderRadius: '8px' }}>
-                          {(allProducts || [])
-                            .filter(p => !p.isArchived && (!sectionProductSearch.trim() || String(p.name || '').toLowerCase().includes(sectionProductSearch.trim().toLowerCase())))
-                            .slice(0, 200)
-                            .map(p => {
-                              const checked = sectionEditor.productIds.includes(p.id);
-                              return (
-                                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderBottom: '1px solid #F1F3EE', cursor: 'pointer', background: checked ? '#F0FDF4' : '#fff' }}>
-                                  <input type="checkbox" checked={checked} onChange={() => setSectionEditor(prev => ({ ...prev, productIds: checked ? prev.productIds.filter(id => id !== p.id) : [...prev.productIds, p.id] }))} />
-                                  <span style={{ fontSize: '13px', fontWeight: 600 }}>{p.name}</span>
-                                  <span style={{ fontSize: '11.5px', color: '#687466', marginLeft: 'auto' }}>{p.category}</span>
-                                </label>
-                              );
-                            })}
+                {sectionEditor && (() => {
+                  const sectionRedirectMap = {
+                    todaysDeals: { tab: 'bestsellers', name: "Bestsellers & Deals" },
+                    bestsellers: { tab: 'bestsellers', name: "Bestsellers & Deals" },
+                    dailyOffers: { tab: 'offers', name: "Promos & Coupons" },
+                    festiveOffers: { tab: 'festive-offers', name: "Festive Offers" },
+                    shopByCategory: { tab: 'products', name: "Product Catalog" }
+                  };
+                  const redirectTarget = sectionEditor.key ? sectionRedirectMap[sectionEditor.key] : null;
+
+                  return (
+                    <div style={{ marginTop: '16px', padding: '18px', border: '2px solid #2D5016', borderRadius: '12px', background: '#fff' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#1C4B12' }}>
+                          {sectionEditor.mode === 'builtin' ? 'Edit section' : (sectionEditor.id ? 'Edit custom section' : 'New custom section')}
+                        </h4>
+
+                        {redirectTarget && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSectionEditor(null);
+                              setActiveTab(redirectTarget.tab);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              fontSize: '12px',
+                              fontWeight: 800,
+                              padding: '6px 14px',
+                              borderRadius: '8px',
+                              border: '1.5px solid #2D5016',
+                              background: '#F0FDF4',
+                              color: '#166534',
+                              cursor: 'pointer',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                            }}
+                          >
+                            🚀 Go to dedicated {redirectTarget.name} section →
+                          </button>
+                        )}
+                      </div>
+
+                      {redirectTarget && (
+                        <div style={{ marginBottom: '14px', padding: '10px 14px', background: '#FEF9C3', border: '1px solid #FDE047', borderRadius: '8px', fontSize: '12px', color: '#854D0E', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                          <span>💡 <strong>Tip:</strong> This homepage section has a dedicated management tab in the Admin Dashboard (<strong>{redirectTarget.name}</strong>) to manage its items and offers.</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSectionEditor(null);
+                              setActiveTab(redirectTarget.tab);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            style={{ fontSize: '11.5px', fontWeight: 800, color: '#854D0E', background: '#FFFFFF', border: '1px solid #FACC15', padding: '3px 10px', borderRadius: '6px', cursor: 'pointer' }}
+                          >
+                            Open {redirectTarget.name} Tab
+                          </button>
                         </div>
-                      </>
-                    )}
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
-                      <button type="button" className="admin__primary" style={{ padding: '8px 18px', fontSize: '13px' }} onClick={saveSectionEditor}>{sectionEditor.mode === 'builtin' || sectionEditor.id ? 'Apply' : 'Add Section'}</button>
-                      <button type="button" style={{ padding: '8px 18px', fontSize: '13px', borderRadius: '8px', border: '1px solid #D1D5DB', background: '#fff', cursor: 'pointer' }} onClick={() => { setSectionEditor(null); setSectionProductSearch(''); }}>Cancel</button>
+                      )}
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '10px', marginBottom: '12px' }}>
+                        <input className="admin-input-box" value={sectionEditor.icon} maxLength={4} onChange={(e) => setSectionEditor(p => ({ ...p, icon: e.target.value }))} placeholder="Emoji" aria-label="Section emoji" />
+                        <input className="admin-input-box" value={sectionEditor.title} onChange={(e) => setSectionEditor(p => ({ ...p, title: e.target.value }))} placeholder="Section title, e.g. New Arrivals" aria-label="Section title" />
+                      </div>
+                      {sectionEditor.mode === 'custom' && (
+                        <>
+                          <input className="admin-input-box" value={sectionProductSearch} onChange={(e) => setSectionProductSearch(e.target.value)} placeholder={`Search products to show in this section (${sectionEditor.productIds.length} selected)`} style={{ marginBottom: '8px' }} />
+                          <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #E1E6DC', borderRadius: '8px' }}>
+                            {(allProducts || [])
+                              .filter(p => !p.isArchived && (!sectionProductSearch.trim() || String(p.name || '').toLowerCase().includes(sectionProductSearch.trim().toLowerCase())))
+                              .slice(0, 200)
+                              .map(p => {
+                                const checked = sectionEditor.productIds.includes(p.id);
+                                return (
+                                  <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderBottom: '1px solid #F1F3EE', cursor: 'pointer', background: checked ? '#F0FDF4' : '#fff' }}>
+                                    <input type="checkbox" checked={checked} onChange={() => setSectionEditor(prev => ({ ...prev, productIds: checked ? prev.productIds.filter(id => id !== p.id) : [...prev.productIds, p.id] }))} />
+                                    <span style={{ fontSize: '13px', fontWeight: 600 }}>{p.name}</span>
+                                    <span style={{ fontSize: '11.5px', color: '#687466', marginLeft: 'auto' }}>{p.category}</span>
+                                  </label>
+                                );
+                              })}
+                          </div>
+                        </>
+                      )}
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <button type="button" className="admin__primary" style={{ padding: '8px 18px', fontSize: '13px' }} onClick={saveSectionEditor}>{sectionEditor.mode === 'builtin' || sectionEditor.id ? 'Apply' : 'Add Section'}</button>
+                        {redirectTarget && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSectionEditor(null);
+                              setActiveTab(redirectTarget.tab);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '8px', border: '1px solid #86EFAC', background: '#F0FDF4', color: '#166534', fontWeight: 700, cursor: 'pointer' }}
+                          >
+                            🔗 Go to {redirectTarget.name} Tab
+                          </button>
+                        )}
+                        <button type="button" style={{ padding: '8px 18px', fontSize: '13px', borderRadius: '8px', border: '1px solid #D1D5DB', background: '#fff', cursor: 'pointer' }} onClick={() => { setSectionEditor(null); setSectionProductSearch(''); }}>Cancel</button>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* Category Sections */}
