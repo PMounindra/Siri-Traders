@@ -19,12 +19,16 @@ const Cart = () => {
     appliedCouponCode, applyCouponCode, removeCoupon, getAppliedCoupon, couponError, setCouponError
   } = useCart();
   const { user, customerType } = useAuth();
-  const { retailCoupons, wholesaleCoupons, allCoupons = [], deliveryZones, homeSections } = useSiteData();
+  const { retailCoupons, wholesaleCoupons, allCoupons = [], deliveryZones, homeSections, deliverySettings } = useSiteData();
   const storeClosed = homeSections?.storeOpen === false;
   const { getProductsForType } = useProducts();
   const coupons = customerType === 'wholesale' ? wholesaleCoupons : retailCoupons;
   const navigate = useNavigate();
   const [coupon, setCoupon] = useState(appliedCouponCode || '');
+
+  const minOrderValue = Number(deliverySettings?.minOrderValue) || 0;
+  const isBelowMinOrder = minOrderValue > 0 && cartTotal < minOrderValue;
+  const minOrderDiff = Math.max(0, minOrderValue - cartTotal);
 
   const appliedCoupon = getAppliedCoupon(coupons, allCoupons);
 
@@ -48,6 +52,7 @@ const Cart = () => {
 
   const handleCheckout = () => {
     if (storeClosed) return;
+    if (isBelowMinOrder) return;
     if (requireAuth()) {
       navigate('/checkout');
     }
@@ -235,6 +240,27 @@ const Cart = () => {
             </div>
           </div>
 
+          {isBelowMinOrder && (
+            <div style={{
+              margin: '16px 0',
+              padding: '12px 16px',
+              borderRadius: '10px',
+              background: '#FEF2F2',
+              border: '1.5px solid #FCA5A5',
+              color: '#991B1B',
+              fontSize: '13px',
+              fontWeight: '700',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}>
+              <span style={{ fontSize: '18px' }}>⚠️</span>
+              <span>
+                Minimum order value is <strong>{formatPrice(minOrderValue)}</strong>. Please add items worth <strong>{formatPrice(minOrderDiff)}</strong> more to place your order.
+              </span>
+            </div>
+          )}
+
           {cartSavings > 0 && (
             <div className="cart__savings">
               🎉 You're saving {formatPrice(cartSavings)} on this order!
@@ -249,8 +275,14 @@ const Cart = () => {
               <span className="cart__cta-label">Total</span>
               <span className="cart__cta-amount">{formatPrice(grandTotal)}</span>
             </div>
-            <button className="cart__cta-btn" onClick={handleCheckout} id="proceed-checkout" disabled={storeClosed}>
-              {storeClosed ? '🔒 Store is closed' : 'Proceed to Checkout →'}
+            <button
+              className="cart__cta-btn"
+              onClick={handleCheckout}
+              id="proceed-checkout"
+              disabled={storeClosed || isBelowMinOrder}
+              style={isBelowMinOrder ? { background: '#9CA3AF', cursor: 'not-allowed', borderColor: '#9CA3AF' } : {}}
+            >
+              {storeClosed ? '🔒 Store is closed' : isBelowMinOrder ? `Add ${formatPrice(minOrderDiff)} More` : 'Proceed to Checkout →'}
             </button>
           </div>
         </div>

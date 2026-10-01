@@ -5,6 +5,7 @@ export const settings = pgTable('settings', {
   deliveryFee: integer('delivery_fee').notNull().default(25),
   freeDeliveryThreshold: integer('free_delivery_threshold').notNull().default(500),
   handlingCharge: integer('handling_charge').notNull().default(5),
+  minOrderValue: integer('min_order_value').notNull().default(0),
   // Announcement Bar
   announcementText: text('announcement_text'),
   announcementBg: text('announcement_bg').default('#1C4B12'),

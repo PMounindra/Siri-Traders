@@ -130,15 +130,21 @@ export default async function handler(req, res) {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
       const { items, total, deliveryAddress, paymentMethod } = body;
 
-      // Admin can close the store (settings.homeSections.storeOpen === false).
-      // Enforced here so a stale page or direct API call can't place orders.
-      const [siteRow] = await db.select({ homeSections: settings.homeSections }).from(settings).where(eq(settings.id, 'default'));
+      // Admin can close the store (settings.homeSections.storeOpen === false)
+      // or enforce a minimum order value requirement.
+      const [siteRow] = await db.select({ homeSections: settings.homeSections, minOrderValue: settings.minOrderValue }).from(settings).where(eq(settings.id, 'default'));
       if (siteRow?.homeSections?.storeOpen === false) {
         return res.status(403).json({ error: 'The store is closed right now. Please try again when we reopen.', storeClosed: true });
       }
 
       if (!Array.isArray(items) || items.length === 0 || !total) {
         return res.status(400).json({ error: 'Missing order details' });
+      }
+
+      const minOrderVal = Number(siteRow?.minOrderValue) || 0;
+      const subtotalVal = Number(body.subtotal) || Number(total) || 0;
+      if (minOrderVal > 0 && subtotalVal < minOrderVal) {
+        return res.status(400).json({ error: `Minimum order value is ₹${minOrderVal}. Please add items worth ₹${minOrderVal - subtotalVal} more to place your order.` });
       }
 
       // Sync user data to DB to ensure we have a record

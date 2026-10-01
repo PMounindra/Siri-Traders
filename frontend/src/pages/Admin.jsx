@@ -408,7 +408,7 @@ const Admin = () => {
   const [liveOrders, setLiveOrders] = useState(null);
   const [liveCustomers, setLiveCustomers] = useState(null);
   const adminApi = useAdminApi();
-  const { homeSections, setHomeSections, categories: siteCategories, refreshSiteData } = useSiteData();
+  const { homeSections, setHomeSections, categories: siteCategories, refreshSiteData, deliverySettings } = useSiteData();
   const [localHomeSections, setLocalHomeSections] = useState({
     todaysDeals: true,
     bestsellers: true,
@@ -417,12 +417,35 @@ const Admin = () => {
     shopByCategory: true,
     categories: {}
   });
+  const [minOrderValueInput, setMinOrderValueInput] = useState(() => deliverySettings?.minOrderValue ?? 0);
 
   useEffect(() => {
     if (homeSections) {
       setLocalHomeSections(homeSections);
     }
   }, [homeSections]);
+
+  useEffect(() => {
+    if (deliverySettings?.minOrderValue !== undefined) {
+      setMinOrderValueInput(deliverySettings.minOrderValue);
+    }
+  }, [deliverySettings?.minOrderValue]);
+
+  const saveMinOrderSettings = async () => {
+    setApiLoading(true);
+    try {
+      const val = Math.max(0, parseInt(minOrderValueInput, 10) || 0);
+      await adminApi.updateSettings({ minOrderValue: val });
+      if (typeof refreshSiteData === 'function') refreshSiteData();
+      broadcastSync(SYNC_EVENTS.SITE_DATA_CHANGED);
+      setSaveToast({ type: 'success', msg: `Minimum order value set to ${formatPrice(val)} successfully!` });
+      setTimeout(() => setSaveToast(null), 4000);
+    } catch (err) {
+      alert('Failed to save minimum order value: ' + err.message);
+    } finally {
+      setApiLoading(false);
+    }
+  };
 
   const saveHomeSectionSettings = async () => {
     setApiLoading(true);
@@ -4872,6 +4895,60 @@ const Admin = () => {
                 </div>
               </div>
 
+              {/* Minimum Order Value Requirement */}
+              <div style={{
+                padding: '16px 18px',
+                borderRadius: '12px',
+                border: '2px solid #2D5016',
+                background: '#F0FDF4',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '16px',
+                flexWrap: 'wrap'
+              }}>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#166534', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    💵 Minimum Order Value Requirement
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: '#374151', marginTop: '2px' }}>
+                    Set the minimum cart subtotal required to place an order. Customers below this limit will be prompted to add more items. (Set 0 to disable).
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ position: 'relative', width: '130px' }}>
+                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontWeight: 800, color: '#166534', fontSize: '14px' }}>₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="10"
+                      value={minOrderValueInput}
+                      onChange={(e) => setMinOrderValueInput(e.target.value)}
+                      placeholder="0"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px 8px 26px',
+                        borderRadius: '8px',
+                        border: '1.5px solid #86EFAC',
+                        fontSize: '14px',
+                        fontWeight: 800,
+                        color: '#166534',
+                        background: '#FFFFFF'
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="admin__primary"
+                    disabled={apiLoading}
+                    onClick={saveMinOrderSettings}
+                    style={{ padding: '8px 18px', fontSize: '13px', whiteSpace: 'nowrap' }}
+                  >
+                    Save Minimum Order
+                  </button>
+                </div>
+              </div>
+
               {showZonesModal && (
                 <div className="inventory-modal-backdrop" onClick={() => { setShowZonesModal(false); setEditingZoneModal(null); }}>
                   <div className="inventory-modal" style={{ maxWidth: '980px' }} onClick={e => e.stopPropagation()}>
@@ -6363,6 +6440,61 @@ const Admin = () => {
                   </div>
                 );
               })()}
+
+              {/* Minimum Order Value Configuration */}
+              <div style={{
+                marginBottom: '28px',
+                padding: '16px 18px',
+                borderRadius: '12px',
+                border: '2px solid #2D5016',
+                background: '#F0FDF4',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '16px',
+                flexWrap: 'wrap'
+              }}>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#166534', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    💵 Minimum Order Value Requirement
+                  </div>
+                  <div style={{ fontSize: '12.5px', color: '#374151', marginTop: '2px' }}>
+                    Enforce a minimum cart subtotal required to place an order. If customer's cart is below this amount, checkout will be blocked with a message asking them to add more items. (Set to 0 to disable).
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ position: 'relative', width: '130px' }}>
+                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontWeight: 800, color: '#166534', fontSize: '14px' }}>₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="10"
+                      value={minOrderValueInput}
+                      onChange={(e) => setMinOrderValueInput(e.target.value)}
+                      placeholder="0"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px 8px 26px',
+                        borderRadius: '8px',
+                        border: '1.5px solid #86EFAC',
+                        fontSize: '14px',
+                        fontWeight: 800,
+                        color: '#166534',
+                        background: '#FFFFFF'
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="admin__primary"
+                    disabled={apiLoading}
+                    onClick={saveMinOrderSettings}
+                    style={{ padding: '8px 18px', fontSize: '13px', whiteSpace: 'nowrap' }}
+                  >
+                    Save Minimum Order
+                  </button>
+                </div>
+              </div>
 
               {/* Featured Home Sections */}
               <div style={{ marginBottom: '32px' }}>

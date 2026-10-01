@@ -106,6 +106,7 @@ export const SiteDataProvider = ({ children }) => {
         setDeliverySettings({
           deliveryFee: settingsRes.data.deliveryFee ?? 25,
           freeDeliveryThreshold: settingsRes.data.freeDeliveryThreshold ?? 500,
+          minOrderValue: settingsRes.data.minOrderValue ?? 0,
         });
         if (settingsRes.data.homeSections) {
           setHomeSections(settingsRes.data.homeSections);

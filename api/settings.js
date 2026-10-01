@@ -7,6 +7,7 @@ const DEFAULTS = {
   id: 'default',
   deliveryFee: 25,
   freeDeliveryThreshold: 500,
+  minOrderValue: 0,
   announcementText: '⚡ Free 15-min delivery across Hyderabad on orders above ₹499!',
   announcementBg: '#1C4B12',
   announcementColor: '#FFFFFF',
@@ -362,7 +363,8 @@ async function ensureSettingsSchema() {
       ALTER TABLE settings
       ADD COLUMN IF NOT EXISTS home_sections JSONB DEFAULT '{"todaysDeals":true,"bestsellers":true,"dailyOffers":true,"festiveOffers":true,"shopByCategory":true,"categories":{}}'::jsonb,
       ADD COLUMN IF NOT EXISTS header_menu JSONB,
-      ADD COLUMN IF NOT EXISTS footer_menu JSONB;
+      ADD COLUMN IF NOT EXISTS footer_menu JSONB,
+      ADD COLUMN IF NOT EXISTS min_order_value INTEGER DEFAULT 0;
     `);
     settingsMigrated = true;
   } catch (err) {
@@ -401,6 +403,7 @@ async function ensureSettingsSchema() {
         id: 'default',
         deliveryFee: body.deliveryFee !== undefined && Number.isFinite(Number(body.deliveryFee)) ? Number(body.deliveryFee) : existing.deliveryFee,
         freeDeliveryThreshold: body.freeDeliveryThreshold !== undefined && Number.isFinite(Number(body.freeDeliveryThreshold)) ? Number(body.freeDeliveryThreshold) : existing.freeDeliveryThreshold,
+        minOrderValue: body.minOrderValue !== undefined && Number.isFinite(Number(body.minOrderValue)) ? Math.max(0, Number(body.minOrderValue)) : (existing.minOrderValue ?? 0),
         announcementText: body.announcementText !== undefined ? body.announcementText : existing.announcementText,
         announcementBg: body.announcementBg !== undefined ? body.announcementBg : existing.announcementBg,
         announcementColor: body.announcementColor !== undefined ? body.announcementColor : existing.announcementColor,

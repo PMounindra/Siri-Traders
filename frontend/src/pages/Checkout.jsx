@@ -124,6 +124,10 @@ const Checkout = () => {
   const deliveryFee = appliedCoupon?.freeDelivery ? 0 : baseDeliveryFee;
   const grandTotal = Math.max(0, cartTotal + deliveryFee - couponDiscount);
 
+  const minOrderValue = Number(deliverySettings?.minOrderValue) || 0;
+  const isBelowMinOrder = minOrderValue > 0 && cartTotal < minOrderValue;
+  const minOrderDiff = Math.max(0, minOrderValue - cartTotal);
+
   useEffect(() => {
     if (addressStorageKey) {
       localStorage.setItem(addressStorageKey, JSON.stringify(addresses));
@@ -468,6 +472,11 @@ const Checkout = () => {
 
   const handlePlaceOrder = () => {
     if (placingOrder || storeClosed) return;
+
+    if (isBelowMinOrder) {
+      setOrderError(`Minimum order value is ${formatPrice(minOrderValue)}. Please add items worth ${formatPrice(minOrderDiff)} more to place your order.`);
+      return;
+    }
 
     let addressForOrder = selectedAddress;
 
@@ -874,17 +883,19 @@ const Checkout = () => {
                 </div>
 
                 {storeClosed && <p className="checkout__address-error">🔒 The store is closed right now. Orders can't be placed until we reopen.</p>}
+                {isBelowMinOrder && <p className="checkout__address-error">⚠️ Minimum order value is {formatPrice(minOrderValue)}. Please add items worth {formatPrice(minOrderDiff)} more to place your order.</p>}
                 {orderError && <p className="checkout__address-error">{orderError}</p>}
                 <button
                   className="checkout__place-btn"
                   onClick={handlePlaceOrder}
                   id="place-order-btn"
-                  disabled={placingOrder || storeClosed}
+                  disabled={placingOrder || storeClosed || isBelowMinOrder}
                   aria-busy={placingOrder}
+                  style={isBelowMinOrder ? { background: '#9CA3AF', cursor: 'not-allowed', borderColor: '#9CA3AF' } : {}}
                 >
-                  <span>{placingOrder ? 'Placing Order…' : 'Place Order (COD) →'}</span>
+                  <span>{placingOrder ? 'Placing Order…' : isBelowMinOrder ? `Add ${formatPrice(minOrderDiff)} More to Order` : 'Place Order (COD) →'}</span>
                   <span className="checkout__place-btn-sub">
-                    {placingOrder ? 'Please wait, do not close this page' : `Pay ${formatPrice(grandTotal)} on delivery`}
+                    {placingOrder ? 'Please wait, do not close this page' : isBelowMinOrder ? `Minimum order value is ${formatPrice(minOrderValue)}` : `Pay ${formatPrice(grandTotal)} on delivery`}
                   </span>
                 </button>
 
