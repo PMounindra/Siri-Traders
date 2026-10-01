@@ -124,8 +124,9 @@ const Checkout = () => {
   const deliveryFee = appliedCoupon?.freeDelivery ? 0 : baseDeliveryFee;
   const grandTotal = Math.max(0, cartTotal + deliveryFee - couponDiscount);
 
+  const hasCoupon = Boolean(appliedCoupon);
   const minOrderValue = Number(deliverySettings?.minOrderValue) || 0;
-  const isBelowMinOrder = minOrderValue > 0 && cartTotal < minOrderValue;
+  const isBelowMinOrder = minOrderValue > 0 && !hasCoupon && cartTotal < minOrderValue;
   const minOrderDiff = Math.max(0, minOrderValue - cartTotal);
 
   useEffect(() => {

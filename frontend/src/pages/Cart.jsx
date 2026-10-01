@@ -26,11 +26,12 @@ const Cart = () => {
   const navigate = useNavigate();
   const [coupon, setCoupon] = useState(appliedCouponCode || '');
 
-  const minOrderValue = Number(deliverySettings?.minOrderValue) || 0;
-  const isBelowMinOrder = minOrderValue > 0 && cartTotal < minOrderValue;
-  const minOrderDiff = Math.max(0, minOrderValue - cartTotal);
-
   const appliedCoupon = getAppliedCoupon(coupons, allCoupons);
+  const hasCoupon = Boolean(appliedCoupon);
+
+  const minOrderValue = Number(deliverySettings?.minOrderValue) || 0;
+  const isBelowMinOrder = minOrderValue > 0 && !hasCoupon && cartTotal < minOrderValue;
+  const minOrderDiff = Math.max(0, minOrderValue - cartTotal);
 
   const savedAddress = getSavedAddresses(user)[0];
   const activeZone = savedAddress ? deliveryZones.find(z => z.area.toLowerCase() === savedAddress.area.toLowerCase()) : null;

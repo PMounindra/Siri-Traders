@@ -143,7 +143,8 @@ export default async function handler(req, res) {
 
       const minOrderVal = Number(siteRow?.minOrderValue) || 0;
       const subtotalVal = Number(body.subtotal) || Number(total) || 0;
-      if (minOrderVal > 0 && subtotalVal < minOrderVal) {
+      const hasCoupon = Boolean(body.couponCode || Number(body.discount) > 0);
+      if (minOrderVal > 0 && !hasCoupon && subtotalVal < minOrderVal) {
         return res.status(400).json({ error: `Minimum order value is ₹${minOrderVal}. Please add items worth ₹${minOrderVal - subtotalVal} more to place your order.` });
       }
 
