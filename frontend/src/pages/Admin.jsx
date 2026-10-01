@@ -237,13 +237,13 @@ const downloadCsv = (filename, rows) => {
 };
 
 const ADMIN_ROLE_PERMISSIONS = {
-  Owner: ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','home-sections','products','retail-products','wholesale-products','offers','festive-offers','bestsellers','delivery-zones','broadcast','admins'],
-  'Super Admin': ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','home-sections','products','retail-products','wholesale-products','offers','festive-offers','bestsellers','delivery-zones','broadcast'],
-  'Product Manager': ['dashboard','inventory','products','retail-products','wholesale-products','festive-offers','reviews','bestsellers','home-sections'],
-  'Order Manager': ['dashboard','inventory','orders','customers','delivery-zones'],
-  'Marketing Manager': ['dashboard','offers','festive-offers','cms','bestsellers','broadcast','reviews','home-sections'],
+  Owner: ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','home-sections','products','retail-products','wholesale-products','offers','festive-offers','bestsellers','delivery-zones','min-order-value','broadcast','admins'],
+  'Super Admin': ['dashboard','inventory','sales-stats','orders','customers','reviews','cms','home-sections','products','retail-products','wholesale-products','offers','festive-offers','bestsellers','delivery-zones','min-order-value','broadcast'],
+  'Product Manager': ['dashboard','inventory','products','retail-products','wholesale-products','festive-offers','reviews','bestsellers','home-sections','min-order-value'],
+  'Order Manager': ['dashboard','inventory','orders','customers','delivery-zones','min-order-value'],
+  'Marketing Manager': ['dashboard','offers','festive-offers','cms','bestsellers','broadcast','reviews','home-sections','min-order-value'],
   'Content Manager': ['dashboard','cms','reviews','home-sections'],
-  'Customer Support': ['dashboard','inventory','customers','orders','reviews','delivery-zones'],
+  'Customer Support': ['dashboard','inventory','customers','orders','reviews','delivery-zones','min-order-value'],
   Viewer: ['dashboard','inventory','sales-stats']
 };
 
@@ -262,6 +262,7 @@ const ADMIN_NAV_SECTIONS = [
     items: [
       ['inventory', 'Inventory Hub', FiLayers],
       ['delivery-zones', 'Delivery Zones', FiTruck],
+      ['min-order-value', 'Minimum Order Value', FiDollarSign],
       ['broadcast', 'Email Broadcast', FiMail]
     ]
   },
@@ -2435,10 +2436,11 @@ const Admin = () => {
                 {activeTab === 'reviews' && 'Customer Reviews & Rating Moderation'}
                 {activeTab === 'offers' && 'Grocery Promotions & Coupon Engine'}
                 {activeTab === 'delivery-zones' && 'Delivery Zones & Coverage'}
+                {activeTab === 'min-order-value' && 'Minimum Order Value Configuration'}
                 {activeTab === 'retail-products' && 'Grocery Products & Variants'}
                 {activeTab === 'wholesale-products' && 'Wholesale Products & Bulk Packs'}
                 {activeTab === 'sales-stats' && 'Grocery Sales & Performance Analytics'}
-                {activeTab !== 'dashboard' && activeTab !== 'inventory' && activeTab !== 'orders' && activeTab !== 'customers' && activeTab !== 'reviews' && activeTab !== 'offers' && activeTab !== 'delivery-zones' && activeTab !== 'retail-products' && activeTab !== 'wholesale-products' && activeTab !== 'sales-stats' && activeTab.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                {activeTab !== 'dashboard' && activeTab !== 'inventory' && activeTab !== 'orders' && activeTab !== 'customers' && activeTab !== 'reviews' && activeTab !== 'offers' && activeTab !== 'delivery-zones' && activeTab !== 'min-order-value' && activeTab !== 'retail-products' && activeTab !== 'wholesale-products' && activeTab !== 'sales-stats' && activeTab.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
               </h1>
             </div>
             
@@ -5232,6 +5234,69 @@ const Admin = () => {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* MINIMUM ORDER VALUE CONFIGURATION */}
+          {activeTab === 'min-order-value' && (
+            <div className="admin-card admin-card--wide" style={{ padding: '24px' }}>
+              <div className="admin-card__toolbar" style={{ borderBottom: '1px solid #E1E6DC', paddingBottom: '16px', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: '#1C4B12', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FiDollarSign /> Minimum Order Value Configuration
+                  </h2>
+                  <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#687466' }}>
+                    Set the minimum order value required for customers to place an order. If a customer's cart subtotal is below this limit, checkout is blocked and a prompt directs them to add more items.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{
+                padding: '24px',
+                borderRadius: '16px',
+                border: '2px solid #86EFAC',
+                background: '#F0FDF4',
+                maxWidth: '600px'
+              }}>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: 800, color: '#166534', marginBottom: '8px' }}>
+                  Minimum Cart Subtotal (₹)
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px', flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative', width: '200px' }}>
+                    <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontWeight: 800, color: '#166534', fontSize: '16px' }}>₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="10"
+                      value={minOrderValueInput}
+                      onChange={(e) => setMinOrderValueInput(e.target.value)}
+                      placeholder="0"
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px 10px 32px',
+                        borderRadius: '10px',
+                        border: '2px solid #86EFAC',
+                        fontSize: '16px',
+                        fontWeight: 800,
+                        color: '#166534',
+                        background: '#FFFFFF'
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="admin__primary"
+                    disabled={apiLoading}
+                    onClick={saveMinOrderSettings}
+                    style={{ padding: '10px 24px', fontSize: '14px', whiteSpace: 'nowrap' }}
+                  >
+                    <FiSave /> {apiLoading ? 'Saving...' : 'Save Minimum Order Value'}
+                  </button>
+                </div>
+                <p style={{ margin: '14px 0 0', fontSize: '12px', color: '#4B5563', lineHeight: 1.5 }}>
+                  💡 Set to <strong>₹0</strong> to disable minimum order restriction completely.
+                </p>
+              </div>
             </div>
           )}
 
